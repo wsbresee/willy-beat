@@ -86,7 +86,28 @@ private:
 
     static constexpr int kLabelW = 68;
 
+public:
     static juce::Colour velColour (uint8_t vel);
+};
+
+// ─── MiniPatternView ─────────────────────────────────────────────────────────
+// Compact, read-only thumbnail of the active pattern. No labels, no clicks.
+class MiniPatternView : public juce::Component,
+                        public juce::SettableTooltipClient,
+                        public juce::Timer
+{
+public:
+    explicit MiniPatternView (WillyBeatAudioProcessor& p);
+    ~MiniPatternView() override;
+
+    void paint        (juce::Graphics& g)         override;
+    void timerCallback()                           override;
+
+    void setEditTarget (DrumPattern* target) { editTarget = target; repaint(); }
+
+private:
+    WillyBeatAudioProcessor& proc;
+    DrumPattern*             editTarget = nullptr;
 };
 
 // ─── WillyBeatAudioProcessorEditor ───────────────────────────────────────────
@@ -107,8 +128,9 @@ private:
     WillyBeatLookAndFeel lookAndFeel;
     juce::TooltipWindow  tooltipWindow { this, 700 };
 
-    DragStrip   dragStrip;
-    PatternGrid grid;
+    DragStrip       dragStrip;
+    PatternGrid     grid;
+    MiniPatternView miniGrid;
 
     // ── Pattern selector row ─────────────────────────────────────────────
     juce::Label    genreLabel   { {}, "Genre Tags" };
@@ -148,6 +170,10 @@ private:
     juce::TextEditor nameEditor;
     juce::TextButton newPatBtn     { "New Pattern" };
     juce::TextButton openFolderBtn { "Open Folder" };
+    juce::TextButton importMidiBtn { "Import MIDI" };
+    juce::TextButton editPatternBtn { "Edit Pattern" };
+
+    std::unique_ptr<juce::FileChooser> midiChooser;
 
     // ── Per-pattern tag editor ──────────────────────────────────────────
     juce::Label  patternTagsLabel { {}, "Tags:" };

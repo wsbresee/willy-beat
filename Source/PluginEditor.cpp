@@ -346,6 +346,70 @@ void DragStrip::mouseDrag (const juce::MouseEvent&)
 }
 
 //==============================================================================
+// MiniPatternView
+//==============================================================================
+
+MiniPatternView::MiniPatternView (WillyBeatAudioProcessor& p) : proc (p)
+{
+    startTimerHz (15);
+}
+
+MiniPatternView::~MiniPatternView()
+{
+    stopTimer();
+}
+
+void MiniPatternView::timerCallback()
+{
+    repaint();
+}
+
+void MiniPatternView::paint (juce::Graphics& g)
+{
+    auto bounds = getLocalBounds().toFloat();
+    g.setColour (WillyBeatLookAndFeel::bgRecess);
+    g.fillRoundedRectangle (bounds, 3.0f);
+
+    const auto* pat = (editTarget != nullptr) ? editTarget : proc.getActivePattern();
+    if (pat == nullptr)
+    {
+        g.setColour (WillyBeatLookAndFeel::border);
+        g.drawRoundedRectangle (bounds, 3.0f, 1.0f);
+        return;
+    }
+
+    auto inner = bounds.reduced (3.0f);
+    const float cellW = inner.getWidth()  / (float) MAX_STEPS;
+    const float cellH = inner.getHeight() / (float) NUM_TRACKS;
+
+    // Play cursor
+    const int playStep = proc.getCurrentStep().load();
+    if (playStep >= 0 && playStep < MAX_STEPS)
+    {
+        float cx = inner.getX() + (float) playStep * cellW;
+        g.setColour (WillyBeatLookAndFeel::accent.withAlpha (0.18f));
+        g.fillRect (cx, inner.getY(), cellW, inner.getHeight());
+    }
+
+    // Cells — only draw active hits, padding kept implicit by inner reduction.
+    for (int t = 0; t < NUM_TRACKS; ++t)
+    {
+        for (int s = 0; s < MAX_STEPS; ++s)
+        {
+            auto vel = pat->velocities[t][s];
+            if (vel == 0) continue;
+            float x = inner.getX() + (float) s * cellW;
+            float y = inner.getY() + (float) t * cellH;
+            g.setColour (PatternGrid::velColour (vel));
+            g.fillRect (x + 0.5f, y + 0.5f, cellW - 1.0f, cellH - 1.0f);
+        }
+    }
+
+    g.setColour (WillyBeatLookAndFeel::border);
+    g.drawRoundedRectangle (bounds.reduced (0.5f), 3.0f, 1.0f);
+}
+
+//==============================================================================
 // PatternGrid
 //==============================================================================
 
@@ -487,7 +551,7 @@ void PatternGrid::timerCallback()
 //==============================================================================
 
 WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p), grid (p)
+    : AudioProcessorEditor (&p), audioProcessor (p), grid (p), miniGrid (p)
 {
     setLookAndFeel (&lookAndFeel);
 
@@ -591,6 +655,26 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     newPatBtn    .setTooltip ("Create a new blank pattern with the currently selected tags.");
     openFolderBtn.setTooltip ("Open the WillyBeat presets folder in Finder.");
+
+    importMidiBtn.setTooltip ("Import a MIDI file as a new pattern. Channel-10 GM drum notes are mapped to tracks; the imported pattern uses the same drag-to-DAW pipeline (humanize, swing, feel, fills) as built-in patterns.");
+    importMidiBtn.onClick = [this]
+    {
+        midiChooser = std::make_unique<juce::FileChooser> (
+            "Import MIDI pattern", juce::File{}, "*.mid;*.midi");
+
+        auto flags = juce::FileBrowserComponent::openMode
+                   | juce::FileBrowserComponent::canSelectFiles;
+
+        midiChooser->launchAsync (flags, [this] (const juce::FileChooser& fc)
+        {
+            auto file = fc.getResult();
+            if (file.existsAsFile())
+                audioProcessor.loadMidiFile (file);
+        });
+    };
+
+    editPatternBtn.setTooltip ("Open the full edit view (channel labels + per-cell editing).");
+    editPatternBtn.onClick = [this] { if (compactMode) toggleCompactMode(); };
 
     // ── Per-pattern tag editor ───────────────────────────────────────────
     patternTagsLabel.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
@@ -708,6 +792,13 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // ── Add everything ────────────────────────────────────────────────────
     addAndMakeVisible (dragStrip);
     addAndMakeVisible (grid);
+    addAndMakeVisible (miniGrid);
+    addAndMakeVisible (editPatternBtn);
+    addAndMakeVisible (importMidiBtn);
+    miniGrid       .setVisible (false);
+    editPatternBtn .setVisible (false);
+    miniGrid.setEditTarget (&editingCopy);
+    miniGrid.setTooltip ("Mini view of the active pattern. Click 'Edit Pattern' to open the full grid.");
     addAndMakeVisible (genreLabel);     addAndMakeVisible (tagBar);
     addAndMakeVisible (patLabel);       addAndMakeVisible (patIdxSlider);
     addAndMakeVisible (gateLabel);      addAndMakeVisible (gateKnob);
@@ -1075,9 +1166,20 @@ void WillyBeatAudioProcessorEditor::resized()
     patLabel    .setBounds (patArea.removeFromTop (18));
     patIdxSlider.setBounds (patArea.removeFromTop (24));
 
-    // In compact mode, hide the rest of the editor.
+    // In compact mode, show a read-only thumbnail in the lower-left and
+    // surface Edit-Pattern + Import-MIDI buttons.
     if (compactMode)
+    {
+        area.removeFromTop (8);
+        auto miniRow = area.removeFromTop (84);
+
+        auto buttonsCol = miniRow.removeFromRight (160);
+        editPatternBtn.setBounds (buttonsCol.removeFromTop (32).reduced (4, 4));
+        importMidiBtn .setBounds (buttonsCol.removeFromTop (32).reduced (4, 4));
+
+        miniGrid.setBounds (miniRow.reduced (0, 4));
         return;
+    }
 
     area.removeFromTop (4);
 
@@ -1102,11 +1204,13 @@ void WillyBeatAudioProcessorEditor::resized()
         auto nameRow = area.removeFromTop (28);
         nameLabel .setBounds (nameRow.removeFromLeft (44));
         nameRow.removeFromLeft (4);
-        nameEditor.setBounds (nameRow.removeFromLeft (220).reduced (0, 2));
+        nameEditor.setBounds (nameRow.removeFromLeft (200).reduced (0, 2));
         nameRow.removeFromLeft (8);
-        newPatBtn    .setBounds (nameRow.removeFromLeft (90).withHeight (24).withY (nameRow.getY() + 2));
+        newPatBtn    .setBounds (nameRow.removeFromLeft (90) .withHeight (24).withY (nameRow.getY() + 2));
         nameRow.removeFromLeft (4);
         openFolderBtn.setBounds (nameRow.removeFromLeft (100).withHeight (24).withY (nameRow.getY() + 2));
+        nameRow.removeFromLeft (4);
+        importMidiBtn.setBounds (nameRow.removeFromLeft (100).withHeight (24).withY (nameRow.getY() + 2));
     }
 
     area.removeFromTop (4);
@@ -1167,7 +1271,7 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     collapseBtn.setButtonText (compactMode ? "+" : "-");
 
     const bool show = ! compactMode;
-    juce::Component* hideable[] = {
+    juce::Component* hideInCompact[] = {
         &grid,
         &gateLabel,      &gateKnob,
         &humanizeLabel,  &humanizeKnob,
@@ -1175,7 +1279,7 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
         &feelLabel,      &feelKnob,
         &densityLabel,   &densityKnob,
         &nameLabel,      &nameEditor,
-        &newPatBtn,      &openFolderBtn,
+        &newPatBtn,      &openFolderBtn,  &importMidiBtn,
         &patternTagsLabel, &patternTagBar,
         &barsLabel,      &exportBarsBox,
         &fillStartLabel, &fillStartKnob,
@@ -1183,8 +1287,13 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
         &fillEndLabel,   &fillEndKnob,
         &seedLabel,      &seedEditor
     };
-    for (auto* c : hideable)
+    for (auto* c : hideInCompact)
         c->setVisible (show);
 
-    setSize (760, compactMode ? 92 : 736);
+    miniGrid       .setVisible (! show);
+    editPatternBtn .setVisible (! show);
+    // Import MIDI is useful in both modes; show it in compact too.
+    importMidiBtn  .setVisible (true);
+
+    setSize (760, compactMode ? 184 : 736);
 }
