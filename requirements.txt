@@ -16,14 +16,17 @@ packaging==26.2
 platformdirs==4.9.6
 pooch==1.9.0
 pycparser==3.0
+redis==7.4.0
 requests==2.33.1
 scikit-learn==1.8.0
 scipy==1.17.1
 soundfile==0.13.1
 soxr==1.1.0
+spotipy==2.26.0
 standard-aifc==3.13.0
 standard-chunk==3.13.0
 standard-sunau==3.13.0
 threadpoolctl==3.6.0
 typing_extensions==4.15.0
 urllib3==2.7.0
+yt-dlp==2026.3.17
