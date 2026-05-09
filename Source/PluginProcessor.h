@@ -48,6 +48,9 @@ public:
     // Generate a variation of the active pattern and store it as a preset
     void generateVariation();
 
+    // Generate a composite pattern from same-genre patterns and store it
+    void generateComposite();
+
     // Save an edited pattern (from the in-plugin editor) to disk and reload
     void saveEditedPattern (const DrumPattern& p);
 
@@ -56,6 +59,10 @@ public:
     void autoSavePattern (DrumPattern& p);
 
     juce::AudioProcessorValueTreeState apvts;
+
+    // ── Multi-tag genre selection (stored as a CSV property in apvts.state) ─
+    juce::StringArray getSelectedGenreTags() const;
+    void              setSelectedGenreTags (const juce::StringArray& tags);
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

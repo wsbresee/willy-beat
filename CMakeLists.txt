@@ -35,6 +35,7 @@ target_sources(WillyBeat
         Source/VariationGenerator.cpp
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
+        Source/WillyBeatLookAndFeel.cpp
 )
 
 target_compile_definitions(WillyBeat

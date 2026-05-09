@@ -48,7 +48,6 @@ TRACK_KEYS = [
 NUM_TRACKS = len(TRACK_KEYS)
 MAX_STEPS  = 16
 
-GENRES    = ["Rock", "Hip-Hop", "Funk", "Electronic", "Jazz", "Latin"]
 PAT_TYPES = ["Regular", "Variance", "Sm. Fill", "Big Fill"]
 
 
@@ -309,12 +308,17 @@ def transcribe(
 
 # ─── .beat file writer ────────────────────────────────────────────────────────
 
-def format_beat(name: str, genre: str, pat_type: str,
+def format_beat(name: str, genres: str | list, pat_type: str,
                 pattern: list) -> str:
+    """genres may be a comma-separated string or a list of tag strings."""
+    if isinstance(genres, list):
+        genres_str = ", ".join(g.strip() for g in genres if g.strip())
+    else:
+        genres_str = genres
     lines = [
         "# WillyBeat Preset",
         f"name:    {name}",
-        f"genre:   {genre}",
+        f"genres:  {genres_str}",
         f"type:    {pat_type}",
         "",
         "# velocity codes:  . off   g ghost(25)   s soft(55)"
@@ -363,8 +367,8 @@ examples:
     ap.add_argument("audio",               help="Input audio file (wav/aiff/mp3/flac/…)")
     ap.add_argument("--name",  default=None,
                     help="Preset name  (default: audio filename)")
-    ap.add_argument("--genre", default="Rock", choices=GENRES,
-                    help="Genre tag   (default: Rock)")
+    ap.add_argument("--genre", default="Rock",
+                    help="Genre tag(s), comma-separated  (default: Rock)")
     ap.add_argument("--type",  default="Regular", choices=PAT_TYPES, dest="pat_type",
                     help="Pattern type (default: Regular)")
     ap.add_argument("--bpm",   type=float, default=None,

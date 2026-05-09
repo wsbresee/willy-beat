@@ -1,11 +1,51 @@
 #pragma once
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
+#include "WillyBeatLookAndFeel.h"
+
+// ─── TagChipBar ──────────────────────────────────────────────────────────────
+// Multi-select genre tags with fuzzy search.  Shows currently-selected tags
+// as clickable "chips" followed by a search input; pressing Enter on the
+// input fuzzy-matches against the available tags and adds the best match.
+class TagChipBar : public juce::Component,
+                   public juce::SettableTooltipClient,
+                   public juce::TextEditor::Listener
+{
+public:
+    TagChipBar();
+    ~TagChipBar() override = default;
+
+    std::function<void()> onTagsChanged;
+
+    void setAvailableTags (const juce::StringArray& all);
+    void setSelectedTags  (const juce::StringArray& sel);
+    juce::StringArray getSelectedTags() const { return selectedTags; }
+
+    void paint    (juce::Graphics&)            override;
+    void resized  ()                           override;
+    void mouseDown(const juce::MouseEvent& e)  override;
+
+    void textEditorReturnKeyPressed (juce::TextEditor&) override;
+    void textEditorEscapeKeyPressed (juce::TextEditor&) override;
+
+private:
+    juce::TextEditor   input;
+    juce::StringArray  availableTags;
+    juce::StringArray  selectedTags;
+
+    struct Chip { juce::String tag; juce::Rectangle<int> bounds; juce::Rectangle<int> closeBox; };
+    std::vector<Chip> chips;
+
+    void layoutChips();
+    void commitSearch();
+    juce::String findFuzzyMatch (const juce::String& query) const;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TagChipBar)
+};
 
 // ─── DragStrip ───────────────────────────────────────────────────────────────
-// Bottom bar the user drags out of the plugin to drop a MIDI file into the DAW.
-// The caller sets onDrag to a lambda that builds and returns the temp file.
-class DragStrip : public juce::Component
+class DragStrip : public juce::Component,
+                  public juce::SettableTooltipClient
 {
 public:
     std::function<juce::File()> onDrag;
@@ -22,20 +62,22 @@ private:
 };
 
 // ─── PatternGrid ─────────────────────────────────────────────────────────────
-class PatternGrid : public juce::Component, public juce::Timer
+class PatternGrid : public juce::Component,
+                    public juce::SettableTooltipClient,
+                    public juce::Timer
 {
 public:
     explicit PatternGrid (WillyBeatAudioProcessor& p);
     ~PatternGrid() override;
 
-    void paint        (juce::Graphics& g)       override;
-    void timerCallback()                         override;
-    void mouseDown    (const juce::MouseEvent& e) override;
+    void paint        (juce::Graphics& g)         override;
+    void timerCallback()                           override;
+    void mouseDown    (const juce::MouseEvent& e)  override;
 
     void setEditTarget (DrumPattern* target);
 
-    // Called on the message thread after every cell edit in edit mode.
-    std::function<void()> onCellChanged;
+    // Fired after a cell edit; passes the track and step that changed.
+    std::function<void(int track, int step)> onCellChanged;
 
 private:
     WillyBeatAudioProcessor& proc;
@@ -48,79 +90,100 @@ private:
 };
 
 // ─── WillyBeatAudioProcessorEditor ───────────────────────────────────────────
-class WillyBeatAudioProcessorEditor : public juce::AudioProcessorEditor
+class WillyBeatAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                      public juce::Timer
 {
 public:
     explicit WillyBeatAudioProcessorEditor (WillyBeatAudioProcessor&);
     ~WillyBeatAudioProcessorEditor() override;
 
-    void paint  (juce::Graphics&) override;
-    void resized() override;
+    void paint   (juce::Graphics&) override;
+    void resized ()                override;
+    void timerCallback()           override;
 
 private:
     WillyBeatAudioProcessor& audioProcessor;
 
+    WillyBeatLookAndFeel lookAndFeel;
+    juce::TooltipWindow  tooltipWindow { this, 700 };
+
     DragStrip   dragStrip;
     PatternGrid grid;
 
-    // ── Always-visible controls ──────────────────────────────────────────
-    juce::Label    genreLabel     { {}, "Genre" };
-    juce::Label    typeLabel      { {}, "Type" };
-    juce::Label    patLabel       { {}, "Pattern #" };
-    juce::Label    gateLabel      { {}, "Gate %" };
-    juce::Label    humanizeLabel  { {}, "Humanize" };
-    juce::Label    swingLabel     { {}, "Swing" };
-    juce::Label    feelLabel      { {}, "Feel" };
+    // ── Pattern selector row ─────────────────────────────────────────────
+    juce::Label    genreLabel   { {}, "Genre Tags" };
+    juce::Label    patLabel     { {}, "Pattern #" };
 
-    juce::ComboBox genreBox;
-    juce::ComboBox typeBox;
+    TagChipBar     tagBar;
     juce::Slider   patIdxSlider;
-    juce::Slider   gateKnob;
-    juce::Slider   humanizeKnob;
-    juce::Slider   swingKnob;
-    juce::Slider   feelKnob;
 
-    juce::TextButton loadMidiBtn { "Load MIDI" };
-    juce::TextButton genVarBtn   { "Variation" };
-    juce::TextButton editBtn     { "Edit" };
+    juce::TextButton genBtn { "Generate" };
 
-    using CBA = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
-    using SA  = juce::AudioProcessorValueTreeState::SliderAttachment;
+    using SA = juce::AudioProcessorValueTreeState::SliderAttachment;
 
-    std::unique_ptr<CBA> genreAttach;
-    std::unique_ptr<CBA> typeAttach;
-    std::unique_ptr<SA>  patIdxAttach;
+    std::unique_ptr<SA> patIdxAttach;
+
+    // ── Knob row ─────────────────────────────────────────────────────────
+    juce::Label  gateLabel      { {}, "Gate %" };
+    juce::Label  humanizeLabel  { {}, "Humanize" };
+    juce::Label  swingLabel     { {}, "Swing" };
+    juce::Label  feelLabel      { {}, "Feel" };
+    juce::Label  densityLabel   { {}, "Density" };
+
+    juce::Slider gateKnob;
+    juce::Slider humanizeKnob;
+    juce::Slider swingKnob;
+    juce::Slider feelKnob;
+    juce::Slider densityKnob;
+
     std::unique_ptr<SA>  gateAttach;
     std::unique_ptr<SA>  humanizeAttach;
     std::unique_ptr<SA>  swingAttach;
     std::unique_ptr<SA>  feelAttach;
+    std::unique_ptr<SA>  densityAttach;
 
-    std::unique_ptr<juce::FileChooser> fileChooser;
-
-    // ── Edit-mode toolbar (hidden when not editing) ──────────────────────
-    juce::Label      nameLabel    { {}, "Name:" };
+    // ── Always-visible name / utility bar ───────────────────────────────
+    juce::Label      nameLabel     { {}, "Name:" };
     juce::TextEditor nameEditor;
-    juce::TextButton doneBtn      { "Done" };
-    juce::TextButton newPatBtn    { "New Pattern" };
-    juce::TextButton openFolderBtn{ "Open Folder" };
-
-    bool        editMode = false;
-    DrumPattern editingCopy;
-
-    void enterEditMode();
-    void exitEditMode();
-    void autoSaveCurrentEdit();
+    juce::TextButton newPatBtn     { "New Pattern" };
+    juce::TextButton openFolderBtn { "Open Folder" };
 
     // ── Export / drag controls ───────────────────────────────────────────
-    juce::Label      barsLabel    { {}, "Bars:" };
+    juce::Label      barsLabel       { {}, "Bars:" };
     juce::ComboBox   exportBarsBox;
-    juce::ToggleButton fillToggle { "Fill at end" };
-    juce::Label      seedLabel    { {}, "Seed:" };
+
+    juce::Label      fillStartLabel  { {}, "Start" };
+    juce::Slider     fillStartKnob;
+    std::unique_ptr<SA> fillStartAttach;
+
+    juce::Label      fillMidLabel    { {}, "Mid" };
+    juce::Slider     fillMidKnob;
+    std::unique_ptr<SA> fillMidAttach;
+
+    juce::Label      fillEndLabel    { {}, "End" };
+    juce::Slider     fillEndKnob;
+    std::unique_ptr<SA> fillEndAttach;
+
+    juce::Label      seedLabel       { {}, "Seed:" };
     juce::TextEditor seedEditor;
 
-    int  getBarsFromCombo() const;
+    // ── Live edit state ──────────────────────────────────────────────────
+    DrumPattern             editingCopy;       // density-filtered view shown in grid
+    DrumPattern             fullPattern;       // unfiltered source of truth (in memory)
+    const DrumPattern*      lastKnownPattern = nullptr;
+    float                   lastDensity      = -1.0f;
+
+    void autoSaveCurrentEdit (int track, int step);
+    void saveNameChange();
+    void applyDensityToEditingCopy();
+    void refreshTagSelector();
+
+    juce::StringArray lastKnownTags;
+
+    int         getBarsFromCombo() const;
     juce::int64 getSeedFromEditor() const;
-    const DrumPattern* findFill (const DrumPattern& mainPat) const;
+    const DrumPattern* findFill (const DrumPattern& pat) const;
+    DrumPattern buildFillPatternForExport() const;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WillyBeatAudioProcessorEditor)
 };
