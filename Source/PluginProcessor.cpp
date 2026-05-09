@@ -49,6 +49,11 @@ WillyBeatAudioProcessor::createParameterLayout()
         juce::NormalisableRange<float> (10.0f, 100.0f, 1.0f), 80.0f,
         juce::AudioParameterFloatAttributes().withLabel ("%")));
 
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "humanize", 1 }, "Humanize",
+        juce::NormalisableRange<float> (0.0f, 50.0f, 1.0f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("vel")));
+
     return layout;
 }
 
@@ -163,6 +168,7 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& /*buf*/,
     const double ppqEnd      = ppqStart + (double) blockSize * ppqPerSample;
 
     const float  gatePct      = apvts.getRawParameterValue ("gate")->load() / 100.0f;
+    const int    humanize     = (int) apvts.getRawParameterValue ("humanize")->load();
     const double stepSamples  = stepPPQ / ppqPerSample;
     const double noteLenSamp  = stepSamples * (double) gatePct;
 
@@ -199,8 +205,15 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& /*buf*/,
 
         for (int t = 0; t < NUM_TRACKS; ++t)
         {
-            uint8_t vel = activePattern->velocities[t][patStep];
-            if (vel == 0) continue;
+            uint8_t stored = activePattern->velocities[t][patStep];
+            if (stored == 0) continue;
+
+            uint8_t vel = stored;
+            if (humanize > 0)
+            {
+                int deviation = audioRng.nextInt (2 * humanize + 1) - humanize;
+                vel = (uint8_t) juce::jlimit (1, 127, (int) stored + deviation);
+            }
 
             int note = kTrackNotes[t];
             midi.addEvent (juce::MidiMessage::noteOn (10, note, vel), sampleOffset);

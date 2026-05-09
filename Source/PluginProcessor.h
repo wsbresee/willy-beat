@@ -64,6 +64,9 @@ private:
     juce::Random      rng;
     VariationGenerator generator { rng };
 
+    // Separate RNG for audio thread (only accessed from processBlock)
+    juce::Random audioRng { juce::Random::getSystemRandom().nextInt64() };
+
     const DrumPattern* activePattern = nullptr;
 
     std::atomic<int> currentStep { 0 };

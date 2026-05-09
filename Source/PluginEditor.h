@@ -46,15 +46,17 @@ private:
     PatternGrid grid;
 
     // ── Always-visible controls ──────────────────────────────────────────
-    juce::Label    genreLabel  { {}, "Genre" };
-    juce::Label    typeLabel   { {}, "Type" };
-    juce::Label    patLabel    { {}, "Pattern #" };
-    juce::Label    gateLabel   { {}, "Gate %" };
+    juce::Label    genreLabel     { {}, "Genre" };
+    juce::Label    typeLabel      { {}, "Type" };
+    juce::Label    patLabel       { {}, "Pattern #" };
+    juce::Label    gateLabel      { {}, "Gate %" };
+    juce::Label    humanizeLabel  { {}, "Humanize" };
 
     juce::ComboBox genreBox;
     juce::ComboBox typeBox;
     juce::Slider   patIdxSlider;
     juce::Slider   gateKnob;
+    juce::Slider   humanizeKnob;
 
     juce::TextButton loadMidiBtn { "Load MIDI" };
     juce::TextButton genVarBtn   { "Variation" };
@@ -67,6 +69,7 @@ private:
     std::unique_ptr<CBA> typeAttach;
     std::unique_ptr<SA>  patIdxAttach;
     std::unique_ptr<SA>  gateAttach;
+    std::unique_ptr<SA>  humanizeAttach;
 
     std::unique_ptr<juce::FileChooser> fileChooser;
 

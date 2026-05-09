@@ -160,8 +160,9 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     genreAttach  = std::make_unique<CBA> (p.apvts, "genre",   genreBox);
     typeAttach   = std::make_unique<CBA> (p.apvts, "patType", typeBox);
-    patIdxAttach = std::make_unique<SA>  (p.apvts, "patIdx",  patIdxSlider);
-    gateAttach   = std::make_unique<SA>  (p.apvts, "gate",    gateKnob);
+    patIdxAttach    = std::make_unique<SA> (p.apvts, "patIdx",    patIdxSlider);
+    gateAttach      = std::make_unique<SA> (p.apvts, "gate",      gateKnob);
+    humanizeAttach  = std::make_unique<SA> (p.apvts, "humanize",  humanizeKnob);
 
     patIdxSlider.setSliderStyle (juce::Slider::IncDecButtons);
     patIdxSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 36, 22);
@@ -169,13 +170,16 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     gateKnob.setSliderStyle (juce::Slider::Rotary);
     gateKnob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 18);
 
+    humanizeKnob.setSliderStyle (juce::Slider::Rotary);
+    humanizeKnob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 18);
+
     auto labelStyle = [](juce::Label* lbl)
     {
         lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
         lbl->setColour (juce::Label::textColourId, juce::Colour (0xffaaaacc));
         lbl->setJustificationType (juce::Justification::centred);
     };
-    for (auto* lbl : { &genreLabel, &typeLabel, &patLabel, &gateLabel })
+    for (auto* lbl : { &genreLabel, &typeLabel, &patLabel, &gateLabel, &humanizeLabel })
         labelStyle (lbl);
 
     loadMidiBtn.onClick = [this]
@@ -231,6 +235,8 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     addAndMakeVisible (typeLabel);   addAndMakeVisible (typeBox);
     addAndMakeVisible (patLabel);    addAndMakeVisible (patIdxSlider);
     addAndMakeVisible (gateLabel);   addAndMakeVisible (gateKnob);
+    addAndMakeVisible (humanizeLabel);
+    addAndMakeVisible (humanizeKnob);
     addAndMakeVisible (loadMidiBtn);
     addAndMakeVisible (genVarBtn);
     addAndMakeVisible (editBtn);
@@ -320,7 +326,12 @@ void WillyBeatAudioProcessorEditor::resized()
     auto gateArea = topRow.removeFromLeft (65);
     gateLabel.setBounds (gateArea.removeFromTop (20));
     gateKnob .setBounds (gateArea);
-    topRow.removeFromLeft (12);
+    topRow.removeFromLeft (8);
+
+    auto humanArea = topRow.removeFromLeft (65);
+    humanizeLabel.setBounds (humanArea.removeFromTop (20));
+    humanizeKnob .setBounds (humanArea);
+    topRow.removeFromLeft (10);
 
     // Buttons stacked on the right
     {
