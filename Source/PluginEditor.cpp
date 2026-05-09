@@ -613,10 +613,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     {
         k.setSliderStyle (juce::Slider::Rotary);
         k.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 32, 14);
-        // 0 at the right (3 o'clock), max at the left (9 o'clock), arc through bottom.
-        k.setRotaryParameters (juce::MathConstants<float>::halfPi,
-                                juce::MathConstants<float>::halfPi * 3.0f,
-                                true);
+        // Default rotary direction (0 lower-left, sweep clockwise through top).
     };
     setupFillKnob (fillStartKnob);
     setupFillKnob (fillMidKnob);
