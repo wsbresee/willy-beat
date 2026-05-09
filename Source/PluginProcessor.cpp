@@ -54,6 +54,11 @@ WillyBeatAudioProcessor::createParameterLayout()
         juce::NormalisableRange<float> (0.0f, 50.0f, 1.0f), 0.0f,
         juce::AudioParameterFloatAttributes().withLabel ("vel")));
 
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "swing", 1 }, "Swing",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("%")));
+
     return layout;
 }
 
@@ -167,10 +172,18 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& /*buf*/,
     const double ppqStart    = ppqPosition;
     const double ppqEnd      = ppqStart + (double) blockSize * ppqPerSample;
 
-    const float  gatePct      = apvts.getRawParameterValue ("gate")->load() / 100.0f;
-    const int    humanize     = (int) apvts.getRawParameterValue ("humanize")->load();
-    const double stepSamples  = stepPPQ / ppqPerSample;
-    const double noteLenSamp  = stepSamples * (double) gatePct;
+    const float  gatePct     = apvts.getRawParameterValue ("gate")->load() / 100.0f;
+    const int    humanize    = (int) apvts.getRawParameterValue ("humanize")->load();
+    // swing 0-100: at ~67 the off-beats land on triplet positions (shuffle/jazz feel)
+    const double swingDelay  = apvts.getRawParameterValue ("swing")->load() * (stepPPQ * 0.5 / 100.0);
+    const double stepSamples = stepPPQ / ppqPerSample;
+    const double noteLenSamp = stepSamples * (double) gatePct;
+
+    // Actual PPQ position of globalStep, including swing offset on odd steps
+    auto stepToPPQ = [&] (long step) -> double
+    {
+        return step * stepPPQ + ((step & 1L) ? swingDelay : 0.0);
+    };
 
     const int numSteps = activePattern->numSteps;
 
@@ -187,20 +200,23 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& /*buf*/,
         else ++it;
     }
 
-    // Fire steps landing in this block
-    long firstStep = (long) std::ceil  (ppqStart / stepPPQ - 1e-9);
-    long lastStep  = (long) std::floor ((ppqEnd   / stepPPQ) - 1e-9);
+    // Search ±1 beyond the nominal step range so swung steps near block boundaries
+    // are never missed.
+    long candidateFirst = (long) std::floor (ppqStart / stepPPQ) - 1;
+    long candidateLast  = (long) std::ceil  (ppqEnd   / stepPPQ) + 1;
 
-    for (long globalStep = firstStep; globalStep <= lastStep; ++globalStep)
+    for (long globalStep = candidateFirst; globalStep <= candidateLast; ++globalStep)
     {
-        if (globalStep == lastFiredStep) continue;
+        double stepPPQPos = stepToPPQ (globalStep);
+        if (stepPPQPos <  ppqStart - 1e-9) continue;
+        if (stepPPQPos >= ppqEnd   - 1e-9) continue;
+        if (globalStep == lastFiredStep)   continue;
         lastFiredStep = globalStep;
 
-        int  patStep    = (int) (globalStep % numSteps);
-        currentStep     = patStep;
+        int patStep = (int) (((globalStep % numSteps) + numSteps) % numSteps);
+        currentStep = patStep;
 
-        double stepPPQPos   = globalStep * stepPPQ;
-        int    sampleOffset = (int) std::round ((stepPPQPos - ppqStart) / ppqPerSample);
+        int sampleOffset = (int) std::round ((stepPPQPos - ppqStart) / ppqPerSample);
         sampleOffset = juce::jlimit (0, blockSize - 1, sampleOffset);
 
         for (int t = 0; t < NUM_TRACKS; ++t)

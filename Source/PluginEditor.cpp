@@ -163,6 +163,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     patIdxAttach    = std::make_unique<SA> (p.apvts, "patIdx",    patIdxSlider);
     gateAttach      = std::make_unique<SA> (p.apvts, "gate",      gateKnob);
     humanizeAttach  = std::make_unique<SA> (p.apvts, "humanize",  humanizeKnob);
+    swingAttach     = std::make_unique<SA> (p.apvts, "swing",     swingKnob);
 
     patIdxSlider.setSliderStyle (juce::Slider::IncDecButtons);
     patIdxSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 36, 22);
@@ -173,13 +174,16 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     humanizeKnob.setSliderStyle (juce::Slider::Rotary);
     humanizeKnob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 18);
 
+    swingKnob.setSliderStyle (juce::Slider::Rotary);
+    swingKnob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 18);
+
     auto labelStyle = [](juce::Label* lbl)
     {
         lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
         lbl->setColour (juce::Label::textColourId, juce::Colour (0xffaaaacc));
         lbl->setJustificationType (juce::Justification::centred);
     };
-    for (auto* lbl : { &genreLabel, &typeLabel, &patLabel, &gateLabel, &humanizeLabel })
+    for (auto* lbl : { &genreLabel, &typeLabel, &patLabel, &gateLabel, &humanizeLabel, &swingLabel })
         labelStyle (lbl);
 
     loadMidiBtn.onClick = [this]
@@ -237,6 +241,8 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     addAndMakeVisible (gateLabel);   addAndMakeVisible (gateKnob);
     addAndMakeVisible (humanizeLabel);
     addAndMakeVisible (humanizeKnob);
+    addAndMakeVisible (swingLabel);
+    addAndMakeVisible (swingKnob);
     addAndMakeVisible (loadMidiBtn);
     addAndMakeVisible (genVarBtn);
     addAndMakeVisible (editBtn);
@@ -308,30 +314,35 @@ void WillyBeatAudioProcessorEditor::resized()
     // ── Top controls row ──────────────────────────────────────────────────
     auto topRow = area.removeFromTop (70);
 
-    auto genreArea = topRow.removeFromLeft (130);
+    auto genreArea = topRow.removeFromLeft (120);
     genreLabel.setBounds (genreArea.removeFromTop (20));
     genreBox  .setBounds (genreArea.removeFromTop (28));
-    topRow.removeFromLeft (8);
+    topRow.removeFromLeft (6);
 
-    auto typeArea = topRow.removeFromLeft (120);
+    auto typeArea = topRow.removeFromLeft (110);
     typeLabel.setBounds (typeArea.removeFromTop (20));
     typeBox  .setBounds (typeArea.removeFromTop (28));
-    topRow.removeFromLeft (8);
+    topRow.removeFromLeft (6);
 
-    auto patArea = topRow.removeFromLeft (100);
+    auto patArea = topRow.removeFromLeft (90);
     patLabel    .setBounds (patArea.removeFromTop (20));
     patIdxSlider.setBounds (patArea.removeFromTop (28));
-    topRow.removeFromLeft (8);
+    topRow.removeFromLeft (6);
 
-    auto gateArea = topRow.removeFromLeft (65);
+    auto gateArea = topRow.removeFromLeft (58);
     gateLabel.setBounds (gateArea.removeFromTop (20));
     gateKnob .setBounds (gateArea);
-    topRow.removeFromLeft (8);
+    topRow.removeFromLeft (6);
 
-    auto humanArea = topRow.removeFromLeft (65);
+    auto humanArea = topRow.removeFromLeft (58);
     humanizeLabel.setBounds (humanArea.removeFromTop (20));
     humanizeKnob .setBounds (humanArea);
-    topRow.removeFromLeft (10);
+    topRow.removeFromLeft (6);
+
+    auto swingArea = topRow.removeFromLeft (58);
+    swingLabel.setBounds (swingArea.removeFromTop (20));
+    swingKnob .setBounds (swingArea);
+    topRow.removeFromLeft (8);
 
     // Buttons stacked on the right
     {

@@ -51,12 +51,14 @@ private:
     juce::Label    patLabel       { {}, "Pattern #" };
     juce::Label    gateLabel      { {}, "Gate %" };
     juce::Label    humanizeLabel  { {}, "Humanize" };
+    juce::Label    swingLabel     { {}, "Swing" };
 
     juce::ComboBox genreBox;
     juce::ComboBox typeBox;
     juce::Slider   patIdxSlider;
     juce::Slider   gateKnob;
     juce::Slider   humanizeKnob;
+    juce::Slider   swingKnob;
 
     juce::TextButton loadMidiBtn { "Load MIDI" };
     juce::TextButton genVarBtn   { "Variation" };
@@ -70,6 +72,7 @@ private:
     std::unique_ptr<SA>  patIdxAttach;
     std::unique_ptr<SA>  gateAttach;
     std::unique_ptr<SA>  humanizeAttach;
+    std::unique_ptr<SA>  swingAttach;
 
     std::unique_ptr<juce::FileChooser> fileChooser;
 
