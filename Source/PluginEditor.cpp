@@ -653,7 +653,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         const DrumPattern* fillPtr = nullptr;
         if (fillStart > 0 || fillMid > 0 || fillEnd > 0)
         {
-            fillPattern = buildFillPatternForExport();
+            fillPattern = buildFillPatternForExport (seed);
             if (fillPattern.name.isNotEmpty())
                 fillPtr = &fillPattern;
         }
@@ -906,9 +906,9 @@ void WillyBeatAudioProcessorEditor::applyDensityToEditingCopy()
                   /*restrictToSameType=*/false);
 }
 
-DrumPattern WillyBeatAudioProcessorEditor::buildFillPatternForExport() const
+DrumPattern WillyBeatAudioProcessorEditor::buildFillPatternForExport (juce::int64 seed) const
 {
-    auto* fillSrc = findFill (fullPattern);
+    auto* fillSrc = findFill (fullPattern, seed);
     if (fillSrc == nullptr) return DrumPattern{};
 
     // Always read the canonical (unfiltered) version from disk so density
@@ -969,26 +969,32 @@ juce::int64 WillyBeatAudioProcessorEditor::getSeedFromEditor() const
     return (juce::int64) text.getLargeIntValue();
 }
 
-const DrumPattern* WillyBeatAudioProcessorEditor::findFill (const DrumPattern& pat) const
+const DrumPattern* WillyBeatAudioProcessorEditor::findFill (const DrumPattern& pat,
+                                                             juce::int64 seed) const
 {
     // Prefer fills matching the user's selected scope; fall back to the
     // pattern's own tags, then any fill in the library.
     auto scope = audioProcessor.getSelectedGenreTags();
     if (scope.isEmpty()) scope = pat.genres;
 
-    auto candidates = scope.isEmpty()
-                          ? std::vector<const DrumPattern*>{}
-                          : audioProcessor.getLibrary().getByTags (scope);
+    auto isFill = [] (PatType t) { return t == PatType::SmallFill || t == PatType::BigFill; };
 
-    for (auto fillType : { PatType::SmallFill, PatType::BigFill })
-        for (auto* p : candidates)
-            if (p->type == fillType) return p;
+    std::vector<const DrumPattern*> fills;
+    if (! scope.isEmpty())
+        for (auto* p : audioProcessor.getLibrary().getByTags (scope))
+            if (isFill (p->type)) fills.push_back (p);
 
-    for (auto fillType : { PatType::SmallFill, PatType::BigFill })
+    if (fills.empty())
         for (const auto& p : audioProcessor.getLibrary().all())
-            if (p.type == fillType) return &p;
+            if (isFill (p.type)) fills.push_back (&p);
 
-    return nullptr;
+    if (fills.empty()) return nullptr;
+
+    // Vary the fill the same way the main pattern does: a fixed export seed
+    // makes the choice reproducible; an empty seed rerolls each drag.
+    juce::Random rng (seed >= 0 ? seed
+                                : juce::Random::getSystemRandom().nextInt64());
+    return fills[(size_t) rng.nextInt ((int) fills.size())];
 }
 
 //==============================================================================
