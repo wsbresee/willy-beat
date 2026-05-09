@@ -519,11 +519,20 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     feelAttach     = std::make_unique<SA> (p.apvts, "feel",      feelKnob);
     densityAttach  = std::make_unique<SA> (p.apvts, "density",   densityKnob);
 
-    for (auto* k : { &gateKnob, &humanizeKnob, &swingKnob, &feelKnob, &densityKnob })
+    // JUCE LookAndFeel_V4 default rotary sweep — matches the fill rotaries
+    // exactly so the knob direction is consistent across the whole UI.
+    constexpr float kRotaryStart =  -juce::MathConstants<float>::pi * 5.0f / 6.0f;
+    constexpr float kRotaryEnd   =   juce::MathConstants<float>::pi * 5.0f / 6.0f;
+
+    auto setupRotary = [] (juce::Slider& k, int textBoxW, int textBoxH)
     {
-        k->setSliderStyle (juce::Slider::Rotary);
-        k->setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 18);
-    }
+        k.setSliderStyle (juce::Slider::Rotary);
+        k.setTextBoxStyle (juce::Slider::TextBoxBelow, false, textBoxW, textBoxH);
+        k.setRotaryParameters (kRotaryStart, kRotaryEnd, true);
+    };
+
+    for (auto* k : { &gateKnob, &humanizeKnob, &swingKnob, &feelKnob, &densityKnob })
+        setupRotary (*k, 48, 18);
 
     gateKnob    .setTooltip ("Gate  -  note length as a percentage of the step duration. Lower = staccato, higher = legato.");
     humanizeKnob.setTooltip ("Humanize  -  random velocity variation per hit, in MIDI velocity units.");
@@ -609,15 +618,10 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     fillMidAttach   = std::make_unique<SA> (p.apvts, "fillMid",   fillMidKnob);
     fillEndAttach   = std::make_unique<SA> (p.apvts, "fillSteps", fillEndKnob);
 
-    auto setupFillKnob = [] (juce::Slider& k)
-    {
-        k.setSliderStyle (juce::Slider::Rotary);
-        k.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 32, 14);
-        // Default rotary direction (0 lower-left, sweep clockwise through top).
-    };
-    setupFillKnob (fillStartKnob);
-    setupFillKnob (fillMidKnob);
-    setupFillKnob (fillEndKnob);
+    // Same helper as the macro row — direction & style identical.
+    setupRotary (fillStartKnob, 32, 14);
+    setupRotary (fillMidKnob,   32, 14);
+    setupRotary (fillEndKnob,   32, 14);
 
     fillStartKnob.setTooltip ("Fill at start  -  number of leading 16th notes drawn from a fill pattern (head of the fill). 0 = none, 16 = full bar.");
     fillMidKnob  .setTooltip ("Mid-pattern fill  -  number of 16th notes scattered through the middle of the export, drawn from fill content. Deterministic per seed.");
