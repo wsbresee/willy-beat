@@ -1,25 +1,188 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-// Helpers
+// TagChipBar — multi-select fuzzy tag picker
 //==============================================================================
 
-// Build a MIDI file from mainPat repeated numBars times.
-// The last bar uses fillPat (if addFill && fillPat != nullptr).
-// Swing/humanize/feel are baked in; each bar gets a different random seed so
-// every loop sounds slightly different.  seed == -1 → new random seed each call.
+TagChipBar::TagChipBar()
+{
+    addAndMakeVisible (input);
+    // Make the inline input visually merge with the chip-bar's own outline.
+    input.setColour (juce::TextEditor::backgroundColourId,     juce::Colours::transparentBlack);
+    input.setColour (juce::TextEditor::outlineColourId,        juce::Colours::transparentBlack);
+    input.setColour (juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+    input.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
+    input.setTextToShowWhenEmpty ("type to search...", WillyBeatLookAndFeel::textMuted);
+    input.addListener (this);
+    input.setIndents (4, 2);
+}
+
+void TagChipBar::setAvailableTags (const juce::StringArray& all)
+{
+    availableTags = all;
+}
+
+void TagChipBar::setSelectedTags (const juce::StringArray& sel)
+{
+    selectedTags = sel;
+    layoutChips();
+    repaint();
+}
+
+void TagChipBar::resized()
+{
+    layoutChips();
+}
+
+void TagChipBar::layoutChips()
+{
+    chips.clear();
+    auto area = getLocalBounds().reduced (2);
+    const int h = area.getHeight();
+    const int pad = 4;
+
+    juce::Font f (juce::FontOptions{}.withHeight (11.0f));
+
+    int x = area.getX() + pad;
+    const int closeW = 14;
+
+    for (const auto& tag : selectedTags)
+    {
+        int textW = (int) std::ceil (f.getStringWidthFloat (tag));
+        int chipW = textW + 8 + closeW;
+
+        // Reserve at least 60 px on the right for the search input
+        if (x + chipW > area.getRight() - 64) break;
+
+        Chip c;
+        c.tag      = tag;
+        c.bounds   = { x, area.getY() + 2, chipW, h - 4 };
+        c.closeBox = { c.bounds.getRight() - closeW, c.bounds.getY(), closeW, c.bounds.getHeight() };
+        chips.push_back (c);
+        x += chipW + 4;
+    }
+
+    int inputW = area.getRight() - x;
+    if (inputW < 50) inputW = 50;
+    input.setBounds (x, area.getY() + 2, inputW, h - 4);
+}
+
+void TagChipBar::paint (juce::Graphics& g)
+{
+    auto b = getLocalBounds().toFloat().reduced (0.5f);
+    g.setColour (WillyBeatLookAndFeel::bgPanel);
+    g.fillRoundedRectangle (b, 4.0f);
+
+    g.setColour (input.hasKeyboardFocus (true)
+                    ? WillyBeatLookAndFeel::accent
+                    : WillyBeatLookAndFeel::border);
+    g.drawRoundedRectangle (b, 4.0f, 1.0f);
+
+    g.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
+
+    for (const auto& chip : chips)
+    {
+        auto cb = chip.bounds.toFloat();
+
+        // Flat lavender chip
+        g.setColour (WillyBeatLookAndFeel::accent);
+        g.fillRoundedRectangle (cb, 3.0f);
+
+        g.setColour (juce::Colours::white);
+        auto textArea = chip.bounds.withTrimmedRight (chip.closeBox.getWidth());
+        g.drawText (chip.tag, textArea.reduced (6, 0),
+                    juce::Justification::centredLeft, true);
+
+        g.setColour (juce::Colours::white.withAlpha (0.85f));
+        g.drawText ("x", chip.closeBox, juce::Justification::centred, false);
+    }
+}
+
+void TagChipBar::mouseDown (const juce::MouseEvent& e)
+{
+    for (size_t i = 0; i < chips.size(); ++i)
+    {
+        if (chips[i].closeBox.contains (e.getPosition()))
+        {
+            auto removed = chips[i].tag;
+            selectedTags.removeString (removed);
+            layoutChips();
+            repaint();
+            if (onTagsChanged) onTagsChanged();
+            return;
+        }
+    }
+    input.grabKeyboardFocus();
+}
+
+void TagChipBar::textEditorReturnKeyPressed (juce::TextEditor&)
+{
+    commitSearch();
+}
+
+void TagChipBar::textEditorEscapeKeyPressed (juce::TextEditor& te)
+{
+    te.clear();
+}
+
+void TagChipBar::commitSearch()
+{
+    auto query = input.getText().trim();
+    if (query.isEmpty()) return;
+
+    auto match = findFuzzyMatch (query);
+    if (match.isEmpty())
+    {
+        // Fallback: accept the literal typed value (lets users introduce new tags)
+        match = query;
+    }
+
+    if (! selectedTags.contains (match))
+    {
+        selectedTags.add (match);
+        layoutChips();
+        repaint();
+        if (onTagsChanged) onTagsChanged();
+    }
+    input.clear();
+}
+
+juce::String TagChipBar::findFuzzyMatch (const juce::String& query) const
+{
+    auto qLow = query.toLowerCase();
+
+    for (const auto& tag : availableTags)
+        if (tag.equalsIgnoreCase (query) && ! selectedTags.contains (tag))
+            return tag;
+
+    for (const auto& tag : availableTags)
+        if (tag.toLowerCase().startsWith (qLow) && ! selectedTags.contains (tag))
+            return tag;
+
+    for (const auto& tag : availableTags)
+        if (tag.toLowerCase().contains (qLow) && ! selectedTags.contains (tag))
+            return tag;
+
+    return {};
+}
+
+//==============================================================================
+// MIDI export helper
+//==============================================================================
+
 static juce::File writePatternToMidi (const DrumPattern& mainPat,
                                       const DrumPattern* fillPat,
                                       int          numBars,
-                                      bool         addFill,
+                                      int          fillStart,
+                                      int          fillMid,
+                                      int          fillEnd,
                                       juce::int64  seed,
                                       float        humanize,
                                       float        swing,
                                       float        feel)
 {
-    const int    ticksPerStep = 120;    // 480 ticks/QN, 16th = 120
+    const int    ticksPerStep = 120;
     const int    stepsPerBar  = MAX_STEPS;
-    const int    ticksPerBar  = ticksPerStep * stepsPerBar;
     const double swingTicks   = swing   / 100.0 * ticksPerStep * 0.5;
     const double maxFeelTicks = feel    / 100.0 * ticksPerStep * 0.08;
     const double gateFrac     = 0.80;
@@ -31,30 +194,77 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
     juce::MidiMessageSequence seq;
     seq.addEvent (juce::MidiMessage::tempoMetaEvent (500000), 0.0);
 
+    const int totalSteps = numBars * stepsPerBar;
+
+    // Cap fill regions so they don't overlap.  Start fill takes priority over
+    // end fill when they would conflict.
+    fillStart = juce::jlimit (0, totalSteps, fillStart);
+    fillEnd   = juce::jlimit (0, totalSteps - fillStart, fillEnd);
+
+    const int startFillEnd = fillStart;                // [0, startFillEnd)  = start fill
+    const int endFillStart = totalSteps - fillEnd;     // [endFillStart, totalSteps)
+    const int middleStart  = startFillEnd;
+    const int middleEnd    = endFillStart;
+    const int middleSize   = juce::jmax (0, middleEnd - middleStart);
+
+    // Pick mid-fill positions deterministically from the seed.  These are
+    // scattered within [middleStart, middleEnd) and replaced with their
+    // matching position in the fill pattern.
+    std::vector<bool> midFillMask (totalSteps, false);
+    if (fillPat != nullptr && fillMid > 0 && middleSize > 0)
+    {
+        const int n = juce::jmin (fillMid, middleSize);
+        juce::Random pickerRng (usedSeed ^ (juce::int64) 0xdeadbeefcafe1234LL);
+
+        std::vector<int> positions;
+        positions.reserve ((size_t) middleSize);
+        for (int i = middleStart; i < middleEnd; ++i)
+            positions.push_back (i);
+
+        // Fisher-Yates shuffle (deterministic via pickerRng)
+        for (int i = (int) positions.size() - 1; i > 0; --i)
+        {
+            int j = pickerRng.nextInt (i + 1);
+            std::swap (positions[(size_t) i], positions[(size_t) j]);
+        }
+        for (int i = 0; i < n; ++i)
+            midFillMask[(size_t) positions[(size_t) i]] = true;
+    }
+
     for (int bar = 0; bar < numBars; ++bar)
     {
-        const DrumPattern& pat = (addFill && fillPat && bar == numBars - 1)
-                                     ? *fillPat : mainPat;
-
-        // Mix seed with bar index so each repetition sounds different
         juce::int64 barSeed = usedSeed ^ ((juce::int64)(bar + 1) * (juce::int64)0x9e3779b97f4a7c15LL);
         juce::Random barRng (barSeed);
 
-        int numSteps = (pat.numSteps > 0 && pat.numSteps <= MAX_STEPS)
-                           ? pat.numSteps : MAX_STEPS;
-
-        for (int col = 0; col < numSteps; ++col)
+        for (int col = 0; col < stepsPerBar; ++col)
         {
-            // Step tick with swing on odd 16th positions
-            double stepTick = (double)(bar * ticksPerBar + col * ticksPerStep);
+            const int  globalStep = bar * stepsPerBar + col;
+
+            const bool inStartFill = (fillPat != nullptr && globalStep <  startFillEnd);
+            const bool inEndFill   = (fillPat != nullptr && globalStep >= endFillStart);
+            const bool inMidFill   = midFillMask[(size_t) globalStep];
+            const bool useFill     = (inStartFill || inEndFill || inMidFill);
+
+            const DrumPattern& pat = useFill ? *fillPat : mainPat;
+
+            int patCol;
+            if (inStartFill)
+                patCol = globalStep;                                         // head of fill
+            else if (inEndFill)
+                patCol = (stepsPerBar - fillEnd) + (globalStep - endFillStart); // tail of fill
+            else if (inMidFill)
+                patCol = globalStep % stepsPerBar;                            // matching position
+            else
+                patCol = col;
+
+            double stepTick = (double)(globalStep * ticksPerStep);
             if (col % 2 == 1) stepTick += swingTicks;
 
             for (int row = 0; row < NUM_TRACKS; ++row)
             {
-                uint8_t vel = pat.velocities[row][col];
+                uint8_t vel = pat.velocities[row][patCol];
                 if (vel == 0) continue;
 
-                // Velocity humanization
                 if (humanize > 0.0f)
                 {
                     int h   = (int) humanize;
@@ -62,7 +272,6 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
                     vel = (uint8_t) juce::jlimit (1, 127, (int) vel + dev);
                 }
 
-                // Timing feel — bell-curve distribution, velocity-weighted
                 double noteTick = stepTick;
                 if (maxFeelTicks > 0.0)
                 {
@@ -105,13 +314,22 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
 void DragStrip::paint (juce::Graphics& g)
 {
     auto b = getLocalBounds().toFloat().reduced (1.0f);
-    g.setColour (hovered ? juce::Colour (0xff251840) : juce::Colour (0xff1a1530));
+
+    // Flat fill — accent on hover, panel surface otherwise.
+    g.setColour (hovered ? WillyBeatLookAndFeel::accent
+                         : WillyBeatLookAndFeel::bgPanel);
     g.fillRoundedRectangle (b, 4.0f);
-    g.setColour (juce::Colour (0xff6040a0));
+
+    g.setColour (hovered ? WillyBeatLookAndFeel::accentBright
+                         : WillyBeatLookAndFeel::border);
     g.drawRoundedRectangle (b, 4.0f, 1.0f);
-    g.setColour (juce::Colour (0xffaaaacc));
-    g.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
-    g.drawText (juce::CharPointer_UTF8 ("\xe2\xa0\xbf  Drag Pattern to DAW  \xe2\xa0\xbf"),
+
+    g.setColour (hovered ? juce::Colours::white
+                         : WillyBeatLookAndFeel::textSecondary);
+    g.setFont (juce::Font (juce::FontOptions{}
+                              .withHeight (12.0f)
+                              .withStyle ("Bold")));
+    g.drawText ("DRAG PATTERN TO DAW",
                 getLocalBounds(), juce::Justification::centred, false);
 }
 
@@ -148,12 +366,12 @@ PatternGrid::~PatternGrid()
 
 juce::Colour PatternGrid::velColour (uint8_t vel)
 {
-    if (vel == 0)   return juce::Colour (0xff1a1d2e);
-    if (vel <= 30)  return juce::Colour (0xff2a3060);
-    if (vel <= 65)  return juce::Colour (0xff3a5090);
-    if (vel <= 90)  return juce::Colour (0xff5578cc);
-    if (vel <= 110) return juce::Colour (0xff7a9fff);
-    return              juce::Colour (0xffb07fff);
+    if (vel == 0)   return juce::Colour (0xff181a30);   // empty
+    if (vel <= 30)  return juce::Colour (0xff2d3672);   // ghost
+    if (vel <= 65)  return juce::Colour (0xff4859a6);   // soft
+    if (vel <= 90)  return juce::Colour (0xff6b85d6);   // medium
+    if (vel <= 110) return juce::Colour (0xff8aaeff);   // hard
+    return              juce::Colour (0xffc08aff);      // accent
 }
 
 void PatternGrid::paint (juce::Graphics& g)
@@ -162,36 +380,38 @@ void PatternGrid::paint (juce::Graphics& g)
                                                      : proc.getActivePattern();
 
     const auto bounds = getLocalBounds();
-    g.fillAll (juce::Colour (0xff141625));
+    g.fillAll (WillyBeatLookAndFeel::bgRecess);
 
-    const int gridX = kLabelW;
-    const int gridW = bounds.getWidth() - gridX;
+    const int   gridX = kLabelW;
+    const int   gridW = bounds.getWidth() - gridX;
     const float cellW = (float) gridW / MAX_STEPS;
     const float cellH = (float) bounds.getHeight() / NUM_TRACKS;
 
+    // Play cursor — always show regardless of edit state
     const int playStep = proc.getCurrentStep().load();
-
-    if (editTarget == nullptr && playStep >= 0 && playStep < MAX_STEPS)
+    if (playStep >= 0 && playStep < MAX_STEPS)
     {
-        float cx = gridX + playStep * cellW;
-        g.setColour (juce::Colour (0x22ffffff));
+        float cx = (float) gridX + (float) playStep * cellW;
+        g.setColour (WillyBeatLookAndFeel::accent.withAlpha (0.16f));
         g.fillRect (cx, 0.0f, cellW, (float) bounds.getHeight());
     }
 
-    g.setColour (juce::Colour (0xff2a2d3e));
+    // Beat-marker vertical lines every 4 16ths
+    g.setColour (WillyBeatLookAndFeel::border);
     for (int col = 0; col <= MAX_STEPS; col += 4)
-        g.drawVerticalLine ((int) (gridX + col * cellW), 0.0f, (float) bounds.getHeight());
+        g.drawVerticalLine ((int) ((float) gridX + (float) col * cellW),
+                            0.0f, (float) bounds.getHeight());
 
     for (int row = 0; row < NUM_TRACKS; ++row)
     {
-        float cy = row * cellH;
+        float cy = (float) row * cellH;
         for (int col = 0; col < MAX_STEPS; ++col)
         {
-            float cx = gridX + col * cellW;
+            float cx = (float) gridX + (float) col * cellW;
             uint8_t vel = (displayPat != nullptr) ? displayPat->velocities[row][col] : 0;
 
             juce::Colour fill = velColour (vel);
-            if (editTarget == nullptr && col == playStep)
+            if (col == playStep)
                 fill = fill.brighter (0.3f);
 
             g.setColour (fill);
@@ -202,22 +422,17 @@ void PatternGrid::paint (juce::Graphics& g)
     g.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
     for (int row = 0; row < NUM_TRACKS; ++row)
     {
-        float cy = row * cellH;
-        g.setColour (juce::Colours::lightgrey);
+        float cy = (float) row * cellH;
+        g.setColour (WillyBeatLookAndFeel::textSecondary);
         g.drawText (kTrackNames[row],
-                    0, (int) cy, kLabelW - 4, (int) cellH,
+                    0, (int) cy, kLabelW - 6, (int) cellH,
                     juce::Justification::centredRight, true);
     }
 
-    g.setColour (juce::Colour (0xff2a2d3e));
+    g.setColour (WillyBeatLookAndFeel::border);
     for (int row = 0; row <= NUM_TRACKS; ++row)
-        g.drawHorizontalLine ((int) (row * cellH), (float) gridX, (float) bounds.getWidth());
-
-    if (editTarget != nullptr)
-    {
-        g.setColour (juce::Colour (0x55a070ff));
-        g.drawRect (getLocalBounds().toFloat(), 1.5f);
-    }
+        g.drawHorizontalLine ((int) ((float) row * cellH),
+                              (float) gridX, (float) bounds.getWidth());
 }
 
 void PatternGrid::setEditTarget (DrumPattern* target)
@@ -236,8 +451,8 @@ void PatternGrid::mouseDown (const juce::MouseEvent& e)
 
     if (e.x < kLabelW) return;
 
-    int col = (int) ((e.x - kLabelW) / cellW);
-    int row = (int) (e.y / cellH);
+    int col = (int) ((float) (e.x - kLabelW) / cellW);
+    int row = (int) ((float) e.y / cellH);
     if (col < 0 || col >= MAX_STEPS || row < 0 || row >= NUM_TRACKS) return;
 
     auto& vel = editTarget->velocities[row][col];
@@ -259,12 +474,11 @@ void PatternGrid::mouseDown (const juce::MouseEvent& e)
     repaint();
 
     if (onCellChanged)
-        onCellChanged();
+        onCellChanged (row, col);
 }
 
 void PatternGrid::timerCallback()
 {
-    if (editTarget != nullptr) return;
     int step = proc.getCurrentStep().load();
     if (step != lastStep)
     {
@@ -280,28 +494,42 @@ void PatternGrid::timerCallback()
 WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p), grid (p)
 {
-    // Pattern selector controls
-    for (int i = 0; i < (int) Genre::NUM_GENRES; ++i)
-        genreBox.addItem (kGenreNames[i], i + 1);
-    for (int i = 0; i < (int) PatType::NUM_TYPES; ++i)
-        typeBox.addItem (kPatTypeNames[i], i + 1);
+    setLookAndFeel (&lookAndFeel);
 
-    genreAttach  = std::make_unique<CBA> (p.apvts, "genre",   genreBox);
-    typeAttach   = std::make_unique<CBA> (p.apvts, "patType", typeBox);
-    patIdxAttach    = std::make_unique<SA> (p.apvts, "patIdx",    patIdxSlider);
-    gateAttach      = std::make_unique<SA> (p.apvts, "gate",      gateKnob);
-    humanizeAttach  = std::make_unique<SA> (p.apvts, "humanize",  humanizeKnob);
-    swingAttach     = std::make_unique<SA> (p.apvts, "swing",     swingKnob);
-    feelAttach      = std::make_unique<SA> (p.apvts, "feel",      feelKnob);
+    // ── Genre tag chip-bar ────────────────────────────────────────────────
+    refreshTagSelector();
+    tagBar.setTooltip ("Filter patterns by genre tag. Type a partial name and press Enter to add the best match  -  Rock, Backbeat, Trap, etc. Click x on a chip to remove. Patterns matching ANY selected tag are in scope; density augmentation also draws from this pool.");
+    tagBar.onTagsChanged = [this]
+    {
+        auto tags = tagBar.getSelectedTags();
+        lastKnownTags = tags;
+        audioProcessor.setSelectedGenreTags (tags);
+    };
 
+    // ── Pattern index slider ──────────────────────────────────────────────
+    patIdxAttach = std::make_unique<SA> (p.apvts, "patIdx", patIdxSlider);
     patIdxSlider.setSliderStyle (juce::Slider::IncDecButtons);
     patIdxSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 36, 22);
+    patIdxSlider.setTooltip ("Step through the patterns matching your selected tags.");
 
-    for (auto* k : { &gateKnob, &humanizeKnob, &swingKnob, &feelKnob })
+    // ── Knob row ──────────────────────────────────────────────────────────
+    gateAttach     = std::make_unique<SA> (p.apvts, "gate",      gateKnob);
+    humanizeAttach = std::make_unique<SA> (p.apvts, "humanize",  humanizeKnob);
+    swingAttach    = std::make_unique<SA> (p.apvts, "swing",     swingKnob);
+    feelAttach     = std::make_unique<SA> (p.apvts, "feel",      feelKnob);
+    densityAttach  = std::make_unique<SA> (p.apvts, "density",   densityKnob);
+
+    for (auto* k : { &gateKnob, &humanizeKnob, &swingKnob, &feelKnob, &densityKnob })
     {
         k->setSliderStyle (juce::Slider::Rotary);
         k->setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 18);
     }
+
+    gateKnob    .setTooltip ("Gate  -  note length as a percentage of the step duration. Lower = staccato, higher = legato.");
+    humanizeKnob.setTooltip ("Humanize  -  random velocity variation per hit, in MIDI velocity units.");
+    swingKnob   .setTooltip ("Swing  -  delays the off-beat 16th notes for a shuffle/jazz feel. ~67% lands on triplets.");
+    feelKnob    .setTooltip ("Feel  -  per-note timing jitter, bell-curved. Louder hits stay closer to the grid.");
+    densityKnob .setTooltip ("Density  -  0-100% filters quiet hits by velocity threshold; 100-200% adds extra hits at empty slots, drawn from same-tag patterns (most-shared slots first).");
 
     auto labelStyle = [] (juce::Label* lbl)
     {
@@ -309,177 +537,411 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         lbl->setColour (juce::Label::textColourId, juce::Colour (0xffaaaacc));
         lbl->setJustificationType (juce::Justification::centred);
     };
-    for (auto* lbl : { &genreLabel, &typeLabel, &patLabel,
-                       &gateLabel, &humanizeLabel, &swingLabel, &feelLabel })
+    for (auto* lbl : { &genreLabel, &patLabel,
+                       &gateLabel, &humanizeLabel, &swingLabel, &feelLabel, &densityLabel })
         labelStyle (lbl);
 
-    loadMidiBtn.onClick = [this]
-    {
-        fileChooser = std::make_unique<juce::FileChooser> (
-            "Load drum MIDI file", juce::File{}, "*.mid,*.midi");
-        fileChooser->launchAsync (
-            juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-            [this] (const juce::FileChooser& fc)
-            {
-                auto f = fc.getResult();
-                if (f.existsAsFile())
-                    audioProcessor.loadMidiFile (f);
-            });
-    };
+    // ── Generate button (the primary action) ──────────────────────────────
+    genBtn.onClick = [this] { audioProcessor.generateComposite(); refreshTagSelector(); };
+    genBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::accent);
+    genBtn.setColour (juce::TextButton::textColourOffId, juce::Colours::white);
+    genBtn.setTooltip ("Generate a brand-new pattern from the selected genre tags. Each click produces a different mix.");
 
-    genVarBtn.onClick = [this] { audioProcessor.generateVariation(); };
-    editBtn.onClick   = [this] { editMode ? exitEditMode() : enterEditMode(); };
-
-    // Edit-mode toolbar
+    // ── Name bar ──────────────────────────────────────────────────────────
     nameLabel.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
-    nameLabel.setColour (juce::Label::textColourId, juce::Colour (0xffaaaacc));
     nameLabel.setJustificationType (juce::Justification::centredRight);
-    nameEditor.setFont (juce::Font (juce::FontOptions{}.withHeight (13.0f)));
-    nameEditor.setColour (juce::TextEditor::backgroundColourId,     juce::Colour (0xff1e2035));
-    nameEditor.setColour (juce::TextEditor::outlineColourId,        juce::Colour (0xff504070));
-    nameEditor.setColour (juce::TextEditor::focusedOutlineColourId, juce::Colour (0xffa070ff));
-    nameEditor.setColour (juce::TextEditor::textColourId,           juce::Colours::white);
 
-    doneBtn.onClick    = [this] { exitEditMode(); };
-    newPatBtn.onClick  = [this]
+    nameEditor.setFont (juce::Font (juce::FontOptions{}.withHeight (13.0f)));
+    nameEditor.setTooltip ("Rename the current pattern. Press Enter or click away to save.");
+
+    // Keep editingCopy.name in sync while typing; commit on Return or focus-loss
+    nameEditor.onTextChange = [this]
     {
-        editingCopy      = DrumPattern{};
+        editingCopy.name = nameEditor.getText().trim();
+    };
+    nameEditor.onReturnKey = [this] { saveNameChange(); };
+    nameEditor.onFocusLost = [this] { saveNameChange(); };
+
+    newPatBtn.onClick = [this]
+    {
+        editingCopy = DrumPattern{};
         editingCopy.name = "New Pattern";
-        editingCopy.genre = (Genre)   (int) audioProcessor.apvts.getRawParameterValue ("genre")->load();
-        editingCopy.type  = (PatType) (int) audioProcessor.apvts.getRawParameterValue ("patType")->load();
-        nameEditor.setText (editingCopy.name);
-        audioProcessor.autoSavePattern (editingCopy);
-        grid.repaint();
+        auto selTags = audioProcessor.getSelectedGenreTags();
+        if (selTags.isEmpty()) editingCopy.genres.add ("Custom");
+        else                   editingCopy.genres = selTags;
+        editingCopy.type = PatType::Regular;
+        fullPattern = editingCopy;
+
+        nameEditor.setText (editingCopy.name, false);
+        audioProcessor.saveEditedPattern (fullPattern);
+        refreshTagSelector();
     };
     openFolderBtn.onClick = [this] { audioProcessor.getPresetsDirectory().startAsProcess(); };
 
-    juce::Component* editComps[] = { &nameLabel, &nameEditor,
-                                     &doneBtn, &newPatBtn, &openFolderBtn };
-    for (auto* c : editComps)
-        addChildComponent (c);
+    newPatBtn    .setTooltip ("Create a new blank pattern with the currently selected tags.");
+    openFolderBtn.setTooltip ("Open the WillyBeat presets folder in Finder.");
 
-    // Export / drag controls
+    // ── Export / drag controls ────────────────────────────────────────────
     exportBarsBox.addItem ("1 bar",   1);
     exportBarsBox.addItem ("2 bars",  2);
     exportBarsBox.addItem ("4 bars",  3);
     exportBarsBox.addItem ("8 bars",  4);
     exportBarsBox.addItem ("16 bars", 5);
-    exportBarsBox.setSelectedId (3);  // default: 4 bars
+    exportBarsBox.setSelectedId (3);
 
     auto exportLabelStyle = [] (juce::Label* lbl)
     {
         lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
-        lbl->setColour (juce::Label::textColourId, juce::Colour (0xffaaaacc));
         lbl->setJustificationType (juce::Justification::centredRight);
     };
     exportLabelStyle (&barsLabel);
     exportLabelStyle (&seedLabel);
 
     seedEditor.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
-    seedEditor.setColour (juce::TextEditor::backgroundColourId,     juce::Colour (0xff1e2035));
-    seedEditor.setColour (juce::TextEditor::outlineColourId,        juce::Colour (0xff504070));
-    seedEditor.setColour (juce::TextEditor::focusedOutlineColourId, juce::Colour (0xffa070ff));
-    seedEditor.setColour (juce::TextEditor::textColourId,           juce::Colours::white);
-    seedEditor.setTextToShowWhenEmpty ("random", juce::Colour (0xff666699));
+    seedEditor.setTextToShowWhenEmpty ("random", WillyBeatLookAndFeel::textMuted);
     seedEditor.setInputRestrictions (18, "0123456789");
+    seedEditor.setTooltip ("Optional fixed random seed for reproducible exports. Leave blank to get fresh randomness on every drag.");
 
-    fillToggle.setColour (juce::ToggleButton::textColourId, juce::Colour (0xffaaaacc));
+    exportBarsBox.setTooltip ("Number of bars to render when dragging the pattern to the DAW.");
 
-    // Wire up the drag strip
+    // ── Fill rotaries (Start / Mid / End) ─────────────────────────────────
+    fillStartAttach = std::make_unique<SA> (p.apvts, "fillStart", fillStartKnob);
+    fillMidAttach   = std::make_unique<SA> (p.apvts, "fillMid",   fillMidKnob);
+    fillEndAttach   = std::make_unique<SA> (p.apvts, "fillSteps", fillEndKnob);
+
+    auto setupFillKnob = [] (juce::Slider& k)
+    {
+        k.setSliderStyle (juce::Slider::Rotary);
+        k.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 32, 14);
+        // 0 at the right (3 o'clock), max at the left (9 o'clock), arc through bottom.
+        k.setRotaryParameters (juce::MathConstants<float>::halfPi,
+                                juce::MathConstants<float>::halfPi * 3.0f,
+                                true);
+    };
+    setupFillKnob (fillStartKnob);
+    setupFillKnob (fillMidKnob);
+    setupFillKnob (fillEndKnob);
+
+    fillStartKnob.setTooltip ("Fill at start  -  number of leading 16th notes drawn from a fill pattern (head of the fill). 0 = none, 16 = full bar.");
+    fillMidKnob  .setTooltip ("Mid-pattern fill  -  number of 16th notes scattered through the middle of the export, drawn from fill content. Deterministic per seed.");
+    fillEndKnob  .setTooltip ("Fill at end  -  number of trailing 16th notes drawn from a fill pattern (tail of the fill). Lands on the next downbeat.");
+
+    auto fillLabelStyle = [] (juce::Label& l)
+    {
+        l.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
+        l.setJustificationType (juce::Justification::centred);
+    };
+    fillLabelStyle (fillStartLabel);
+    fillLabelStyle (fillMidLabel);
+    fillLabelStyle (fillEndLabel);
+
+    // ── Drag strip — exports current editingCopy ──────────────────────────
     dragStrip.onDrag = [this]() -> juce::File
     {
-        auto* pat = audioProcessor.getActivePattern();
-        if (! pat) return {};
+        if (editingCopy.name.isEmpty()) return {};
 
-        int         numBars  = getBarsFromCombo();
-        bool        addFill  = fillToggle.getToggleState();
-        juce::int64 seed     = getSeedFromEditor();
+        int         numBars   = getBarsFromCombo();
+        int         fillStart = (int) audioProcessor.apvts.getRawParameterValue ("fillStart")->load();
+        int         fillMid   = (int) audioProcessor.apvts.getRawParameterValue ("fillMid")  ->load();
+        int         fillEnd   = (int) audioProcessor.apvts.getRawParameterValue ("fillSteps")->load();
+        juce::int64 seed      = getSeedFromEditor();
 
-        const DrumPattern* fillPat = addFill ? findFill (*pat) : nullptr;
+        // Build a density-aware fill (loaded from disk, with same density as main)
+        DrumPattern fillPattern;
+        const DrumPattern* fillPtr = nullptr;
+        if (fillStart > 0 || fillMid > 0 || fillEnd > 0)
+        {
+            fillPattern = buildFillPatternForExport();
+            if (fillPattern.name.isNotEmpty())
+                fillPtr = &fillPattern;
+        }
 
         float humanize = audioProcessor.apvts.getRawParameterValue ("humanize")->load();
         float swing    = audioProcessor.apvts.getRawParameterValue ("swing")->load();
         float feel     = audioProcessor.apvts.getRawParameterValue ("feel")->load();
 
-        return writePatternToMidi (*pat, fillPat, numBars, addFill, seed,
-                                   humanize, swing, feel);
+        return writePatternToMidi (editingCopy, fillPtr, numBars,
+                                   fillStart, fillMid, fillEnd,
+                                   seed, humanize, swing, feel);
     };
+    dragStrip.setTooltip ("Drag this strip into your DAW's MIDI track to drop the current pattern. Honours bar count, fills, density, and the random seed.");
 
+    // ── Grid — always in edit mode ────────────────────────────────────────
+    grid.onCellChanged = [this] (int t, int s) { autoSaveCurrentEdit (t, s); };
+
+    // ── Initialise full + filtered patterns from the active pattern ───────
+    lastDensity = audioProcessor.apvts.getRawParameterValue ("density")->load() / 100.0f;
+    if (auto* pat = audioProcessor.getActivePattern())
+    {
+        fullPattern      = pat->sourceFile.existsAsFile()
+                              ? PatternLibrary::loadFromFile (pat->sourceFile)
+                              : *pat;
+        editingCopy      = fullPattern;
+        lastKnownPattern = pat;
+        applyDensityToEditingCopy();
+        audioProcessor.getLibrary().updatePattern (editingCopy);
+        nameEditor.setText (editingCopy.name, false);
+    }
+    grid.setEditTarget (&editingCopy);
+    grid.setTooltip ("Click a cell to cycle its velocity (off  ->  medium  ->  hard  ->  accent  ->  ghost  ->  soft). Right-click clears it. Edits auto-save and the playback follows immediately.");
+
+    // ── Add everything ────────────────────────────────────────────────────
     addAndMakeVisible (dragStrip);
     addAndMakeVisible (grid);
-    addAndMakeVisible (genreLabel);     addAndMakeVisible (genreBox);
-    addAndMakeVisible (typeLabel);      addAndMakeVisible (typeBox);
+    addAndMakeVisible (genreLabel);     addAndMakeVisible (tagBar);
     addAndMakeVisible (patLabel);       addAndMakeVisible (patIdxSlider);
     addAndMakeVisible (gateLabel);      addAndMakeVisible (gateKnob);
     addAndMakeVisible (humanizeLabel);  addAndMakeVisible (humanizeKnob);
     addAndMakeVisible (swingLabel);     addAndMakeVisible (swingKnob);
     addAndMakeVisible (feelLabel);      addAndMakeVisible (feelKnob);
-    addAndMakeVisible (loadMidiBtn);
-    addAndMakeVisible (genVarBtn);
-    addAndMakeVisible (editBtn);
-    addAndMakeVisible (barsLabel);      addAndMakeVisible (exportBarsBox);
-    addAndMakeVisible (fillToggle);
-    addAndMakeVisible (seedLabel);      addAndMakeVisible (seedEditor);
+    addAndMakeVisible (densityLabel);   addAndMakeVisible (densityKnob);
+    addAndMakeVisible (genBtn);
+    addAndMakeVisible (nameLabel);      addAndMakeVisible (nameEditor);
+    addAndMakeVisible (newPatBtn);      addAndMakeVisible (openFolderBtn);
+    addAndMakeVisible (barsLabel);       addAndMakeVisible (exportBarsBox);
+    addAndMakeVisible (fillStartLabel);  addAndMakeVisible (fillStartKnob);
+    addAndMakeVisible (fillMidLabel);    addAndMakeVisible (fillMidKnob);
+    addAndMakeVisible (fillEndLabel);    addAndMakeVisible (fillEndKnob);
+    addAndMakeVisible (seedLabel);       addAndMakeVisible (seedEditor);
 
-    setSize (760, 562);
+    // Poll for active-pattern changes at 10 Hz
+    startTimerHz (10);
+
+    setSize (760, 700);
 }
 
 WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
 {
+    stopTimer();
     grid.setEditTarget (nullptr);
     grid.onCellChanged = nullptr;
+    setLookAndFeel (nullptr);
+}
+
+//==============================================================================
+// Timer — detect when the active pattern changes and reload editingCopy
+//==============================================================================
+
+void WillyBeatAudioProcessorEditor::timerCallback()
+{
+    auto* pat = audioProcessor.getActivePattern();
+
+    // Pattern switched — reload pristine fullPattern from disk (the library
+    // entry may have been mutated by density augmentation).
+    if (pat != lastKnownPattern)
+    {
+        lastKnownPattern = pat;
+        if (pat != nullptr)
+        {
+            fullPattern = pat->sourceFile.existsAsFile()
+                              ? PatternLibrary::loadFromFile (pat->sourceFile)
+                              : *pat;
+            editingCopy = fullPattern;
+            applyDensityToEditingCopy();
+            audioProcessor.getLibrary().updatePattern (editingCopy);
+            if (! nameEditor.hasKeyboardFocus (true))
+                nameEditor.setText (editingCopy.name, false);
+            grid.repaint();
+        }
+    }
+
+    // Density knob moved — re-derive editingCopy and push to library for playback
+    float density = audioProcessor.apvts.getRawParameterValue ("density")->load() / 100.0f;
+    if (! juce::approximatelyEqual (density, lastDensity))
+    {
+        lastDensity = density;
+        applyDensityToEditingCopy();
+        audioProcessor.getLibrary().updatePattern (editingCopy);
+        grid.repaint();
+    }
+
+    // Genre tags changed externally (DAW state restore, navigateToPattern, etc.)
+    auto curTags = audioProcessor.getSelectedGenreTags();
+    if (curTags != lastKnownTags)
+    {
+        lastKnownTags = curTags;
+        tagBar.setSelectedTags (curTags);
+    }
 }
 
 //==============================================================================
 
-void WillyBeatAudioProcessorEditor::enterEditMode()
+void WillyBeatAudioProcessorEditor::autoSaveCurrentEdit (int track, int step)
 {
-    auto* pat = audioProcessor.getActivePattern();
-    if (pat == nullptr) return;
+    // A direct cell edit becomes the canonical value in fullPattern.  Only
+    // this cell is synced — other density-hidden cells in fullPattern stay
+    // intact so they can reappear when density is turned back up.
+    if (track >= 0 && track < NUM_TRACKS && step >= 0 && step < MAX_STEPS)
+        fullPattern.velocities[track][step] = editingCopy.velocities[track][step];
 
-    editingCopy = *pat;
-    editMode    = true;
-
-    nameEditor.setText (editingCopy.name, false);
-    grid.setEditTarget (&editingCopy);
-    editBtn.setButtonText ("Exit Edit");
-
-    // Auto-save every cell edit
-    grid.onCellChanged = [this] { autoSaveCurrentEdit(); };
-
-    juce::Component* editComps[] = { &nameLabel, &nameEditor,
-                                     &doneBtn, &newPatBtn, &openFolderBtn };
-    for (auto* c : editComps)
-        c->setVisible (true);
-
-    resized();
-    repaint();
-}
-
-void WillyBeatAudioProcessorEditor::exitEditMode()
-{
-    // Final save (handles any name change committed in the text field)
     editingCopy.name = nameEditor.getText().trim();
     if (editingCopy.name.isEmpty()) editingCopy.name = "Custom Pattern";
-    audioProcessor.saveEditedPattern (editingCopy);
+    fullPattern.name       = editingCopy.name;
+    fullPattern.genres     = editingCopy.genres;
+    fullPattern.type       = editingCopy.type;
 
-    editMode = false;
-    grid.setEditTarget (nullptr);
-    grid.onCellChanged = nullptr;
-    editBtn.setButtonText ("Edit");
+    // Persist the unfiltered fullPattern so density changes stay reversible.
+    audioProcessor.autoSavePattern (fullPattern);
+    editingCopy.sourceFile = fullPattern.sourceFile;
 
-    juce::Component* editComps[] = { &nameLabel, &nameEditor,
-                                     &doneBtn, &newPatBtn, &openFolderBtn };
-    for (auto* c : editComps)
-        c->setVisible (false);
-
-    resized();
-    repaint();
+    // Re-derive editingCopy in case the edit fell into the augmented region,
+    // then push the live (filtered/augmented) version into the library so
+    // processBlock plays exactly what's on screen.
+    applyDensityToEditingCopy();
+    editingCopy.velocities[track][step] = fullPattern.velocities[track][step];
+    audioProcessor.getLibrary().updatePattern (editingCopy);
 }
 
-void WillyBeatAudioProcessorEditor::autoSaveCurrentEdit()
+// Shared density logic — works for both the main pattern and fill patterns.
+// density is 0.0 to 2.0 (≤1 filters by velocity threshold, >1 augments from
+// scope-tagged source patterns at empty slots).  scopeTags is the user's
+// selected genre tags — if non-empty, augmentation only pulls from patterns
+// matching at least one of those tags.
+static void applyDensity (DrumPattern& target,
+                          const DrumPattern& src,
+                          float density,
+                          const PatternLibrary& library,
+                          const juce::StringArray& scopeTags,
+                          bool restrictToSameType)
 {
-    audioProcessor.autoSavePattern (editingCopy);
+    for (int t = 0; t < NUM_TRACKS; ++t)
+        for (int s = 0; s < MAX_STEPS; ++s)
+            target.velocities[t][s] = src.velocities[t][s];
+
+    if (density <= 1.0f)
+    {
+        uint8_t minVel = (uint8_t) ((1.0f - density) * 127.0f);
+        for (int t = 0; t < NUM_TRACKS; ++t)
+            for (int s = 0; s < MAX_STEPS; ++s)
+            {
+                uint8_t v = target.velocities[t][s];
+                if (v > 0 && v < minVel)
+                    target.velocities[t][s] = 0;
+            }
+    }
+    else
+    {
+        const float excess = density - 1.0f;
+
+        // Source pool: patterns matching any scope tag (or all patterns if
+        // no scope is set), excluding `src` itself.
+        auto matches = scopeTags.isEmpty()
+                          ? std::vector<const DrumPattern*>{}
+                          : library.getByTags (scopeTags);
+
+        std::vector<const DrumPattern*> sources;
+        if (scopeTags.isEmpty())
+        {
+            for (const auto& p : library.all())
+                if (p.sourceFile != src.sourceFile)
+                    if (! restrictToSameType || p.type == src.type)
+                        sources.push_back (&p);
+        }
+        else
+        {
+            for (auto* cp : matches)
+                if (cp->sourceFile != src.sourceFile)
+                    if (! restrictToSameType || cp->type == src.type)
+                        sources.push_back (cp);
+        }
+
+        if (sources.empty())
+            for (const auto& p : library.all())
+                if (p.sourceFile != src.sourceFile)
+                    if (! restrictToSameType || p.type == src.type)
+                        sources.push_back (&p);
+
+        if (sources.empty())
+        {
+            target.computeDensity();
+            return;
+        }
+
+        struct Slot { int track, step, popularity; uint8_t vel; };
+        std::vector<Slot> slots;
+        slots.reserve (NUM_TRACKS * MAX_STEPS);
+
+        for (int t = 0; t < NUM_TRACKS; ++t)
+            for (int s = 0; s < MAX_STEPS; ++s)
+            {
+                if (src.velocities[t][s] != 0) continue;
+
+                int pop = 0, velSum = 0;
+                for (auto* sp : sources)
+                {
+                    uint8_t v = sp->velocities[t][s];
+                    if (v > 0) { ++pop; velSum += v; }
+                }
+                if (pop > 0)
+                {
+                    uint8_t avgVel = (uint8_t) (velSum / pop);
+                    slots.push_back ({ t, s, pop, avgVel });
+                }
+            }
+
+        std::sort (slots.begin(), slots.end(),
+                   [] (const Slot& a, const Slot& b)
+                   {
+                       if (a.popularity != b.popularity) return a.popularity > b.popularity;
+                       if (a.track      != b.track)      return a.track      < b.track;
+                       return a.step < b.step;
+                   });
+
+        int numToAdd = (int) std::round (excess * (float) slots.size());
+        for (int i = 0; i < numToAdd && i < (int) slots.size(); ++i)
+            target.velocities[slots[i].track][slots[i].step] = slots[i].vel;
+    }
+
+    target.computeDensity();
+}
+
+void WillyBeatAudioProcessorEditor::applyDensityToEditingCopy()
+{
+    applyDensity (editingCopy, fullPattern, lastDensity,
+                  audioProcessor.getLibrary(),
+                  audioProcessor.getSelectedGenreTags(),
+                  /*restrictToSameType=*/false);
+}
+
+DrumPattern WillyBeatAudioProcessorEditor::buildFillPatternForExport() const
+{
+    auto* fillSrc = findFill (fullPattern);
+    if (fillSrc == nullptr) return DrumPattern{};
+
+    // Always read the canonical (unfiltered) version from disk so density
+    // augmentation in the live library doesn't pollute the fill.
+    DrumPattern fillFull = fillSrc->sourceFile.existsAsFile()
+                              ? PatternLibrary::loadFromFile (fillSrc->sourceFile)
+                              : *fillSrc;
+
+    DrumPattern result = fillFull;
+    // For fills, restrict augmentation sources to other fills so the result
+    // stays "fill-like" rather than gaining backbeat hits from regular patterns.
+    applyDensity (result, fillFull, lastDensity,
+                  audioProcessor.getLibrary(),
+                  audioProcessor.getSelectedGenreTags(),
+                  /*restrictToSameType=*/true);
+    return result;
+}
+
+void WillyBeatAudioProcessorEditor::saveNameChange()
+{
+    auto newName = nameEditor.getText().trim();
+    if (newName.isEmpty()) newName = "Custom Pattern";
+    if (newName == editingCopy.name && editingCopy.sourceFile.existsAsFile()) return;
+
+    editingCopy.name = newName;
+    fullPattern.name = newName;
+    audioProcessor.saveEditedPattern (fullPattern);
+    refreshTagSelector();
+}
+
+void WillyBeatAudioProcessorEditor::refreshTagSelector()
+{
+    tagBar.setAvailableTags (audioProcessor.getLibrary().getGenres());
+    auto sel = audioProcessor.getSelectedGenreTags();
+    lastKnownTags = sel;
+    tagBar.setSelectedTags (sel);
 }
 
 //==============================================================================
@@ -504,13 +966,25 @@ juce::int64 WillyBeatAudioProcessorEditor::getSeedFromEditor() const
     return (juce::int64) text.getLargeIntValue();
 }
 
-const DrumPattern* WillyBeatAudioProcessorEditor::findFill (const DrumPattern& mainPat) const
+const DrumPattern* WillyBeatAudioProcessorEditor::findFill (const DrumPattern& pat) const
 {
-    for (auto type : { PatType::SmallFill, PatType::BigFill })
-    {
-        auto fills = audioProcessor.getLibrary().get (mainPat.genre, type);
-        if (! fills.empty()) return fills[0];
-    }
+    // Prefer fills matching the user's selected scope; fall back to the
+    // pattern's own tags, then any fill in the library.
+    auto scope = audioProcessor.getSelectedGenreTags();
+    if (scope.isEmpty()) scope = pat.genres;
+
+    auto candidates = scope.isEmpty()
+                          ? std::vector<const DrumPattern*>{}
+                          : audioProcessor.getLibrary().getByTags (scope);
+
+    for (auto fillType : { PatType::SmallFill, PatType::BigFill })
+        for (auto* p : candidates)
+            if (p->type == fillType) return p;
+
+    for (auto fillType : { PatType::SmallFill, PatType::BigFill })
+        for (const auto& p : audioProcessor.getLibrary().all())
+            if (p.type == fillType) return &p;
+
     return nullptr;
 }
 
@@ -518,103 +992,119 @@ const DrumPattern* WillyBeatAudioProcessorEditor::findFill (const DrumPattern& m
 
 void WillyBeatAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (0xff141625));
+    g.fillAll (WillyBeatLookAndFeel::bgWindow);
+
+    // Title bar
+    auto titleArea = getLocalBounds().removeFromTop (30);
+    g.setColour (WillyBeatLookAndFeel::accent);
+    g.setFont (juce::Font (juce::FontOptions{}
+                              .withHeight (16.0f)
+                              .withStyle ("Bold")));
+    g.drawFittedText ("WillyBeat", titleArea, juce::Justification::centred, 1);
+
+    // Hairline below the title
+    g.setColour (WillyBeatLookAndFeel::border);
+    g.drawHorizontalLine (30, 16.0f, (float) getWidth() - 16.0f);
 }
 
 void WillyBeatAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced (8);
 
-    // ── Top controls row ──────────────────────────────────────────────────
-    auto topRow = area.removeFromTop (70);
+    // ── Title row reserves space for the painted title ────────────────────
+    area.removeFromTop (34);
 
-    auto genreArea = topRow.removeFromLeft (115);
-    genreLabel.setBounds (genreArea.removeFromTop (20));
-    genreBox  .setBounds (genreArea.removeFromTop (28));
-    topRow.removeFromLeft (6);
+    // ── Row A: genre tags + pat selector + Generate button ────────────────
+    auto rowA = area.removeFromTop (42);
 
-    auto typeArea = topRow.removeFromLeft (105);
-    typeLabel.setBounds (typeArea.removeFromTop (20));
-    typeBox  .setBounds (typeArea.removeFromTop (28));
-    topRow.removeFromLeft (6);
+    // Tag chip-bar takes the left side
+    auto tagsArea = rowA.removeFromLeft (260);
+    genreLabel.setBounds (tagsArea.removeFromTop (18));
+    tagBar    .setBounds (tagsArea.removeFromTop (24));
+    rowA.removeFromLeft (8);
 
-    auto patArea = topRow.removeFromLeft (86);
-    patLabel    .setBounds (patArea.removeFromTop (20));
-    patIdxSlider.setBounds (patArea.removeFromTop (28));
-    topRow.removeFromLeft (6);
+    auto patArea = rowA.removeFromLeft (86);
+    patLabel    .setBounds (patArea.removeFromTop (18));
+    patIdxSlider.setBounds (patArea.removeFromTop (24));
 
-    auto gateArea = topRow.removeFromLeft (56);
-    gateLabel.setBounds (gateArea.removeFromTop (20));
-    gateKnob .setBounds (gateArea);
-    topRow.removeFromLeft (5);
-
-    auto humanArea = topRow.removeFromLeft (56);
-    humanizeLabel.setBounds (humanArea.removeFromTop (20));
-    humanizeKnob .setBounds (humanArea);
-    topRow.removeFromLeft (5);
-
-    auto swingArea = topRow.removeFromLeft (56);
-    swingLabel.setBounds (swingArea.removeFromTop (20));
-    swingKnob .setBounds (swingArea);
-    topRow.removeFromLeft (5);
-
-    auto feelArea = topRow.removeFromLeft (56);
-    feelLabel.setBounds (feelArea.removeFromTop (20));
-    feelKnob .setBounds (feelArea);
-    topRow.removeFromLeft (8);
-
+    // Generate button right-aligned, slightly taller for primary-action emphasis.
     {
-        auto col = topRow.removeFromLeft (90);
-        loadMidiBtn.setBounds (col.removeFromTop (30));
-        col.removeFromTop (4);
-        genVarBtn  .setBounds (col.removeFromTop (30));
+        auto col = rowA.removeFromRight (140);
+        genBtn.setBounds (col.withHeight (34).withY (rowA.getY() + 4));
     }
-    topRow.removeFromLeft (6);
-    editBtn.setBounds (topRow.removeFromLeft (70).withHeight (30));
 
     area.removeFromTop (4);
 
-    // ── Edit-mode toolbar ─────────────────────────────────────────────────
-    if (editMode)
+    // ── Row B: macro knobs ────────────────────────────────────────────────
+    auto rowB = area.removeFromTop (110);
     {
-        auto editRow = area.removeFromTop (34);
-        nameLabel .setBounds (editRow.removeFromLeft (44));
-        editRow.removeFromLeft (4);
-        nameEditor.setBounds (editRow.removeFromLeft (180));
-        editRow.removeFromLeft (8);
-        doneBtn      .setBounds (editRow.removeFromLeft (55).withHeight (26));
-        editRow.removeFromLeft (4);
-        newPatBtn    .setBounds (editRow.removeFromLeft (85).withHeight (26));
-        editRow.removeFromLeft (4);
-        openFolderBtn.setBounds (editRow.removeFromLeft (100).withHeight (26));
-        area.removeFromTop (4);
-    }
-    else
-    {
-        juce::Component* editComps[] = { &nameLabel, &nameEditor,
-                                         &doneBtn, &newPatBtn, &openFolderBtn };
-        for (auto* c : editComps)
-            c->setBounds ({});
+        int sectionW = rowB.getWidth() / 5;
+        juce::Label*  labels[] = { &gateLabel, &humanizeLabel, &swingLabel, &feelLabel, &densityLabel };
+        juce::Slider* knobs[]  = { &gateKnob,  &humanizeKnob,  &swingKnob,  &feelKnob,  &densityKnob };
+        for (int i = 0; i < 5; ++i)
+        {
+            auto section = rowB.removeFromLeft (i < 4 ? sectionW : rowB.getWidth());
+            labels[i]->setBounds (section.removeFromTop (18));
+            knobs[i]->setBounds (section);
+        }
     }
 
-    // ── Export controls row ───────────────────────────────────────────────
-    {
-        auto exportRow = area.removeFromBottom (26);
-        area.removeFromBottom (4);
+    area.removeFromTop (4);
 
-        barsLabel    .setBounds (exportRow.removeFromLeft (34).withHeight (20).withY (exportRow.getY() + 3));
-        exportBarsBox.setBounds (exportRow.removeFromLeft (72).reduced (0, 2));
+    // ── Name bar ──────────────────────────────────────────────────────────
+    {
+        auto nameRow = area.removeFromTop (28);
+        nameLabel .setBounds (nameRow.removeFromLeft (44));
+        nameRow.removeFromLeft (4);
+        nameEditor.setBounds (nameRow.removeFromLeft (220).reduced (0, 2));
+        nameRow.removeFromLeft (8);
+        newPatBtn    .setBounds (nameRow.removeFromLeft (90).withHeight (24).withY (nameRow.getY() + 2));
+        nameRow.removeFromLeft (4);
+        openFolderBtn.setBounds (nameRow.removeFromLeft (100).withHeight (24).withY (nameRow.getY() + 2));
+    }
+
+    area.removeFromTop (6);
+
+    // ── Export row (now ABOVE the grid, so users see export config first) ─
+    {
+        auto exportRow = area.removeFromTop (70);
+
+        auto centred = [&] (juce::Rectangle<int> r) {
+            int yOff = (exportRow.getHeight() - 24) / 2;
+            return r.withHeight (24).withY (exportRow.getY() + yOff);
+        };
+        auto centredLabel = [&] (juce::Rectangle<int> r) {
+            int yOff = (exportRow.getHeight() - 20) / 2;
+            return r.withHeight (20).withY (exportRow.getY() + yOff + 1);
+        };
+
+        barsLabel    .setBounds (centredLabel (exportRow.removeFromLeft (34)));
+        exportBarsBox.setBounds (centred      (exportRow.removeFromLeft (72)));
+        exportRow.removeFromLeft (12);
+
+        // Three fill rotaries: Start / Mid / End — 70-px columns, label above.
+        auto layoutFillKnob = [&] (juce::Label& lbl, juce::Slider& knob)
+        {
+            auto col = exportRow.removeFromLeft (70);
+            lbl .setBounds (col.removeFromTop (14));
+            knob.setBounds (col);
+            exportRow.removeFromLeft (4);
+        };
+        layoutFillKnob (fillStartLabel, fillStartKnob);
+        layoutFillKnob (fillMidLabel,   fillMidKnob);
+        layoutFillKnob (fillEndLabel,   fillEndKnob);
         exportRow.removeFromLeft (10);
-        fillToggle   .setBounds (exportRow.removeFromLeft (90));
-        exportRow.removeFromLeft (10);
-        seedLabel    .setBounds (exportRow.removeFromLeft (36).withHeight (20).withY (exportRow.getY() + 3));
-        seedEditor   .setBounds (exportRow.removeFromLeft (110).reduced (0, 3));
+
+        seedLabel  .setBounds (centredLabel (exportRow.removeFromLeft (36)));
+        seedEditor .setBounds (centred      (exportRow.removeFromLeft (110)));
     }
 
-    // ── Drag strip at bottom ──────────────────────────────────────────────
+    area.removeFromTop (4);
+
+    // ── Drag strip pinned to the bottom ───────────────────────────────────
     dragStrip.setBounds (area.removeFromBottom (26));
     area.removeFromBottom (4);
 
-    // ── Pattern grid fills remaining space ────────────────────────────────
+    // ── Pattern grid fills the remaining middle ───────────────────────────
     grid.setBounds (area);
 }

@@ -46,10 +46,8 @@ static const char* kTrackNames[NUM_TRACKS] = {
     "Tom L", "Rim"
 };
 
-enum class Genre { Rock = 0, HipHop, Funk, Electronic, Jazz, Latin, NUM_GENRES };
 enum class PatType { Regular = 0, Variance, SmallFill, BigFill, NUM_TYPES };
 
-static const char* kGenreNames[]  = { "Rock", "Hip-Hop", "Funk", "Electronic", "Jazz", "Latin" };
 static const char* kPatTypeNames[] = { "Regular", "Variance", "Sm. Fill", "Big Fill" };
 
 constexpr int MAX_STEPS = 16;
@@ -62,11 +60,12 @@ static const char* kTrackFileKeys[NUM_TRACKS] = {
 
 struct DrumPattern
 {
-    juce::String name;
-    Genre        genre    = Genre::Rock;
-    PatType      type     = PatType::Regular;
-    int          numSteps = MAX_STEPS;
-    juce::File   sourceFile;   // where it was loaded from on disk
+    juce::String      name;
+    juce::StringArray genres;          // e.g. {"Hip-Hop", "Boom Bap"} — multiple tags allowed
+    PatType           type     = PatType::Regular;
+    int               numSteps = MAX_STEPS;
+    float             density  = 0.0f; // fraction [0,1] of steps that have a note
+    juce::File        sourceFile;
 
     // velocities[track][step] — 0 means off
     uint8_t velocities[NUM_TRACKS][MAX_STEPS] = {};
@@ -92,5 +91,16 @@ struct DrumPattern
                 default:  velocities[track][i] = 0;   break;
             }
         }
+    }
+
+    // Recompute density from the current velocity grid.
+    void computeDensity()
+    {
+        int total  = NUM_TRACKS * numSteps;
+        int active = 0;
+        for (int t = 0; t < NUM_TRACKS; ++t)
+            for (int s = 0; s < numSteps; ++s)
+                if (velocities[t][s] > 0) ++active;
+        density = (total > 0) ? (float) active / (float) total : 0.0f;
     }
 };

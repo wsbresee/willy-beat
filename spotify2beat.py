@@ -10,6 +10,9 @@ How it works:
   4. Optionally separates the drum stem with Demucs (--stems, much better results)
   5. Transcribes using beat2beat.py logic and writes the preset
 
+The raw Spotify genre tags (e.g. "funk", "boom bap", "electropop") are written
+directly to the .beat file as genre tags — no fixed 6-genre mapping.
+
 Setup (one time):
   1. Create a free Spotify app at https://developer.spotify.com/dashboard
   2. Add these to your shell (e.g. ~/.zshrc):
@@ -27,7 +30,7 @@ Usage:
   python spotify2beat.py "funky drummer james brown"
   python spotify2beat.py "billie jean" --stems
   python spotify2beat.py "money pink floyd" --auto --stems
-  python spotify2beat.py "four on the floor" --genre Electronic --bars 2
+  python spotify2beat.py "four on the floor" --bars 2
 """
 
 import argparse
@@ -60,57 +63,19 @@ import yt_dlp
 sys.path.insert(0, str(Path(__file__).parent))
 from beat2beat import transcribe, format_beat, print_preview, PRESETS_DIR
 
-# ── WillyBeat genre inference ─────────────────────────────────────────────────
+def build_genre_tags(spotify_genres: list) -> list:
+    """Return Spotify genre strings as WillyBeat tags.
 
-# Ordered most-specific first; first match wins
-_GENRE_RULES = [
-    ("latin",      "Latin"),
-    ("salsa",      "Latin"),
-    ("bossa",      "Latin"),
-    ("samba",      "Latin"),
-    ("cumbia",     "Latin"),
-    ("reggaeton",  "Latin"),
-    ("jazz",       "Jazz"),
-    ("swing",      "Jazz"),
-    ("bebop",      "Jazz"),
-    ("blues",      "Jazz"),
-    ("funk",       "Funk"),
-    ("soul",       "Funk"),
-    ("r&b",        "Funk"),
-    ("rnb",        "Funk"),
-    ("motown",     "Funk"),
-    ("disco",      "Funk"),
-    ("hip hop",    "Hip-Hop"),
-    ("hip-hop",    "Hip-Hop"),
-    ("rap",        "Hip-Hop"),
-    ("trap",       "Hip-Hop"),
-    ("drill",      "Hip-Hop"),
-    ("grime",      "Hip-Hop"),
-    ("boom bap",   "Hip-Hop"),
-    ("electronic", "Electronic"),
-    ("edm",        "Electronic"),
-    ("house",      "Electronic"),
-    ("techno",     "Electronic"),
-    ("trance",     "Electronic"),
-    ("drum and bass", "Electronic"),
-    ("dubstep",    "Electronic"),
-    ("ambient",    "Electronic"),
-    ("synthwave",  "Electronic"),
-    ("rock",       "Rock"),
-    ("metal",      "Rock"),
-    ("punk",       "Rock"),
-    ("grunge",     "Rock"),
-    ("alternative","Rock"),
-    ("indie",      "Rock"),
-    ("pop",        "Rock"),
-]
-
-def infer_genre(spotify_genres: list) -> str:
-    text = " ".join(spotify_genres).lower()
-    for keyword, genre in _GENRE_RULES:
-        if keyword in text:
-            return genre
-    return "Rock"
+    Each Spotify genre is title-cased and included directly.  Up to 5 tags
+    are kept so the pattern isn't cluttered; the most-specific (longest) tags
+    are preferred since they carry more information.
+    """
+    if not spotify_genres:
+        return ["Unknown"]
+    # Title-case each tag, deduplicate, sort longest-first, keep up to 5
+    tags = list({g.title() for g in spotify_genres if g.strip()})
+    tags.sort(key=len, reverse=True)
+    return tags[:5]
 
 
 # ── Spotify helpers ───────────────────────────────────────────────────────────
@@ -274,7 +239,7 @@ examples:
   python spotify2beat.py "funky drummer james brown"
   python spotify2beat.py "billie jean" --stems
   python spotify2beat.py "money pink floyd" --auto --stems
-  python spotify2beat.py "amen break" --genre Electronic
+  python spotify2beat.py "amen break" --genre "Electronic, Breakbeat"
         """,
     )
     ap.add_argument("query",               help="Song search query (title, artist, etc.)")
@@ -283,8 +248,7 @@ examples:
     ap.add_argument("--stems",  action="store_true",
                     help="Run Demucs to isolate the drum stem first (slower, more accurate)")
     ap.add_argument("--genre",  default=None,
-                    choices=["Rock","Hip-Hop","Funk","Electronic","Jazz","Latin"],
-                    help="Override inferred genre")
+                    help="Override genre tags (comma-separated, e.g. 'Funk, Soul')")
     ap.add_argument("--bars",   type=int, default=4,
                     help="Bars to analyse from the main section  (default: 4)")
     ap.add_argument("--threshold", type=float, default=0.5, metavar="0-1",
@@ -328,18 +292,22 @@ examples:
         chosen = tracks[idx]
 
     # ── Infer settings ────────────────────────────────────────────────────────
-    genre = args.genre or infer_genre(chosen["genres"])
-    bpm   = chosen["bpm"]    # None if API restricted
+    if args.genre:
+        genre_tags = [g.strip() for g in args.genre.split(",") if g.strip()]
+    else:
+        genre_tags = build_genre_tags(chosen["genres"])
 
-    step_secs  = (60.0 / bpm / 4) if bpm else None
-    skip_bars  = int(chosen["skip_secs"] / (step_secs * 16)) if step_secs else 0
+    bpm = chosen["bpm"]    # None if API restricted
+
+    step_secs = (60.0 / bpm / 4) if bpm else None
+    skip_bars = int(chosen["skip_secs"] / (step_secs * 16)) if step_secs else 0
 
     print(f"\n  Track:  {chosen['name']} — {chosen['artist']}")
     if bpm:
         print(f"  BPM:    {bpm:.1f}  (from Spotify)")
     else:
         print("  BPM:    auto-detect  (Spotify audio features unavailable)")
-    print(f"  Genre:  {genre}")
+    print(f"  Tags:   {', '.join(genre_tags)}")
     print(f"  Skip:   {skip_bars} intro bars")
     print(f"  Bars:   {args.bars}")
 
@@ -379,7 +347,7 @@ examples:
         print_preview(result)
 
         name      = chosen["name"]
-        beat_text = format_beat(name, genre, "Regular", result["pattern"])
+        beat_text = format_beat(name, genre_tags, "Regular", result["pattern"])
 
         if args.print:
             print(beat_text)
