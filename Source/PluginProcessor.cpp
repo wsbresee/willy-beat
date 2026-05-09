@@ -59,6 +59,11 @@ WillyBeatAudioProcessor::createParameterLayout()
         juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f,
         juce::AudioParameterFloatAttributes().withLabel ("%")));
 
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "feel", 1 }, "Feel",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("%")));
+
     return layout;
 }
 
@@ -172,12 +177,15 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& /*buf*/,
     const double ppqStart    = ppqPosition;
     const double ppqEnd      = ppqStart + (double) blockSize * ppqPerSample;
 
-    const float  gatePct     = apvts.getRawParameterValue ("gate")->load() / 100.0f;
-    const int    humanize    = (int) apvts.getRawParameterValue ("humanize")->load();
+    const float  gatePct      = apvts.getRawParameterValue ("gate")->load() / 100.0f;
+    const int    humanize     = (int) apvts.getRawParameterValue ("humanize")->load();
     // swing 0-100: at ~67 the off-beats land on triplet positions (shuffle/jazz feel)
-    const double swingDelay  = apvts.getRawParameterValue ("swing")->load() * (stepPPQ * 0.5 / 100.0);
-    const double stepSamples = stepPPQ / ppqPerSample;
-    const double noteLenSamp = stepSamples * (double) gatePct;
+    const double swingDelay   = apvts.getRawParameterValue ("swing")->load() * (stepPPQ * 0.5 / 100.0);
+    // feel 0-100: per-note timing jitter, bell-curve, velocity-weighted
+    const double maxFeelSamp  = apvts.getRawParameterValue ("feel")->load() / 100.0
+                                    * (stepPPQ / ppqPerSample) * 0.08;
+    const double stepSamples  = stepPPQ / ppqPerSample;
+    const double noteLenSamp  = stepSamples * (double) gatePct;
 
     // Actual PPQ position of globalStep, including swing offset on odd steps
     auto stepToPPQ = [&] (long step) -> double
@@ -216,8 +224,8 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& /*buf*/,
         int patStep = (int) (((globalStep % numSteps) + numSteps) % numSteps);
         currentStep = patStep;
 
-        int sampleOffset = (int) std::round ((stepPPQPos - ppqStart) / ppqPerSample);
-        sampleOffset = juce::jlimit (0, blockSize - 1, sampleOffset);
+        int baseSampleOffset = (int) std::round ((stepPPQPos - ppqStart) / ppqPerSample);
+        baseSampleOffset = juce::jlimit (0, blockSize - 1, baseSampleOffset);
 
         for (int t = 0; t < NUM_TRACKS; ++t)
         {
@@ -231,9 +239,19 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& /*buf*/,
                 vel = (uint8_t) juce::jlimit (1, 127, (int) stored + deviation);
             }
 
+            // Per-note timing jitter — bell curve, louder hits are more on-time
+            int noteOffset = baseSampleOffset;
+            if (maxFeelSamp > 0.0)
+            {
+                double r = (audioRng.nextDouble() + audioRng.nextDouble()) * 0.5 - 0.5;
+                double velFactor = 1.0 - 0.4 * ((double) vel / 127.0);
+                noteOffset = juce::jlimit (0, blockSize - 1,
+                    (int) std::round (baseSampleOffset + r * maxFeelSamp * velFactor));
+            }
+
             int note = kTrackNotes[t];
-            midi.addEvent (juce::MidiMessage::noteOn (10, note, vel), sampleOffset);
-            activeNotes.push_back ({ note, absoluteSample + sampleOffset + (long) noteLenSamp });
+            midi.addEvent (juce::MidiMessage::noteOn (10, note, vel), noteOffset);
+            activeNotes.push_back ({ note, absoluteSample + noteOffset + (long) noteLenSamp });
         }
     }
 

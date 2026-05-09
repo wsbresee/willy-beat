@@ -52,6 +52,7 @@ private:
     juce::Label    gateLabel      { {}, "Gate %" };
     juce::Label    humanizeLabel  { {}, "Humanize" };
     juce::Label    swingLabel     { {}, "Swing" };
+    juce::Label    feelLabel      { {}, "Feel" };
 
     juce::ComboBox genreBox;
     juce::ComboBox typeBox;
@@ -59,6 +60,7 @@ private:
     juce::Slider   gateKnob;
     juce::Slider   humanizeKnob;
     juce::Slider   swingKnob;
+    juce::Slider   feelKnob;
 
     juce::TextButton loadMidiBtn { "Load MIDI" };
     juce::TextButton genVarBtn   { "Variation" };
@@ -73,6 +75,7 @@ private:
     std::unique_ptr<SA>  gateAttach;
     std::unique_ptr<SA>  humanizeAttach;
     std::unique_ptr<SA>  swingAttach;
+    std::unique_ptr<SA>  feelAttach;
 
     std::unique_ptr<juce::FileChooser> fileChooser;
 

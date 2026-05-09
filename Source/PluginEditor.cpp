@@ -164,6 +164,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     gateAttach      = std::make_unique<SA> (p.apvts, "gate",      gateKnob);
     humanizeAttach  = std::make_unique<SA> (p.apvts, "humanize",  humanizeKnob);
     swingAttach     = std::make_unique<SA> (p.apvts, "swing",     swingKnob);
+    feelAttach      = std::make_unique<SA> (p.apvts, "feel",      feelKnob);
 
     patIdxSlider.setSliderStyle (juce::Slider::IncDecButtons);
     patIdxSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 36, 22);
@@ -177,13 +178,17 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     swingKnob.setSliderStyle (juce::Slider::Rotary);
     swingKnob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 18);
 
+    feelKnob.setSliderStyle (juce::Slider::Rotary);
+    feelKnob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 18);
+
     auto labelStyle = [](juce::Label* lbl)
     {
         lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
         lbl->setColour (juce::Label::textColourId, juce::Colour (0xffaaaacc));
         lbl->setJustificationType (juce::Justification::centred);
     };
-    for (auto* lbl : { &genreLabel, &typeLabel, &patLabel, &gateLabel, &humanizeLabel, &swingLabel })
+    for (auto* lbl : { &genreLabel, &typeLabel, &patLabel,
+                       &gateLabel, &humanizeLabel, &swingLabel, &feelLabel })
         labelStyle (lbl);
 
     loadMidiBtn.onClick = [this]
@@ -243,11 +248,13 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     addAndMakeVisible (humanizeKnob);
     addAndMakeVisible (swingLabel);
     addAndMakeVisible (swingKnob);
+    addAndMakeVisible (feelLabel);
+    addAndMakeVisible (feelKnob);
     addAndMakeVisible (loadMidiBtn);
     addAndMakeVisible (genVarBtn);
     addAndMakeVisible (editBtn);
 
-    setSize (720, 530);
+    setSize (760, 530);
 }
 
 WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
@@ -314,34 +321,39 @@ void WillyBeatAudioProcessorEditor::resized()
     // ── Top controls row ──────────────────────────────────────────────────
     auto topRow = area.removeFromTop (70);
 
-    auto genreArea = topRow.removeFromLeft (120);
+    auto genreArea = topRow.removeFromLeft (115);
     genreLabel.setBounds (genreArea.removeFromTop (20));
     genreBox  .setBounds (genreArea.removeFromTop (28));
     topRow.removeFromLeft (6);
 
-    auto typeArea = topRow.removeFromLeft (110);
+    auto typeArea = topRow.removeFromLeft (105);
     typeLabel.setBounds (typeArea.removeFromTop (20));
     typeBox  .setBounds (typeArea.removeFromTop (28));
     topRow.removeFromLeft (6);
 
-    auto patArea = topRow.removeFromLeft (90);
+    auto patArea = topRow.removeFromLeft (86);
     patLabel    .setBounds (patArea.removeFromTop (20));
     patIdxSlider.setBounds (patArea.removeFromTop (28));
     topRow.removeFromLeft (6);
 
-    auto gateArea = topRow.removeFromLeft (58);
+    auto gateArea = topRow.removeFromLeft (56);
     gateLabel.setBounds (gateArea.removeFromTop (20));
     gateKnob .setBounds (gateArea);
-    topRow.removeFromLeft (6);
+    topRow.removeFromLeft (5);
 
-    auto humanArea = topRow.removeFromLeft (58);
+    auto humanArea = topRow.removeFromLeft (56);
     humanizeLabel.setBounds (humanArea.removeFromTop (20));
     humanizeKnob .setBounds (humanArea);
-    topRow.removeFromLeft (6);
+    topRow.removeFromLeft (5);
 
-    auto swingArea = topRow.removeFromLeft (58);
+    auto swingArea = topRow.removeFromLeft (56);
     swingLabel.setBounds (swingArea.removeFromTop (20));
     swingKnob .setBounds (swingArea);
+    topRow.removeFromLeft (5);
+
+    auto feelArea = topRow.removeFromLeft (56);
+    feelLabel.setBounds (feelArea.removeFromTop (20));
+    feelKnob .setBounds (feelArea);
     topRow.removeFromLeft (8);
 
     // Buttons stacked on the right
