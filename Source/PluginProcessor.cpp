@@ -356,6 +356,14 @@ void WillyBeatAudioProcessor::generateVariation()
     apvts.addParameterListener ("patIdx",  this);
 }
 
+void WillyBeatAudioProcessor::autoSavePattern (DrumPattern& p)
+{
+    auto dir = getPresetsDirectory();
+    dir.createDirectory();
+    auto f = library.savePattern (p, dir);
+    p.sourceFile = f;
+}
+
 void WillyBeatAudioProcessor::saveEditedPattern (const DrumPattern& p)
 {
     apvts.removeParameterListener ("genre",   this);

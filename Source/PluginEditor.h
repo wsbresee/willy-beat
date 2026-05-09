@@ -3,42 +3,39 @@
 #include "PluginProcessor.h"
 
 // ─── DragStrip ───────────────────────────────────────────────────────────────
-// Bottom bar the user can drag out of the plugin to drop a MIDI file into the
-// DAW's arrangement view.
+// Bottom bar the user drags out of the plugin to drop a MIDI file into the DAW.
+// The caller sets onDrag to a lambda that builds and returns the temp file.
 class DragStrip : public juce::Component
 {
 public:
-    explicit DragStrip (WillyBeatAudioProcessor& p);
+    std::function<juce::File()> onDrag;
 
-    void paint      (juce::Graphics& g)           override;
-    void mouseDown  (const juce::MouseEvent& e)   override;
-    void mouseDrag  (const juce::MouseEvent& e)   override;
-    void mouseEnter (const juce::MouseEvent& e)   override;
-    void mouseExit  (const juce::MouseEvent& e)   override;
+    void paint      (juce::Graphics& g)         override;
+    void mouseDown  (const juce::MouseEvent&)   override;
+    void mouseDrag  (const juce::MouseEvent&)   override;
+    void mouseEnter (const juce::MouseEvent&)   override;
+    void mouseExit  (const juce::MouseEvent&)   override;
 
 private:
-    WillyBeatAudioProcessor& proc;
     bool hovered     = false;
     bool dragStarted = false;
 };
 
 // ─── PatternGrid ─────────────────────────────────────────────────────────────
-// Draws the 16-step × 10-track velocity grid.  In edit mode it also accepts
-// mouse clicks to cycle the velocity of individual cells.
 class PatternGrid : public juce::Component, public juce::Timer
 {
 public:
     explicit PatternGrid (WillyBeatAudioProcessor& p);
     ~PatternGrid() override;
 
-    void paint (juce::Graphics& g) override;
-    void timerCallback() override;
+    void paint        (juce::Graphics& g)       override;
+    void timerCallback()                         override;
+    void mouseDown    (const juce::MouseEvent& e) override;
 
-    // Edit mode: set a working copy to display and modify.  Pass nullptr to
-    // leave edit mode and go back to displaying the active pattern.
     void setEditTarget (DrumPattern* target);
 
-    void mouseDown (const juce::MouseEvent& e) override;
+    // Called on the message thread after every cell edit in edit mode.
+    std::function<void()> onCellChanged;
 
 private:
     WillyBeatAudioProcessor& proc;
@@ -103,8 +100,7 @@ private:
     // ── Edit-mode toolbar (hidden when not editing) ──────────────────────
     juce::Label      nameLabel    { {}, "Name:" };
     juce::TextEditor nameEditor;
-    juce::TextButton saveBtn      { "Save" };
-    juce::TextButton cancelBtn    { "Cancel" };
+    juce::TextButton doneBtn      { "Done" };
     juce::TextButton newPatBtn    { "New Pattern" };
     juce::TextButton openFolderBtn{ "Open Folder" };
 
@@ -112,7 +108,19 @@ private:
     DrumPattern editingCopy;
 
     void enterEditMode();
-    void exitEditMode (bool save);
+    void exitEditMode();
+    void autoSaveCurrentEdit();
+
+    // ── Export / drag controls ───────────────────────────────────────────
+    juce::Label      barsLabel    { {}, "Bars:" };
+    juce::ComboBox   exportBarsBox;
+    juce::ToggleButton fillToggle { "Fill at end" };
+    juce::Label      seedLabel    { {}, "Seed:" };
+    juce::TextEditor seedEditor;
+
+    int  getBarsFromCombo() const;
+    juce::int64 getSeedFromEditor() const;
+    const DrumPattern* findFill (const DrumPattern& mainPat) const;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WillyBeatAudioProcessorEditor)
 };

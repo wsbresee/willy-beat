@@ -4,30 +4,79 @@
 // Helpers
 //==============================================================================
 
-static juce::File writePatternToMidi (const DrumPattern& pat)
+// Build a MIDI file from mainPat repeated numBars times.
+// The last bar uses fillPat (if addFill && fillPat != nullptr).
+// Swing/humanize/feel are baked in; each bar gets a different random seed so
+// every loop sounds slightly different.  seed == -1 → new random seed each call.
+static juce::File writePatternToMidi (const DrumPattern& mainPat,
+                                      const DrumPattern* fillPat,
+                                      int          numBars,
+                                      bool         addFill,
+                                      juce::int64  seed,
+                                      float        humanize,
+                                      float        swing,
+                                      float        feel)
 {
-    juce::MidiMessageSequence seq;
+    const int    ticksPerStep = 120;    // 480 ticks/QN, 16th = 120
+    const int    stepsPerBar  = MAX_STEPS;
+    const int    ticksPerBar  = ticksPerStep * stepsPerBar;
+    const double swingTicks   = swing   / 100.0 * ticksPerStep * 0.5;
+    const double maxFeelTicks = feel    / 100.0 * ticksPerStep * 0.08;
+    const double gateFrac     = 0.80;
 
-    // Tempo: 120 BPM
+    juce::int64 usedSeed = (seed < 0)
+        ? juce::Random::getSystemRandom().nextInt64()
+        : seed;
+
+    juce::MidiMessageSequence seq;
     seq.addEvent (juce::MidiMessage::tempoMetaEvent (500000), 0.0);
 
-    const double ticksPerStep = 120.0;  // 480 ticks/QN, 16th note = 120
-    const double gateTicks    = 96.0;   // 80 % gate
-
-    int numSteps = (pat.numSteps > 0 && pat.numSteps <= MAX_STEPS) ? pat.numSteps : MAX_STEPS;
-
-    for (int row = 0; row < NUM_TRACKS; ++row)
+    for (int bar = 0; bar < numBars; ++bar)
     {
+        const DrumPattern& pat = (addFill && fillPat && bar == numBars - 1)
+                                     ? *fillPat : mainPat;
+
+        // Mix seed with bar index so each repetition sounds different
+        juce::int64 barSeed = usedSeed ^ ((juce::int64)(bar + 1) * (juce::int64)0x9e3779b97f4a7c15LL);
+        juce::Random barRng (barSeed);
+
+        int numSteps = (pat.numSteps > 0 && pat.numSteps <= MAX_STEPS)
+                           ? pat.numSteps : MAX_STEPS;
+
         for (int col = 0; col < numSteps; ++col)
         {
-            uint8_t vel = pat.velocities[row][col];
-            if (vel == 0) continue;
+            // Step tick with swing on odd 16th positions
+            double stepTick = (double)(bar * ticksPerBar + col * ticksPerStep);
+            if (col % 2 == 1) stepTick += swingTicks;
 
-            double onTick  = col * ticksPerStep;
-            double offTick = onTick + gateTicks;
+            for (int row = 0; row < NUM_TRACKS; ++row)
+            {
+                uint8_t vel = pat.velocities[row][col];
+                if (vel == 0) continue;
 
-            seq.addEvent (juce::MidiMessage::noteOn  (10, kTrackNotes[row], vel),  onTick);
-            seq.addEvent (juce::MidiMessage::noteOff (10, kTrackNotes[row], (uint8_t) 0), offTick);
+                // Velocity humanization
+                if (humanize > 0.0f)
+                {
+                    int h   = (int) humanize;
+                    int dev = barRng.nextInt (2 * h + 1) - h;
+                    vel = (uint8_t) juce::jlimit (1, 127, (int) vel + dev);
+                }
+
+                // Timing feel — bell-curve distribution, velocity-weighted
+                double noteTick = stepTick;
+                if (maxFeelTicks > 0.0)
+                {
+                    double r = (barRng.nextDouble() + barRng.nextDouble()) * 0.5 - 0.5;
+                    double velFactor = 1.0 - 0.4 * ((double) vel / 127.0);
+                    noteTick += r * maxFeelTicks * velFactor;
+                }
+
+                double onTick  = juce::jmax (0.0, noteTick);
+                double offTick = onTick + ticksPerStep * gateFrac;
+
+                seq.addEvent (juce::MidiMessage::noteOn  (10, kTrackNotes[row], vel), onTick);
+                seq.addEvent (juce::MidiMessage::noteOff (10, kTrackNotes[row], (uint8_t) 0), offTick);
+            }
         }
     }
 
@@ -37,7 +86,7 @@ static juce::File writePatternToMidi (const DrumPattern& pat)
     midiFile.setTicksPerQuarterNote (480);
     midiFile.addTrack (seq);
 
-    juce::String safeName = pat.name.replaceCharacters ("/\\:*?\"<>|", "_________").trim();
+    juce::String safeName = mainPat.name.replaceCharacters ("/\\:*?\"<>|", "_________").trim();
     if (safeName.isEmpty()) safeName = "pattern";
 
     auto tempFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
@@ -52,8 +101,6 @@ static juce::File writePatternToMidi (const DrumPattern& pat)
 //==============================================================================
 // DragStrip
 //==============================================================================
-
-DragStrip::DragStrip (WillyBeatAudioProcessor& p) : proc (p) {}
 
 void DragStrip::paint (juce::Graphics& g)
 {
@@ -74,12 +121,9 @@ void DragStrip::mouseDown  (const juce::MouseEvent&) { dragStarted = false; }
 
 void DragStrip::mouseDrag (const juce::MouseEvent&)
 {
-    if (dragStarted) return;
+    if (dragStarted || !onDrag) return;
 
-    auto* pat = proc.getActivePattern();
-    if (pat == nullptr) return;
-
-    auto tempFile = writePatternToMidi (*pat);
+    auto tempFile = onDrag();
     if (! tempFile.existsAsFile()) return;
 
     dragStarted = true;
@@ -104,12 +148,12 @@ PatternGrid::~PatternGrid()
 
 juce::Colour PatternGrid::velColour (uint8_t vel)
 {
-    if (vel == 0)   return juce::Colour (0xff1a1d2e);  // off — dark
-    if (vel <= 30)  return juce::Colour (0xff2a3060);  // ghost
-    if (vel <= 65)  return juce::Colour (0xff3a5090);  // soft
-    if (vel <= 90)  return juce::Colour (0xff5578cc);  // medium
-    if (vel <= 110) return juce::Colour (0xff7a9fff);  // hard
-    return              juce::Colour (0xffb07fff);     // accent
+    if (vel == 0)   return juce::Colour (0xff1a1d2e);
+    if (vel <= 30)  return juce::Colour (0xff2a3060);
+    if (vel <= 65)  return juce::Colour (0xff3a5090);
+    if (vel <= 90)  return juce::Colour (0xff5578cc);
+    if (vel <= 110) return juce::Colour (0xff7a9fff);
+    return              juce::Colour (0xffb07fff);
 }
 
 void PatternGrid::paint (juce::Graphics& g)
@@ -127,7 +171,6 @@ void PatternGrid::paint (juce::Graphics& g)
 
     const int playStep = proc.getCurrentStep().load();
 
-    // Current-step column highlight (only in playback mode)
     if (editTarget == nullptr && playStep >= 0 && playStep < MAX_STEPS)
     {
         float cx = gridX + playStep * cellW;
@@ -135,12 +178,10 @@ void PatternGrid::paint (juce::Graphics& g)
         g.fillRect (cx, 0.0f, cellW, (float) bounds.getHeight());
     }
 
-    // Beat separator lines
     g.setColour (juce::Colour (0xff2a2d3e));
     for (int col = 0; col <= MAX_STEPS; col += 4)
         g.drawVerticalLine ((int) (gridX + col * cellW), 0.0f, (float) bounds.getHeight());
 
-    // Cells
     for (int row = 0; row < NUM_TRACKS; ++row)
     {
         float cy = row * cellH;
@@ -158,7 +199,6 @@ void PatternGrid::paint (juce::Graphics& g)
         }
     }
 
-    // Track labels
     g.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
     for (int row = 0; row < NUM_TRACKS; ++row)
     {
@@ -169,12 +209,10 @@ void PatternGrid::paint (juce::Graphics& g)
                     juce::Justification::centredRight, true);
     }
 
-    // Row dividers
     g.setColour (juce::Colour (0xff2a2d3e));
     for (int row = 0; row <= NUM_TRACKS; ++row)
         g.drawHorizontalLine ((int) (row * cellH), (float) gridX, (float) bounds.getWidth());
 
-    // Edit-mode cursor outline
     if (editTarget != nullptr)
     {
         g.setColour (juce::Colour (0x55a070ff));
@@ -210,7 +248,6 @@ void PatternGrid::mouseDown (const juce::MouseEvent& e)
     }
     else
     {
-        // Cycle: off → medium → hard → accent → ghost → soft → off
         static const uint8_t cycle[] = { 0, 80, 100, 120, 25, 55 };
         constexpr int n = 6;
         int cur = 0;
@@ -220,11 +257,14 @@ void PatternGrid::mouseDown (const juce::MouseEvent& e)
     }
 
     repaint();
+
+    if (onCellChanged)
+        onCellChanged();
 }
 
 void PatternGrid::timerCallback()
 {
-    if (editTarget != nullptr) return;  // not animating playback in edit mode
+    if (editTarget != nullptr) return;
     int step = proc.getCurrentStep().load();
     if (step != lastStep)
     {
@@ -238,9 +278,9 @@ void PatternGrid::timerCallback()
 //==============================================================================
 
 WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p), dragStrip (p), grid (p)
+    : AudioProcessorEditor (&p), audioProcessor (p), grid (p)
 {
-    // Populate combo boxes
+    // Pattern selector controls
     for (int i = 0; i < (int) Genre::NUM_GENRES; ++i)
         genreBox.addItem (kGenreNames[i], i + 1);
     for (int i = 0; i < (int) PatType::NUM_TYPES; ++i)
@@ -257,19 +297,13 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     patIdxSlider.setSliderStyle (juce::Slider::IncDecButtons);
     patIdxSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 36, 22);
 
-    gateKnob.setSliderStyle (juce::Slider::Rotary);
-    gateKnob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 18);
+    for (auto* k : { &gateKnob, &humanizeKnob, &swingKnob, &feelKnob })
+    {
+        k->setSliderStyle (juce::Slider::Rotary);
+        k->setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 18);
+    }
 
-    humanizeKnob.setSliderStyle (juce::Slider::Rotary);
-    humanizeKnob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 18);
-
-    swingKnob.setSliderStyle (juce::Slider::Rotary);
-    swingKnob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 18);
-
-    feelKnob.setSliderStyle (juce::Slider::Rotary);
-    feelKnob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 48, 18);
-
-    auto labelStyle = [](juce::Label* lbl)
+    auto labelStyle = [] (juce::Label* lbl)
     {
         lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
         lbl->setColour (juce::Label::textColourId, juce::Colour (0xffaaaacc));
@@ -293,62 +327,107 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
             });
     };
 
-    genVarBtn.onClick  = [this] { audioProcessor.generateVariation(); };
-    editBtn.onClick    = [this] { editMode ? exitEditMode (false) : enterEditMode(); };
+    genVarBtn.onClick = [this] { audioProcessor.generateVariation(); };
+    editBtn.onClick   = [this] { editMode ? exitEditMode() : enterEditMode(); };
 
-    // Edit-mode toolbar — add as child components (initially invisible)
+    // Edit-mode toolbar
     nameLabel.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
     nameLabel.setColour (juce::Label::textColourId, juce::Colour (0xffaaaacc));
     nameLabel.setJustificationType (juce::Justification::centredRight);
     nameEditor.setFont (juce::Font (juce::FontOptions{}.withHeight (13.0f)));
-    nameEditor.setColour (juce::TextEditor::backgroundColourId,  juce::Colour (0xff1e2035));
-    nameEditor.setColour (juce::TextEditor::outlineColourId,     juce::Colour (0xff504070));
+    nameEditor.setColour (juce::TextEditor::backgroundColourId,     juce::Colour (0xff1e2035));
+    nameEditor.setColour (juce::TextEditor::outlineColourId,        juce::Colour (0xff504070));
     nameEditor.setColour (juce::TextEditor::focusedOutlineColourId, juce::Colour (0xffa070ff));
-    nameEditor.setColour (juce::TextEditor::textColourId,        juce::Colours::white);
+    nameEditor.setColour (juce::TextEditor::textColourId,           juce::Colours::white);
 
-    saveBtn.onClick   = [this] { exitEditMode (true); };
-    cancelBtn.onClick = [this] { exitEditMode (false); };
-    newPatBtn.onClick = [this]
+    doneBtn.onClick    = [this] { exitEditMode(); };
+    newPatBtn.onClick  = [this]
     {
-        editingCopy = DrumPattern{};
-        editingCopy.name  = "New Pattern";
-        editingCopy.genre = (Genre)  (int) audioProcessor.apvts.getRawParameterValue ("genre")->load();
-        editingCopy.type  = (PatType)(int) audioProcessor.apvts.getRawParameterValue ("patType")->load();
+        editingCopy      = DrumPattern{};
+        editingCopy.name = "New Pattern";
+        editingCopy.genre = (Genre)   (int) audioProcessor.apvts.getRawParameterValue ("genre")->load();
+        editingCopy.type  = (PatType) (int) audioProcessor.apvts.getRawParameterValue ("patType")->load();
         nameEditor.setText (editingCopy.name);
+        audioProcessor.autoSavePattern (editingCopy);
         grid.repaint();
     };
-    openFolderBtn.onClick = [this]
-    {
-        audioProcessor.getPresetsDirectory().startAsProcess();
-    };
+    openFolderBtn.onClick = [this] { audioProcessor.getPresetsDirectory().startAsProcess(); };
 
     juce::Component* editComps[] = { &nameLabel, &nameEditor,
-                                      &saveBtn, &cancelBtn, &newPatBtn, &openFolderBtn };
+                                     &doneBtn, &newPatBtn, &openFolderBtn };
     for (auto* c : editComps)
         addChildComponent (c);
 
+    // Export / drag controls
+    exportBarsBox.addItem ("1 bar",   1);
+    exportBarsBox.addItem ("2 bars",  2);
+    exportBarsBox.addItem ("4 bars",  3);
+    exportBarsBox.addItem ("8 bars",  4);
+    exportBarsBox.addItem ("16 bars", 5);
+    exportBarsBox.setSelectedId (3);  // default: 4 bars
+
+    auto exportLabelStyle = [] (juce::Label* lbl)
+    {
+        lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
+        lbl->setColour (juce::Label::textColourId, juce::Colour (0xffaaaacc));
+        lbl->setJustificationType (juce::Justification::centredRight);
+    };
+    exportLabelStyle (&barsLabel);
+    exportLabelStyle (&seedLabel);
+
+    seedEditor.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
+    seedEditor.setColour (juce::TextEditor::backgroundColourId,     juce::Colour (0xff1e2035));
+    seedEditor.setColour (juce::TextEditor::outlineColourId,        juce::Colour (0xff504070));
+    seedEditor.setColour (juce::TextEditor::focusedOutlineColourId, juce::Colour (0xffa070ff));
+    seedEditor.setColour (juce::TextEditor::textColourId,           juce::Colours::white);
+    seedEditor.setTextToShowWhenEmpty ("random", juce::Colour (0xff666699));
+    seedEditor.setInputRestrictions (18, "0123456789");
+
+    fillToggle.setColour (juce::ToggleButton::textColourId, juce::Colour (0xffaaaacc));
+
+    // Wire up the drag strip
+    dragStrip.onDrag = [this]() -> juce::File
+    {
+        auto* pat = audioProcessor.getActivePattern();
+        if (! pat) return {};
+
+        int         numBars  = getBarsFromCombo();
+        bool        addFill  = fillToggle.getToggleState();
+        juce::int64 seed     = getSeedFromEditor();
+
+        const DrumPattern* fillPat = addFill ? findFill (*pat) : nullptr;
+
+        float humanize = audioProcessor.apvts.getRawParameterValue ("humanize")->load();
+        float swing    = audioProcessor.apvts.getRawParameterValue ("swing")->load();
+        float feel     = audioProcessor.apvts.getRawParameterValue ("feel")->load();
+
+        return writePatternToMidi (*pat, fillPat, numBars, addFill, seed,
+                                   humanize, swing, feel);
+    };
+
     addAndMakeVisible (dragStrip);
     addAndMakeVisible (grid);
-    addAndMakeVisible (genreLabel);  addAndMakeVisible (genreBox);
-    addAndMakeVisible (typeLabel);   addAndMakeVisible (typeBox);
-    addAndMakeVisible (patLabel);    addAndMakeVisible (patIdxSlider);
-    addAndMakeVisible (gateLabel);   addAndMakeVisible (gateKnob);
-    addAndMakeVisible (humanizeLabel);
-    addAndMakeVisible (humanizeKnob);
-    addAndMakeVisible (swingLabel);
-    addAndMakeVisible (swingKnob);
-    addAndMakeVisible (feelLabel);
-    addAndMakeVisible (feelKnob);
+    addAndMakeVisible (genreLabel);     addAndMakeVisible (genreBox);
+    addAndMakeVisible (typeLabel);      addAndMakeVisible (typeBox);
+    addAndMakeVisible (patLabel);       addAndMakeVisible (patIdxSlider);
+    addAndMakeVisible (gateLabel);      addAndMakeVisible (gateKnob);
+    addAndMakeVisible (humanizeLabel);  addAndMakeVisible (humanizeKnob);
+    addAndMakeVisible (swingLabel);     addAndMakeVisible (swingKnob);
+    addAndMakeVisible (feelLabel);      addAndMakeVisible (feelKnob);
     addAndMakeVisible (loadMidiBtn);
     addAndMakeVisible (genVarBtn);
     addAndMakeVisible (editBtn);
+    addAndMakeVisible (barsLabel);      addAndMakeVisible (exportBarsBox);
+    addAndMakeVisible (fillToggle);
+    addAndMakeVisible (seedLabel);      addAndMakeVisible (seedEditor);
 
-    setSize (760, 530);
+    setSize (760, 562);
 }
 
 WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
 {
     grid.setEditTarget (nullptr);
+    grid.onCellChanged = nullptr;
 }
 
 //==============================================================================
@@ -365,35 +444,74 @@ void WillyBeatAudioProcessorEditor::enterEditMode()
     grid.setEditTarget (&editingCopy);
     editBtn.setButtonText ("Exit Edit");
 
-    juce::Component* editComps1[] = { &nameLabel, &nameEditor,
-                                       &saveBtn, &cancelBtn, &newPatBtn, &openFolderBtn };
-    for (auto* c : editComps1)
+    // Auto-save every cell edit
+    grid.onCellChanged = [this] { autoSaveCurrentEdit(); };
+
+    juce::Component* editComps[] = { &nameLabel, &nameEditor,
+                                     &doneBtn, &newPatBtn, &openFolderBtn };
+    for (auto* c : editComps)
         c->setVisible (true);
 
     resized();
     repaint();
 }
 
-void WillyBeatAudioProcessorEditor::exitEditMode (bool save)
+void WillyBeatAudioProcessorEditor::exitEditMode()
 {
-    if (save)
-    {
-        editingCopy.name = nameEditor.getText().trim();
-        if (editingCopy.name.isEmpty()) editingCopy.name = "Custom Pattern";
-        audioProcessor.saveEditedPattern (editingCopy);
-    }
+    // Final save (handles any name change committed in the text field)
+    editingCopy.name = nameEditor.getText().trim();
+    if (editingCopy.name.isEmpty()) editingCopy.name = "Custom Pattern";
+    audioProcessor.saveEditedPattern (editingCopy);
 
     editMode = false;
     grid.setEditTarget (nullptr);
+    grid.onCellChanged = nullptr;
     editBtn.setButtonText ("Edit");
 
-    juce::Component* editComps2[] = { &nameLabel, &nameEditor,
-                                       &saveBtn, &cancelBtn, &newPatBtn, &openFolderBtn };
-    for (auto* c : editComps2)
+    juce::Component* editComps[] = { &nameLabel, &nameEditor,
+                                     &doneBtn, &newPatBtn, &openFolderBtn };
+    for (auto* c : editComps)
         c->setVisible (false);
 
     resized();
     repaint();
+}
+
+void WillyBeatAudioProcessorEditor::autoSaveCurrentEdit()
+{
+    audioProcessor.autoSavePattern (editingCopy);
+}
+
+//==============================================================================
+
+int WillyBeatAudioProcessorEditor::getBarsFromCombo() const
+{
+    switch (exportBarsBox.getSelectedId())
+    {
+        case 1: return 1;
+        case 2: return 2;
+        case 3: return 4;
+        case 4: return 8;
+        case 5: return 16;
+        default: return 4;
+    }
+}
+
+juce::int64 WillyBeatAudioProcessorEditor::getSeedFromEditor() const
+{
+    auto text = seedEditor.getText().trim();
+    if (text.isEmpty()) return -1;
+    return (juce::int64) text.getLargeIntValue();
+}
+
+const DrumPattern* WillyBeatAudioProcessorEditor::findFill (const DrumPattern& mainPat) const
+{
+    for (auto type : { PatType::SmallFill, PatType::BigFill })
+    {
+        auto fills = audioProcessor.getLibrary().get (mainPat.genre, type);
+        if (! fills.empty()) return fills[0];
+    }
+    return nullptr;
 }
 
 //==============================================================================
@@ -445,7 +563,6 @@ void WillyBeatAudioProcessorEditor::resized()
     feelKnob .setBounds (feelArea);
     topRow.removeFromLeft (8);
 
-    // Buttons stacked on the right
     {
         auto col = topRow.removeFromLeft (90);
         loadMidiBtn.setBounds (col.removeFromTop (30));
@@ -465,9 +582,7 @@ void WillyBeatAudioProcessorEditor::resized()
         editRow.removeFromLeft (4);
         nameEditor.setBounds (editRow.removeFromLeft (180));
         editRow.removeFromLeft (8);
-        saveBtn      .setBounds (editRow.removeFromLeft (55).withHeight (26));
-        editRow.removeFromLeft (4);
-        cancelBtn    .setBounds (editRow.removeFromLeft (55).withHeight (26));
+        doneBtn      .setBounds (editRow.removeFromLeft (55).withHeight (26));
         editRow.removeFromLeft (4);
         newPatBtn    .setBounds (editRow.removeFromLeft (85).withHeight (26));
         editRow.removeFromLeft (4);
@@ -476,11 +591,24 @@ void WillyBeatAudioProcessorEditor::resized()
     }
     else
     {
-        // Zero-out bounds so hidden components don't intercept clicks
-        juce::Component* editComps3[] = { &nameLabel, &nameEditor,
-                                           &saveBtn, &cancelBtn, &newPatBtn, &openFolderBtn };
-        for (auto* c : editComps3)
+        juce::Component* editComps[] = { &nameLabel, &nameEditor,
+                                         &doneBtn, &newPatBtn, &openFolderBtn };
+        for (auto* c : editComps)
             c->setBounds ({});
+    }
+
+    // ── Export controls row ───────────────────────────────────────────────
+    {
+        auto exportRow = area.removeFromBottom (26);
+        area.removeFromBottom (4);
+
+        barsLabel    .setBounds (exportRow.removeFromLeft (34).withHeight (20).withY (exportRow.getY() + 3));
+        exportBarsBox.setBounds (exportRow.removeFromLeft (72).reduced (0, 2));
+        exportRow.removeFromLeft (10);
+        fillToggle   .setBounds (exportRow.removeFromLeft (90));
+        exportRow.removeFromLeft (10);
+        seedLabel    .setBounds (exportRow.removeFromLeft (36).withHeight (20).withY (exportRow.getY() + 3));
+        seedEditor   .setBounds (exportRow.removeFromLeft (110).reduced (0, 3));
     }
 
     // ── Drag strip at bottom ──────────────────────────────────────────────

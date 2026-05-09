@@ -51,6 +51,10 @@ public:
     // Save an edited pattern (from the in-plugin editor) to disk and reload
     void saveEditedPattern (const DrumPattern& p);
 
+    // Write the pattern file immediately without reloading the library.
+    // Used for auto-save on every cell edit so edits survive plugin crashes.
+    void autoSavePattern (DrumPattern& p);
+
     juce::AudioProcessorValueTreeState apvts;
 
 private:
