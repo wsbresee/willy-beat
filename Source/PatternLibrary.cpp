@@ -1,5 +1,143 @@
 #include "PatternLibrary.h"
 
+namespace
+{
+    // ─── Curated genre clusters ──────────────────────────────────────────
+    // Tags appearing in the same cluster are treated as semantically similar.
+    // Clusters can overlap (e.g. "Hard Rock" lives in both rock + metal) so
+    // the relation is transitive enough to bridge nearby families.  Add tags
+    // here to teach the matcher new associations.
+    const std::vector<juce::StringArray> kGenreClusters = {
+        // Rock / heavy
+        { "Rock", "Classic Rock", "Hard Rock", "Soft Rock", "Indie Rock",
+          "Alt Rock", "Alternative", "Garage Rock", "Punk", "Punk Rock",
+          "Pop Punk", "Post-Punk", "Grunge", "Prog Rock", "Heartland Rock",
+          "Arena Rock", "Folk Rock", "Yacht Rock", "Math Rock", "Emo",
+          "Emo Revival", "Heavy Metal", "Hair Metal", "NWOBHM" },
+        // Metal subgenres
+        { "Metal", "Heavy Metal", "Hard Rock", "Death Metal", "Thrash",
+          "Thrash Metal", "Black Metal", "Doom Metal", "Power Metal",
+          "Groove Metal", "Nu-Metal", "Alt Metal", "Prog Metal", "NWOBHM",
+          "Emo", "Punk Rap" },
+        // Hip-Hop / rap
+        { "Hip-Hop", "Rap", "Boom Bap", "Trap", "Drill", "UK Drill",
+          "Brooklyn Drill", "G-Funk", "West Coast", "East Coast",
+          "Conscious Hip-Hop", "Cloud Rap", "Mumble Rap", "Emo Rap",
+          "Punk Rap", "Phonk", "Pop Rap", "Crunk", "Lo-fi", "Chillhop",
+          "Gangsta Rap", "Country Rap", "Hip-Hop Sample" },
+        // House family
+        { "House", "Tech House", "Deep House", "Acid House", "Italo House",
+          "French House", "French Touch", "Progressive House",
+          "Tropical House", "90s House", "Hi-NRG", "Disco" },
+        // Techno
+        { "Techno", "Detroit Techno", "Acid Techno", "Industrial Techno",
+          "Berlin Minimal", "Bleep", "Industrial" },
+        // Trance / hardcore-adjacent
+        { "Trance", "Progressive Trance", "Hardstyle", "Hardcore",
+          "Speedcore", "Dream Trance", "Big Room", "EDM" },
+        // Drum and Bass / Jungle
+        { "DnB", "Drum and Bass", "Liquid DnB", "Atmospheric DnB", "Jungle",
+          "Drill n Bass", "Drumstep", "Neurofunk", "Atmospheric" },
+        // UK Garage / Bass / 2-Step
+        { "UK Garage", "2-Step", "Future Garage", "Bassline", "Dubstep" },
+        // Dubstep / wonky
+        { "Dubstep", "Brostep", "Wonky", "Future Garage", "Bassline",
+          "Glitch Hop" },
+        // Big Beat / Breaks
+        { "Big Beat", "Breakbeat", "Breaks", "Breakbeat" },
+        // IDM / experimental
+        { "IDM", "Glitch", "Glitch Hop", "Ambient", "Ambient Techno",
+          "Drone", "Industrial", "Experimental", "Avant Pop" },
+        // Footwork / Club
+        { "Footwork", "Juke", "Jersey Club", "Baltimore Club" },
+        // Synthwave family
+        { "Synthwave", "Outrun", "Darksynth", "Vaporwave", "Future Funk",
+          "Future Bass", "80s", "New Wave" },
+        // Disco / Italo / Hi-NRG
+        { "Disco", "Nu-Disco", "Italo Disco", "Eurodisco", "Hi-NRG",
+          "French Touch", "French House", "Funk" },
+        // Soul / Funk / R&B
+        { "Soul", "R&B", "Funk", "P-Funk", "Neo-Soul", "Motown", "Disco",
+          "Blue-Eyed Soul", "Soul Jazz", "Soul Blues", "New Orleans" },
+        // Jazz family
+        { "Jazz", "Cool Jazz", "Bebop", "Swing", "Big Band", "Fusion",
+          "Acid Jazz", "Spiritual Jazz", "Soul Jazz", "Modal Jazz",
+          "Latin Jazz", "Vocal Jazz" },
+        // Pop family
+        { "Pop", "Dance Pop", "Synth-Pop", "Electropop", "Indie Pop",
+          "Hyperpop", "Bedroom Pop", "Dream Pop", "Pop Rock", "Pop Rap",
+          "Boy Band", "Bubblegum Pop", "Art Pop", "Avant Pop",
+          "Tropical House", "Maximalist Pop", "Alt Pop" },
+        // Shoegaze / dream / slowcore
+        { "Shoegaze", "Dream Pop", "Slowcore", "Ethereal Wave",
+          "Bedroom Pop", "Indie" },
+        // Latin
+        { "Latin", "Latin Rock", "Salsa", "Reggaeton", "Bossa Nova",
+          "Samba", "Cumbia", "Bachata", "Mambo", "Brazilian", "Latin Jazz",
+          "Bolivian Folk" },
+        // Afro / world
+        { "Afrobeat", "Afrobeats", "Juju" },
+        // Reggae / dub
+        { "Reggae", "Roots Reggae", "Dub", "Dancehall", "Ska" },
+        // Country / folk / Americana
+        { "Country", "Country Rap", "Folk", "Folk Rock", "Bluegrass",
+          "Americana", "Heartland Rock" },
+        // Blues
+        { "Blues", "Delta Blues", "Chicago Blues", "Soul Blues",
+          "Blues Rock", "Hard Rock" },
+        // Trip-hop / downtempo
+        { "Trip-Hop", "Downtempo", "Instrumental Hip-Hop" },
+        // Indie / alternative crossover
+        { "Indie", "Indie Rock", "Indie Pop", "Indietronica", "Dance Punk",
+          "Alternative", "Alt Rock", "Alt Pop", "Alt Metal" },
+        // Vocal / gospel
+        { "Gospel", "Soul" },
+    };
+
+    static juce::StringArray tokenize (const juce::String& s)
+    {
+        juce::StringArray tokens;
+        tokens.addTokens (s, " -_/&", "");
+        tokens.removeEmptyStrings();
+        return tokens;
+    }
+}
+
+bool PatternLibrary::tagsAreSimilar (const juce::String& a, const juce::String& b)
+{
+    if (a.equalsIgnoreCase (b)) return true;
+
+    auto aLow = a.toLowerCase().trim();
+    auto bLow = b.toLowerCase().trim();
+    if (aLow.isEmpty() || bLow.isEmpty()) return false;
+
+    // Substring either way (catches "Rock" / "Hard Rock" / "Punk Rock").
+    if (aLow.contains (bLow) || bLow.contains (aLow)) return true;
+
+    // Shared meaningful token (catches "Rock and Roll" / "Rock", but skips
+    // tiny linkers like "and" / "of").
+    auto aTokens = tokenize (aLow);
+    auto bTokens = tokenize (bLow);
+    for (const auto& at : aTokens)
+        for (const auto& bt : bTokens)
+            if (at == bt && at.length() > 2)
+                return true;
+
+    // Curated cluster co-membership (catches "Rock" / "Metal", "Trap" / "Drill").
+    for (const auto& cluster : kGenreClusters)
+    {
+        bool aIn = false, bIn = false;
+        for (const auto& c : cluster)
+        {
+            if (! aIn && c.equalsIgnoreCase (a)) aIn = true;
+            if (! bIn && c.equalsIgnoreCase (b)) bIn = true;
+            if (aIn && bIn) return true;
+        }
+    }
+
+    return false;
+}
+
 // Build a DrumPattern from 10 character-encoded rows.
 // genres is a comma-separated list of tags, e.g. "Hip-Hop, Boom Bap"
 // Velocity codes: . off  g ghost(25)  s soft(55)  m medium(80)  h hard(100)  a accent(120)
@@ -340,6 +478,8 @@ bool PatternLibrary::patternToFile (const DrumPattern& p, const juce::File& f)
     text << "genres:  " << p.genres.joinIntoString (", ") << "\n";
     text << "type:    " << kPatTypeNames[(int) p.type] << "\n";
     text << "density: " << juce::String (p.density, 4) << "\n";
+    if (p.isComposite)
+        text << "composite: true\n";
     text << "\n";
     text << "# velocity codes:  . off   g ghost(25)   s soft(55)   m medium(80)   h hard(100)   a accent(120)\n";
 
@@ -408,6 +548,11 @@ DrumPattern PatternLibrary::patternFromFile (const juce::File& f)
             else if (key == "density")
             {
                 p.density = val.getFloatValue();
+            }
+            else if (key == "composite")
+            {
+                auto v = val.toLowerCase();
+                p.isComposite = (v == "true" || v == "1" || v == "yes");
             }
         }
         else
@@ -509,9 +654,8 @@ std::vector<const DrumPattern*> PatternLibrary::getByTag (const juce::String& ta
     {
         for (const auto& g : p.genres)
         {
-            auto gLow  = g.toLowerCase();
-            bool match = fuzzy ? (gLow.contains (tagLow) || tagLow.contains (gLow))
-                               : (gLow == tagLow);
+            bool match = fuzzy ? tagsAreSimilar (g, tag)
+                               : g.toLowerCase() == tagLow;
             if (match) { result.push_back (&p); break; }
         }
     }
@@ -528,13 +672,15 @@ std::vector<const DrumPattern*> PatternLibrary::getByTags (const juce::StringArr
         return result;
     }
 
+    // A pattern matches if any of its tags is semantically similar to any
+    // of the user's selected tags (substring + token + cluster expansion).
     for (const auto& p : patterns)
     {
         bool match = false;
         for (const auto& wanted : tags)
         {
             for (const auto& got : p.genres)
-                if (got.equalsIgnoreCase (wanted)) { match = true; break; }
+                if (tagsAreSimilar (wanted, got)) { match = true; break; }
             if (match) break;
         }
         if (match) result.push_back (&p);
@@ -546,36 +692,76 @@ DrumPattern PatternLibrary::makeComposite (const juce::StringArray& tags,
                                            PatType type,
                                            juce::int64 seed) const
 {
-    auto matches = getByTags (tags);
+    constexpr int kMinSources = 5;
 
-    // Filter by type — fall back to all matches, then to the whole library.
-    std::vector<const DrumPattern*> typed;
+    auto isUsable = [&] (const DrumPattern& p)
+    {
+        // Skip prior generated/composite patterns to avoid feedback-loop
+        // pollution where new generations are sourced from old ones.
+        return ! p.isComposite;
+    };
+
+    auto contains = [] (const std::vector<const DrumPattern*>& v, const DrumPattern* p)
+    {
+        return std::find (v.begin(), v.end(), p) != v.end();
+    };
+
+    std::vector<const DrumPattern*> sources;
+
+    // Pass 1: tag-matched, same type, non-composite.
+    auto matches = getByTags (tags);
     for (auto* p : matches)
-        if (p->type == type) typed.push_back (p);
-    if (typed.empty()) typed = matches;
-    if (typed.empty())
+        if (isUsable (*p) && p->type == type)
+            sources.push_back (p);
+
+    // Pass 2: tag-matched, any type, non-composite (relaxes type filter).
+    if ((int) sources.size() < kMinSources)
+        for (auto* p : matches)
+            if (isUsable (*p) && ! contains (sources, p))
+                sources.push_back (p);
+
+    // Pass 3: fuzzy tag matches (substring, case-insensitive).
+    if ((int) sources.size() < kMinSources && ! tags.isEmpty())
+        for (const auto& tag : tags)
+        {
+            auto fuzzy = getByTag (tag, /*fuzzy=*/true);
+            for (auto* p : fuzzy)
+                if (isUsable (*p) && p->type == type && ! contains (sources, p))
+                    sources.push_back (p);
+        }
+
+    // Pass 4: any non-composite pattern of the right type.
+    if ((int) sources.size() < kMinSources)
         for (const auto& p : patterns)
-            if (p.type == type) typed.push_back (&p);
-    if (typed.empty()) return DrumPattern{};
+            if (isUsable (p) && p.type == type && ! contains (sources, &p))
+                sources.push_back (&p);
+
+    // Pass 5: any non-composite pattern (last resort).
+    if ((int) sources.size() < kMinSources)
+        for (const auto& p : patterns)
+            if (isUsable (p) && ! contains (sources, &p))
+                sources.push_back (&p);
+
+    if (sources.empty()) return DrumPattern{};
 
     juce::Random rng (seed);
-    DrumPattern result = *typed[0];
+    DrumPattern result = *sources[0];
 
-    // Independently pick a random source pattern for each track row.  With
-    // many sources this produces an effectively unique mix per seed.
+    // Independently pick a random source pattern for each track row.
     for (int t = 0; t < NUM_TRACKS; ++t)
     {
-        auto* src = typed[(size_t) rng.nextInt ((int) typed.size())];
+        auto* src = sources[(size_t) rng.nextInt ((int) sources.size())];
         for (int s = 0; s < MAX_STEPS; ++s)
             result.velocities[t][s] = src->velocities[t][s];
     }
 
-    result.genres = tags;
-    if (result.genres.isEmpty()) result.genres.add ("Generated");
-    result.type = type;
-    // Caller sets a unique result.name before saving.
-    result.name = "Generated";
-    result.sourceFile = juce::File();   // force a new file rather than overwrite
+    // Keep the user's exact tag selection on the result so the chip bar stays
+    // unchanged after Generate (no fallback "Generated" tag injected).
+    result.genres      = tags;
+    result.type        = type;
+    result.isComposite = true;
+    result.name        = "Generated";   // caller stamps a unique name before saving
+    result.sourceFile  = juce::File();
     result.computeDensity();
     return result;
 }

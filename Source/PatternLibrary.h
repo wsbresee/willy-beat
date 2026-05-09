@@ -44,6 +44,11 @@ public:
     // Parse a single .beat file directly from disk (pristine, ignores library cache).
     static DrumPattern loadFromFile (const juce::File& f);
 
+    // True if two genre tags are considered semantically similar.
+    // Combines substring matching, shared-token overlap, and curated
+    // cluster co-membership (e.g. "Rock"/"Metal", "Trap"/"Drill", "House"/"Techno").
+    static bool tagsAreSimilar (const juce::String& a, const juce::String& b);
+
 private:
     std::vector<DrumPattern> patterns;
 
