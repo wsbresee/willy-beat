@@ -105,21 +105,24 @@ def classify_onset(y_frame: np.ndarray, sr: int, duration_sec: float) -> str:
     if r_pres > 0.35 and r_air > 0.20:
         return "crash"
 
-    # Strong low end + low centroid → kick
-    if r_low > 0.42 and centroid < 400:
+    # Kick: strong low-band energy ratio is the most reliable indicator.
+    # Centroid is deliberately NOT used here — high-frequency bleed (especially
+    # from Demucs output) pulls the centroid well above 1 kHz even when 80 %+
+    # of energy sits below 350 Hz.
+    if r_low > 0.40:
         return "kick"
 
-    # Mid-dominant with higher centroid → snare or rim
+    # Mid-dominant → snare or rim
     if r_mid > 0.35:
         if duration_sec < 0.07 or centroid > 2000:
             return "rim"
         return "snare"
 
     # Low-mid with lower centroid → toms
-    if r_low > 0.25:
-        if centroid < 180:
+    if r_low > 0.20:
+        if centroid < 200:
             return "tom_l"
-        if centroid < 320:
+        if centroid < 400:
             return "tom_m"
         return "tom_h"
 
@@ -180,12 +183,25 @@ def transcribe(
     if bpm_override:
         tempo = float(bpm_override)
     else:
-        raw_tempo, _ = librosa.beat.beat_track(y=y, sr=sr, units='samples',
+        # Run twice: once unbiased, once biased toward typical music (60-160).
+        # Pick the result whose half-tempo or double-tempo is closer to 90 BPM
+        # (the centre of most popular music).  This cures the common 2x error.
+        raw1, beats1 = librosa.beat.beat_track(y=y, sr=sr, units='samples',
                                                tightness=100)
-        tempo = float(np.atleast_1d(raw_tempo)[0])
-        # Librosa sometimes halves or doubles — clamp to a sane range
-        while tempo < 60:  tempo *= 2
-        while tempo > 240: tempo /= 2
+        raw2, beats2 = librosa.beat.beat_track(y=y, sr=sr, units='samples',
+                                               tightness=100, start_bpm=90)
+        t1 = float(np.atleast_1d(raw1)[0])
+        t2 = float(np.atleast_1d(raw2)[0])
+
+        # Normalise both into 60-180 by halving/doubling
+        def _normalise(t: float) -> float:
+            while t < 60:  t *= 2
+            while t > 180: t /= 2
+            return t
+
+        t1n, t2n = _normalise(t1), _normalise(t2)
+        # Prefer whichever normalised value is closer to 100 BPM
+        tempo = t1n if abs(t1n - 100) <= abs(t2n - 100) else t2n
 
     step_samples = (60.0 / tempo) * sr / 4.0    # one 16th note in samples
     bar_samples  = step_samples * MAX_STEPS
