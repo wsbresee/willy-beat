@@ -583,6 +583,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         fullPattern = editingCopy;
 
         nameEditor.setText (editingCopy.name, false);
+        patternTagBar.setSelectedTags (editingCopy.genres);
         audioProcessor.saveEditedPattern (fullPattern);
         refreshTagSelector();
     };
@@ -590,6 +591,22 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     newPatBtn    .setTooltip ("Create a new blank pattern with the currently selected tags.");
     openFolderBtn.setTooltip ("Open the WillyBeat presets folder in Finder.");
+
+    // ── Per-pattern tag editor ───────────────────────────────────────────
+    patternTagsLabel.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
+    patternTagsLabel.setJustificationType (juce::Justification::centredRight);
+    patternTagBar.setAvailableTags (audioProcessor.getLibrary().getGenres());
+    patternTagBar.setTooltip ("Edit the tags attached to THIS pattern. Changes save immediately and update the library.");
+    patternTagBar.onTagsChanged = [this]
+    {
+        auto newTags = patternTagBar.getSelectedTags();
+        editingCopy.genres = newTags;
+        fullPattern.genres = newTags;
+        audioProcessor.saveEditedPattern (fullPattern);
+        // Refresh both chip bars in case a brand-new tag was just introduced.
+        patternTagBar.setAvailableTags (audioProcessor.getLibrary().getGenres());
+        refreshTagSelector();
+    };
 
     // ── Export / drag controls ────────────────────────────────────────────
     exportBarsBox.addItem ("1 bar",   1);
@@ -683,6 +700,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         applyDensityToEditingCopy();
         audioProcessor.getLibrary().updatePattern (editingCopy);
         nameEditor.setText (editingCopy.name, false);
+        patternTagBar.setSelectedTags (editingCopy.genres);
     }
     grid.setEditTarget (&editingCopy);
     grid.setTooltip ("Click a cell to cycle its velocity (off  ->  medium  ->  hard  ->  accent  ->  ghost  ->  soft). Right-click clears it. Edits auto-save and the playback follows immediately.");
@@ -701,6 +719,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     addAndMakeVisible (collapseBtn);
     addAndMakeVisible (nameLabel);      addAndMakeVisible (nameEditor);
     addAndMakeVisible (newPatBtn);      addAndMakeVisible (openFolderBtn);
+    addAndMakeVisible (patternTagsLabel); addAndMakeVisible (patternTagBar);
     addAndMakeVisible (barsLabel);       addAndMakeVisible (exportBarsBox);
     addAndMakeVisible (fillStartLabel);  addAndMakeVisible (fillStartKnob);
     addAndMakeVisible (fillMidLabel);    addAndMakeVisible (fillMidKnob);
@@ -710,7 +729,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // Poll for active-pattern changes at 10 Hz
     startTimerHz (10);
 
-    setSize (760, 700);
+    setSize (760, 736);
 }
 
 WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
@@ -744,6 +763,7 @@ void WillyBeatAudioProcessorEditor::timerCallback()
             audioProcessor.getLibrary().updatePattern (editingCopy);
             if (! nameEditor.hasKeyboardFocus (true))
                 nameEditor.setText (editingCopy.name, false);
+            patternTagBar.setSelectedTags (editingCopy.genres);
             grid.repaint();
         }
     }
@@ -941,7 +961,10 @@ void WillyBeatAudioProcessorEditor::saveNameChange()
 
 void WillyBeatAudioProcessorEditor::refreshTagSelector()
 {
-    tagBar.setAvailableTags (audioProcessor.getLibrary().getGenres());
+    auto allTags = audioProcessor.getLibrary().getGenres();
+    tagBar       .setAvailableTags (allTags);
+    patternTagBar.setAvailableTags (allTags);
+
     auto sel = audioProcessor.getSelectedGenreTags();
     lastKnownTags = sel;
     tagBar.setSelectedTags (sel);
@@ -1086,6 +1109,16 @@ void WillyBeatAudioProcessorEditor::resized()
         openFolderBtn.setBounds (nameRow.removeFromLeft (100).withHeight (24).withY (nameRow.getY() + 2));
     }
 
+    area.removeFromTop (4);
+
+    // ── Per-pattern tag editor row ────────────────────────────────────────
+    {
+        auto tagRow = area.removeFromTop (26);
+        patternTagsLabel.setBounds (tagRow.removeFromLeft (44));
+        tagRow.removeFromLeft (4);
+        patternTagBar   .setBounds (tagRow.reduced (0, 1));
+    }
+
     area.removeFromTop (6);
 
     // ── Export row (now ABOVE the grid, so users see export config first) ─
@@ -1143,6 +1176,7 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
         &densityLabel,   &densityKnob,
         &nameLabel,      &nameEditor,
         &newPatBtn,      &openFolderBtn,
+        &patternTagsLabel, &patternTagBar,
         &barsLabel,      &exportBarsBox,
         &fillStartLabel, &fillStartKnob,
         &fillMidLabel,   &fillMidKnob,
@@ -1152,5 +1186,5 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     for (auto* c : hideable)
         c->setVisible (show);
 
-    setSize (760, compactMode ? 92 : 700);
+    setSize (760, compactMode ? 92 : 736);
 }

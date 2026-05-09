@@ -149,6 +149,10 @@ private:
     juce::TextButton newPatBtn     { "New Pattern" };
     juce::TextButton openFolderBtn { "Open Folder" };
 
+    // ── Per-pattern tag editor ──────────────────────────────────────────
+    juce::Label  patternTagsLabel { {}, "Tags:" };
+    TagChipBar   patternTagBar;
+
     // ── Export / drag controls ───────────────────────────────────────────
     juce::Label      barsLabel       { {}, "Bars:" };
     juce::ComboBox   exportBarsBox;
