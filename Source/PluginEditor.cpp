@@ -1,6 +1,94 @@
 #include "PluginEditor.h"
 
 //==============================================================================
+// Helpers
+//==============================================================================
+
+static juce::File writePatternToMidi (const DrumPattern& pat)
+{
+    juce::MidiMessageSequence seq;
+
+    // Tempo: 120 BPM
+    seq.addEvent (juce::MidiMessage::tempoMetaEvent (500000), 0.0);
+
+    const double ticksPerStep = 120.0;  // 480 ticks/QN, 16th note = 120
+    const double gateTicks    = 96.0;   // 80 % gate
+
+    int numSteps = (pat.numSteps > 0 && pat.numSteps <= MAX_STEPS) ? pat.numSteps : MAX_STEPS;
+
+    for (int row = 0; row < NUM_TRACKS; ++row)
+    {
+        for (int col = 0; col < numSteps; ++col)
+        {
+            uint8_t vel = pat.velocities[row][col];
+            if (vel == 0) continue;
+
+            double onTick  = col * ticksPerStep;
+            double offTick = onTick + gateTicks;
+
+            seq.addEvent (juce::MidiMessage::noteOn  (10, kTrackNotes[row], vel),  onTick);
+            seq.addEvent (juce::MidiMessage::noteOff (10, kTrackNotes[row], (uint8_t) 0), offTick);
+        }
+    }
+
+    seq.updateMatchedPairs();
+
+    juce::MidiFile midiFile;
+    midiFile.setTicksPerQuarterNote (480);
+    midiFile.addTrack (seq);
+
+    juce::String safeName = pat.name.replaceCharacters ("/\\:*?\"<>|", "_________").trim();
+    if (safeName.isEmpty()) safeName = "pattern";
+
+    auto tempFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                        .getChildFile ("WillyBeat_" + safeName + ".mid");
+
+    if (auto os = tempFile.createOutputStream())
+        midiFile.writeTo (*os);
+
+    return tempFile;
+}
+
+//==============================================================================
+// DragStrip
+//==============================================================================
+
+DragStrip::DragStrip (WillyBeatAudioProcessor& p) : proc (p) {}
+
+void DragStrip::paint (juce::Graphics& g)
+{
+    auto b = getLocalBounds().toFloat().reduced (1.0f);
+    g.setColour (hovered ? juce::Colour (0xff251840) : juce::Colour (0xff1a1530));
+    g.fillRoundedRectangle (b, 4.0f);
+    g.setColour (juce::Colour (0xff6040a0));
+    g.drawRoundedRectangle (b, 4.0f, 1.0f);
+    g.setColour (juce::Colour (0xffaaaacc));
+    g.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
+    g.drawText (juce::CharPointer_UTF8 ("\xe2\xa0\xbf  Drag Pattern to DAW  \xe2\xa0\xbf"),
+                getLocalBounds(), juce::Justification::centred, false);
+}
+
+void DragStrip::mouseEnter (const juce::MouseEvent&) { hovered = true;  repaint(); }
+void DragStrip::mouseExit  (const juce::MouseEvent&) { hovered = false; repaint(); }
+void DragStrip::mouseDown  (const juce::MouseEvent&) { dragStarted = false; }
+
+void DragStrip::mouseDrag (const juce::MouseEvent&)
+{
+    if (dragStarted) return;
+
+    auto* pat = proc.getActivePattern();
+    if (pat == nullptr) return;
+
+    auto tempFile = writePatternToMidi (*pat);
+    if (! tempFile.existsAsFile()) return;
+
+    dragStarted = true;
+    juce::DragAndDropContainer::performExternalDragDropOfFiles (
+        { tempFile.getFullPathName() }, false, this,
+        [tempFile]() mutable { tempFile.deleteFile(); });
+}
+
+//==============================================================================
 // PatternGrid
 //==============================================================================
 
@@ -150,7 +238,7 @@ void PatternGrid::timerCallback()
 //==============================================================================
 
 WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p), grid (p)
+    : AudioProcessorEditor (&p), audioProcessor (p), dragStrip (p), grid (p)
 {
     // Populate combo boxes
     for (int i = 0; i < (int) Genre::NUM_GENRES; ++i)
@@ -239,6 +327,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     for (auto* c : editComps)
         addChildComponent (c);
 
+    addAndMakeVisible (dragStrip);
     addAndMakeVisible (grid);
     addAndMakeVisible (genreLabel);  addAndMakeVisible (genreBox);
     addAndMakeVisible (typeLabel);   addAndMakeVisible (typeBox);
@@ -393,6 +482,10 @@ void WillyBeatAudioProcessorEditor::resized()
         for (auto* c : editComps3)
             c->setBounds ({});
     }
+
+    // ── Drag strip at bottom ──────────────────────────────────────────────
+    dragStrip.setBounds (area.removeFromBottom (26));
+    area.removeFromBottom (4);
 
     // ── Pattern grid fills remaining space ────────────────────────────────
     grid.setBounds (area);

@@ -2,6 +2,26 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 
+// ─── DragStrip ───────────────────────────────────────────────────────────────
+// Bottom bar the user can drag out of the plugin to drop a MIDI file into the
+// DAW's arrangement view.
+class DragStrip : public juce::Component
+{
+public:
+    explicit DragStrip (WillyBeatAudioProcessor& p);
+
+    void paint      (juce::Graphics& g)           override;
+    void mouseDown  (const juce::MouseEvent& e)   override;
+    void mouseDrag  (const juce::MouseEvent& e)   override;
+    void mouseEnter (const juce::MouseEvent& e)   override;
+    void mouseExit  (const juce::MouseEvent& e)   override;
+
+private:
+    WillyBeatAudioProcessor& proc;
+    bool hovered     = false;
+    bool dragStarted = false;
+};
+
 // ─── PatternGrid ─────────────────────────────────────────────────────────────
 // Draws the 16-step × 10-track velocity grid.  In edit mode it also accepts
 // mouse clicks to cycle the velocity of individual cells.
@@ -43,6 +63,7 @@ public:
 private:
     WillyBeatAudioProcessor& audioProcessor;
 
+    DragStrip   dragStrip;
     PatternGrid grid;
 
     // ── Always-visible controls ──────────────────────────────────────────
