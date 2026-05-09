@@ -313,23 +313,18 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
 
 void DragStrip::paint (juce::Graphics& g)
 {
+    // Match the Generate button: accent-filled idle, brighter on hover.
     auto b = getLocalBounds().toFloat().reduced (1.0f);
 
-    // Flat fill — accent on hover, panel surface otherwise.
-    g.setColour (hovered ? WillyBeatLookAndFeel::accent
-                         : WillyBeatLookAndFeel::bgPanel);
+    g.setColour (hovered ? WillyBeatLookAndFeel::accentBright
+                         : WillyBeatLookAndFeel::accent);
     g.fillRoundedRectangle (b, 4.0f);
 
-    g.setColour (hovered ? WillyBeatLookAndFeel::accentBright
-                         : WillyBeatLookAndFeel::border);
-    g.drawRoundedRectangle (b, 4.0f, 1.0f);
-
-    g.setColour (hovered ? juce::Colours::white
-                         : WillyBeatLookAndFeel::textSecondary);
+    g.setColour (juce::Colours::white);
     g.setFont (juce::Font (juce::FontOptions{}
-                              .withHeight (12.0f)
+                              .withHeight (13.0f)
                               .withStyle ("Bold")));
-    g.drawText ("DRAG PATTERN TO DAW",
+    g.drawText ("Drag to DAW",
                 getLocalBounds(), juce::Justification::centred, false);
 }
 
@@ -556,6 +551,12 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     genBtn.setColour (juce::TextButton::textColourOffId, juce::Colours::white);
     genBtn.setTooltip ("Generate a brand-new pattern from the selected genre tags. Each click produces a different mix.");
 
+    // ── Collapse / expand toggle ──────────────────────────────────────────
+    collapseBtn.onClick = [this] { toggleCompactMode(); };
+    collapseBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::bgPanel);
+    collapseBtn.setColour (juce::TextButton::textColourOffId, WillyBeatLookAndFeel::textPrimary);
+    collapseBtn.setTooltip ("Collapse / expand the editor.");
+
     // ── Name bar ──────────────────────────────────────────────────────────
     nameLabel.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
     nameLabel.setJustificationType (juce::Justification::centredRight);
@@ -697,6 +698,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     addAndMakeVisible (feelLabel);      addAndMakeVisible (feelKnob);
     addAndMakeVisible (densityLabel);   addAndMakeVisible (densityKnob);
     addAndMakeVisible (genBtn);
+    addAndMakeVisible (collapseBtn);
     addAndMakeVisible (nameLabel);      addAndMakeVisible (nameEditor);
     addAndMakeVisible (newPatBtn);      addAndMakeVisible (openFolderBtn);
     addAndMakeVisible (barsLabel);       addAndMakeVisible (exportBarsBox);
@@ -1012,13 +1014,29 @@ void WillyBeatAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced (8);
 
-    // ── Title row reserves space for the painted title ────────────────────
-    area.removeFromTop (34);
+    // ── Title row + collapse toggle in the top-right corner ───────────────
+    {
+        auto titleRow = area.removeFromTop (34);
+        auto box = titleRow.removeFromRight (28);
+        collapseBtn.setBounds (box.withSizeKeepingCentre (24, 22));
+    }
 
-    // ── Row A: genre tags + pat selector + Generate button ────────────────
+    // ── Row A: genre tags + pat selector + Generate + Drag-to-DAW ────────
     auto rowA = area.removeFromTop (42);
 
-    // Tag chip-bar takes the left side
+    // Right-aligned primary actions: Generate, then Drag (so Drag sits
+    // immediately to Generate's right).
+    {
+        auto dragCol = rowA.removeFromRight (140);
+        dragStrip.setBounds (dragCol.withHeight (34).withY (rowA.getY() + 4));
+        rowA.removeFromRight (6);
+
+        auto genCol = rowA.removeFromRight (130);
+        genBtn.setBounds (genCol.withHeight (34).withY (rowA.getY() + 4));
+        rowA.removeFromRight (10);
+    }
+
+    // Tag chip-bar takes the left side.
     auto tagsArea = rowA.removeFromLeft (260);
     genreLabel.setBounds (tagsArea.removeFromTop (18));
     tagBar    .setBounds (tagsArea.removeFromTop (24));
@@ -1028,11 +1046,9 @@ void WillyBeatAudioProcessorEditor::resized()
     patLabel    .setBounds (patArea.removeFromTop (18));
     patIdxSlider.setBounds (patArea.removeFromTop (24));
 
-    // Generate button right-aligned, slightly taller for primary-action emphasis.
-    {
-        auto col = rowA.removeFromRight (140);
-        genBtn.setBounds (col.withHeight (34).withY (rowA.getY() + 4));
-    }
+    // In compact mode, hide the rest of the editor.
+    if (compactMode)
+        return;
 
     area.removeFromTop (4);
 
@@ -1102,10 +1118,33 @@ void WillyBeatAudioProcessorEditor::resized()
 
     area.removeFromTop (4);
 
-    // ── Drag strip pinned to the bottom ───────────────────────────────────
-    dragStrip.setBounds (area.removeFromBottom (26));
-    area.removeFromBottom (4);
-
     // ── Pattern grid fills the remaining middle ───────────────────────────
     grid.setBounds (area);
+}
+
+void WillyBeatAudioProcessorEditor::toggleCompactMode()
+{
+    compactMode = ! compactMode;
+    collapseBtn.setButtonText (compactMode ? "+" : "-");
+
+    const bool show = ! compactMode;
+    juce::Component* hideable[] = {
+        &grid,
+        &gateLabel,      &gateKnob,
+        &humanizeLabel,  &humanizeKnob,
+        &swingLabel,     &swingKnob,
+        &feelLabel,      &feelKnob,
+        &densityLabel,   &densityKnob,
+        &nameLabel,      &nameEditor,
+        &newPatBtn,      &openFolderBtn,
+        &barsLabel,      &exportBarsBox,
+        &fillStartLabel, &fillStartKnob,
+        &fillMidLabel,   &fillMidKnob,
+        &fillEndLabel,   &fillEndKnob,
+        &seedLabel,      &seedEditor
+    };
+    for (auto* c : hideable)
+        c->setVisible (show);
+
+    setSize (760, compactMode ? 92 : 700);
 }

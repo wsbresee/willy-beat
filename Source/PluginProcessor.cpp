@@ -89,8 +89,12 @@ WillyBeatAudioProcessor::createParameterLayout()
     auto pattern = std::make_unique<AudioProcessorParameterGroup> (
         "pattern", "Pattern", "|");
 
+    // Wide range so we can navigate the full library — the editor's IncDec
+    // slider just steps one-at-a-time and selectPattern clamps to the
+    // current filtered list size.  Anything above 15 was previously lost,
+    // which made repeated Generate clicks appear to do nothing.
     pattern->addChild (std::make_unique<AudioParameterInt> (
-        ParameterID { "patIdx", 1 }, "Pattern", 0, 15, 0));
+        ParameterID { "patIdx", 1 }, "Pattern", 0, 999, 0));
 
     AudioProcessorValueTreeState::ParameterLayout layout;
     layout.add (std::move (macros));

@@ -117,7 +117,8 @@ private:
     TagChipBar     tagBar;
     juce::Slider   patIdxSlider;
 
-    juce::TextButton genBtn { "Generate" };
+    juce::TextButton genBtn      { "Generate" };
+    juce::TextButton collapseBtn { "-" };
 
     using SA = juce::AudioProcessorValueTreeState::SliderAttachment;
 
@@ -177,6 +178,9 @@ private:
     void saveNameChange();
     void applyDensityToEditingCopy();
     void refreshTagSelector();
+    void toggleCompactMode();
+
+    bool compactMode = false;
 
     juce::StringArray lastKnownTags;
 
