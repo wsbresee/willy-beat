@@ -186,8 +186,8 @@ private:
 
     int         getBarsFromCombo() const;
     juce::int64 getSeedFromEditor() const;
-    const DrumPattern* findFill (const DrumPattern& pat) const;
-    DrumPattern buildFillPatternForExport() const;
+    const DrumPattern* findFill (const DrumPattern& pat, juce::int64 seed) const;
+    DrumPattern buildFillPatternForExport (juce::int64 seed) const;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WillyBeatAudioProcessorEditor)
 };
