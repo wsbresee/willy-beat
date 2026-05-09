@@ -21,6 +21,7 @@ juce_add_plugin(WillyBeat
     NEEDS_MIDI_INPUT            TRUE
     NEEDS_MIDI_OUTPUT           TRUE
     IS_MIDI_EFFECT              TRUE
+    VST3_CATEGORIES             Fx MidiEffect
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD     TRUE
     PRODUCT_NAME                "WillyBeat"
