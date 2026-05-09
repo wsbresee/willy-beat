@@ -73,6 +73,8 @@ public:
     void paint        (juce::Graphics& g)         override;
     void timerCallback()                           override;
     void mouseDown    (const juce::MouseEvent& e)  override;
+    void mouseDrag    (const juce::MouseEvent& e)  override;
+    void mouseUp      (const juce::MouseEvent& e)  override;
 
     void setEditTarget (DrumPattern* target);
 
@@ -83,6 +85,12 @@ private:
     WillyBeatAudioProcessor& proc;
     DrumPattern*             editTarget = nullptr;
     int                      lastStep   = -1;
+
+    // Drag-to-set-velocity state
+    int dragRow      = -1;
+    int dragCol      = -1;
+    int dragStartVel = 0;
+    bool dragMoved   = false;
 
     static constexpr int kLabelW = 68;
 
@@ -141,10 +149,13 @@ private:
 
     juce::TextButton genBtn      { "Generate" };
     juce::TextButton collapseBtn { "-" };
+    juce::TextButton soundBtn    { "Audio" };
 
     using SA = juce::AudioProcessorValueTreeState::SliderAttachment;
+    using BA = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
     std::unique_ptr<SA> patIdxAttach;
+    std::unique_ptr<BA> soundAttach;
 
     // ── Knob row ─────────────────────────────────────────────────────────
     juce::Label  gateLabel      { {}, "Gate %" };

@@ -17,11 +17,11 @@ juce_add_plugin(WillyBeat
     PLUGIN_MANUFACTURER_CODE    Wbrs
     PLUGIN_CODE                 Wbdt
     FORMATS                     VST3 AU Standalone
-    IS_SYNTH                    FALSE
+    IS_SYNTH                    TRUE
     NEEDS_MIDI_INPUT            TRUE
     NEEDS_MIDI_OUTPUT           TRUE
-    IS_MIDI_EFFECT              TRUE
-    VST3_CATEGORIES             Fx MidiEffect
+    IS_MIDI_EFFECT              FALSE
+    VST3_CATEGORIES             Instrument Drum
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD     TRUE
     PRODUCT_NAME                "WillyBeat"
@@ -36,6 +36,7 @@ target_sources(WillyBeat
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
         Source/WillyBeatLookAndFeel.cpp
+        Source/StockDrums.cpp
 )
 
 target_compile_definitions(WillyBeat
