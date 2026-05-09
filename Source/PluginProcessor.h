@@ -36,14 +36,20 @@ public:
     void parameterChanged (const juce::String& id, float value) override;
 
     // --- public interface for the editor ---
-    PatternLibrary& getLibrary() { return library; }
+    PatternLibrary&    getLibrary()       { return library; }
     const DrumPattern* getActivePattern() const { return activePattern; }
-    std::atomic<int>& getCurrentStep()    { return currentStep; }
+    std::atomic<int>&  getCurrentStep()   { return currentStep; }
 
-    // Import a MIDI file and store it as a user pattern
+    juce::File getPresetsDirectory() const;
+
+    // Import a MIDI file and store it as a user preset
     bool loadMidiFile (const juce::File& file);
-    // Generate a variation of the active pattern and store it
+
+    // Generate a variation of the active pattern and store it as a preset
     void generateVariation();
+
+    // Save an edited pattern (from the in-plugin editor) to disk and reload
+    void saveEditedPattern (const DrumPattern& p);
 
     juce::AudioProcessorValueTreeState apvts;
 
@@ -51,6 +57,8 @@ private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     void selectPattern();
+    void navigateToPattern (const DrumPattern& p);
+    void reloadLibrary();
 
     PatternLibrary    library;
     juce::Random      rng;
@@ -58,12 +66,10 @@ private:
 
     const DrumPattern* activePattern = nullptr;
 
-    // Sequencer state
     std::atomic<int> currentStep { 0 };
     long lastFiredStep = -1;
     bool wasPlaying    = false;
 
-    // Note-off queue
     struct ActiveNote { int note; long offAtSample; };
     std::vector<ActiveNote> activeNotes;
     long absoluteSample = 0;

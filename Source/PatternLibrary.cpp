@@ -1,13 +1,14 @@
 #include "PatternLibrary.h"
 
-// Helper: build a DrumPattern from raw string rows
-// rows order: kick, snare, hihat_c, hihat_o, ride, crash, tomH, tomM, tomL, rim
+// Build a DrumPattern from 10 character-encoded rows.
+// Row order: kick, snare, hihat_c, hihat_o, ride, crash, tomH, tomM, tomL, rim
+// Velocity codes: . off  g ghost(25)  s soft(55)  m medium(80)  h hard(100)  a accent(120)
 static DrumPattern make (const char* name, Genre g, PatType t,
-                         const char* kick,    const char* snare,
-                         const char* hihatC,  const char* hihatO,
-                         const char* ride,    const char* crash,
-                         const char* tomH,    const char* tomM,
-                         const char* tomL,    const char* rim)
+                         const char* kick,   const char* snare,
+                         const char* hihatC, const char* hihatO,
+                         const char* ride,   const char* crash,
+                         const char* tomH,   const char* tomM,
+                         const char* tomL,   const char* rim)
 {
     DrumPattern p;
     p.name  = name;
@@ -26,154 +27,142 @@ static DrumPattern make (const char* name, Genre g, PatType t,
     return p;
 }
 
-// Shorthand: 16-char "off" row
 #define OFF "................"
 
 //==============================================================================
+// Built-in patterns
+//==============================================================================
 
-void PatternLibrary::loadBuiltins()
+std::vector<DrumPattern> PatternLibrary::builtinPatterns()
 {
-    // Step reference (16 steps = 1 bar of 16th notes):
-    //   Beat:  1  e  +  a  2  e  +  a  3  e  +  a  4  e  +  a
-    //   Step:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
+    std::vector<DrumPattern> result;
 
     using G = Genre;
     using T = PatType;
+
+    // Beat reference (16 steps = 1 bar of 16th notes):
+    //   1  e  +  a  2  e  +  a  3  e  +  a  4  e  +  a
+    //   0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
 
     // ================================================================
     // ROCK
     // ================================================================
 
-    // Two solid kicks on 1 and 3, snare on 2+4, 8th-note hihats
-    patterns.push_back (make ("Rock Basic", G::Rock, T::Regular,
-        "a.......a.......",   // kick:    1, 3
-        "....a.......a...",   // snare:   2, 4
-        "m.m.m.m.m.m.m.m.",  // hihat_c: 8ths
-        OFF, OFF, OFF, OFF, OFF, OFF, OFF));
-
-    // Kick on 1, and-of-2, 3 — more momentum
-    patterns.push_back (make ("Rock Drive", G::Rock, T::Regular,
-        "a.....h.a.......",   // kick:    1, and-of-2(6), 3
-        "....a.......a...",
-        "m.m.m.m.m.m.m.m.",
-        OFF, OFF, OFF, OFF, OFF, OFF, OFF));
-
-    // Half-time feel: snare lands on beat 3 only
-    patterns.push_back (make ("Rock Half-Time", G::Rock, T::Regular,
-        "a.m.....a.m.....",   // kick:    1, and-of-1, 3, and-of-3
-        "........a.......",   // snare:   beat 3 only
-        "m.m.m.m.m.m.m.m.",
-        OFF, OFF, OFF, OFF, OFF, OFF, OFF));
-
-    // Open hihat on the "and of 4" for a little air
-    patterns.push_back (make ("Rock Open Hat", G::Rock, T::Variance,
+    result.push_back (make ("Rock Basic", G::Rock, T::Regular,
         "a.......a.......",
         "....a.......a...",
-        "m.m.m.m.m.m.m...",  // hihat_c stops before step 14
-        "..............m.",  // hihat_o: and-of-4
+        "m.m.m.m.m.m.m.m.",
+        OFF, OFF, OFF, OFF, OFF, OFF, OFF));
+
+    result.push_back (make ("Rock Drive", G::Rock, T::Regular,
+        "a.....h.a.......",
+        "....a.......a...",
+        "m.m.m.m.m.m.m.m.",
+        OFF, OFF, OFF, OFF, OFF, OFF, OFF));
+
+    result.push_back (make ("Rock Half-Time", G::Rock, T::Regular,
+        "a.m.....a.m.....",
+        "........a.......",
+        "m.m.m.m.m.m.m.m.",
+        OFF, OFF, OFF, OFF, OFF, OFF, OFF));
+
+    result.push_back (make ("Rock Open Hat", G::Rock, T::Variance,
+        "a.......a.......",
+        "....a.......a...",
+        "m.m.m.m.m.m.m...",
+        "..............m.",
         OFF, OFF, OFF, OFF, OFF, OFF));
 
-    // Snare roll into bar + descending toms on beats 3-4
-    patterns.push_back (make ("Rock Small Fill", G::Rock, T::SmallFill,
+    result.push_back (make ("Rock Small Fill", G::Rock, T::SmallFill,
         "a.......a.......",
-        "....a.......h.h.",  // snare fill at 12, 14
-        "m.m.m.m.........",  // hihat only first half
+        "....a.......h.h.",
+        "m.m.m.m.........",
         OFF, OFF, OFF,
-        "........h.......",  // tomH: step 8
-        "..........h.....",  // tomM: step 10
-        "............h...",  // tomL: step 12
+        "........h.......",
+        "..........h.....",
+        "............h...",
         OFF));
 
-    // Full-bar tom run, crash on 1
-    patterns.push_back (make ("Rock Big Fill", G::Rock, T::BigFill,
+    result.push_back (make ("Rock Big Fill", G::Rock, T::BigFill,
         "a...............",
         "....h...h.......",
         OFF, OFF, OFF,
-        "a...............",  // crash: 1
-        ".......mhm......",  // tomH: 7,8,9
-        "..........hm....",  // tomM: 10,11
-        "............hmhm",  // tomL: 12,13,14,15
+        "a...............",
+        ".......mhm......",
+        "..........hm....",
+        "............hmhm",
         OFF));
 
     // ================================================================
     // HIP-HOP
     // ================================================================
 
-    // Classic boom-bap: kick on 1, and-of-3; snare on 2+4; 8th hihats
-    patterns.push_back (make ("Boom Bap", G::HipHop, T::Regular,
-        "a.......a.m.....",   // kick: 1, 3, and-of-3(10)
+    result.push_back (make ("Boom Bap", G::HipHop, T::Regular,
+        "a.......a.m.....",
         "....a.......a...",
         "m.m.m.m.m.m.m.m.",
         OFF, OFF, OFF, OFF, OFF, OFF, OFF));
 
-    // Trap-adjacent: sparse kick, half-time snare, 16th hihats
-    patterns.push_back (make ("Trap Feel", G::HipHop, T::Regular,
-        "a...........a...",   // kick: 1, 4
-        "........a.......",   // snare: beat 3 (half-time)
-        "mmmmmmmmmmmmmmmm",   // hihat_c: 16th notes
+    result.push_back (make ("Trap Feel", G::HipHop, T::Regular,
+        "a...........a...",
+        "........a.......",
+        "mmmmmmmmmmmmmmmm",
         OFF, OFF, OFF, OFF, OFF, OFF, OFF));
 
-    // More syncopated kick, open hat for feel
-    patterns.push_back (make ("Hip-Hop Groove", G::HipHop, T::Variance,
-        "a.m.....a.......",   // kick: 1, and-of-1, 3
+    result.push_back (make ("Hip-Hop Groove", G::HipHop, T::Variance,
+        "a.m.....a.......",
         "....a.......a...",
         "m.m.m.m.m.m.m...",
-        "..............m.",   // hihat_o: and-of-4
+        "..............m.",
         OFF, OFF, OFF, OFF, OFF, OFF));
 
-    // Short snare flam into next bar
-    patterns.push_back (make ("Hip-Hop Sm. Fill", G::HipHop, T::SmallFill,
+    result.push_back (make ("Hip-Hop Sm. Fill", G::HipHop, T::SmallFill,
         "a.......a.......",
-        "....a.......hhhh",   // snare roll last 4 steps
+        "....a.......hhhh",
         "m.m.m.m.........",
         OFF, OFF, OFF, OFF, OFF, OFF, OFF));
 
-    // Rolling snare fill, crash landing
-    patterns.push_back (make ("Hip-Hop Big Fill", G::HipHop, T::BigFill,
+    result.push_back (make ("Hip-Hop Big Fill", G::HipHop, T::BigFill,
         "a...............",
-        "....h.h.h.h.h.h.",   // snare fills second half
+        "....h.h.h.h.h.h.",
         OFF, OFF, OFF,
-        "a...............",   // crash
+        "a...............",
         OFF, OFF, OFF, OFF));
 
     // ================================================================
     // FUNK
     // ================================================================
 
-    // Classic funk: syncopated kick, ghost snare, 16th hihats
-    patterns.push_back (make ("Funk Basic", G::Funk, T::Regular,
-        "a..m....a.......",   // kick: 1, a-of-1(3), 3
-        "g...a.g.g...a.g.",   // snare: ghosts + mains on 2, 4
-        "mmmmmmmmmmmmmmmm",   // hihat_c: 16th notes
-        OFF, OFF, OFF, OFF, OFF, OFF, OFF));
-
-    // JB-style: kick on 1 + and-of-3, 16ths, heavy ghost game
-    patterns.push_back (make ("Funk JB", G::Funk, T::Regular,
-        "a.......m.m.....",   // kick: 1, and-of-3(10), e-of-4(9)
-        "g...a.gg....a.g.",   // denser ghosts
+    result.push_back (make ("Funk Basic", G::Funk, T::Regular,
+        "a..m....a.......",
+        "g...a.g.g...a.g.",
         "mmmmmmmmmmmmmmmm",
         OFF, OFF, OFF, OFF, OFF, OFF, OFF));
 
-    // Looser funk with open hihats on the and's
-    patterns.push_back (make ("Funk Loose", G::Funk, T::Variance,
-        "a...m...a.......",   // kick: 1, e-of-2(4)→ beat2? No: step4=beat2, step5=e-of-2. Let me use step 4.
+    result.push_back (make ("Funk JB", G::Funk, T::Regular,
+        "a.......m.m.....",
+        "g...a.gg....a.g.",
+        "mmmmmmmmmmmmmmmm",
+        OFF, OFF, OFF, OFF, OFF, OFF, OFF));
+
+    result.push_back (make ("Funk Loose", G::Funk, T::Variance,
+        "a...m...a.......",
         "g...a.g.g...a...",
-        "m.m.m...m.m.m...",   // hihat_c: avoids 6,10,14
-        "......m.....m.m.",   // hihat_o: 6, 10, 14
+        "m.m.m...m.m.m...",
+        "......m.....m.m.",
         OFF, OFF, OFF, OFF, OFF, OFF));
 
-    // Last 4 steps replaced with snare + tom fill
-    patterns.push_back (make ("Funk Sm. Fill", G::Funk, T::SmallFill,
+    result.push_back (make ("Funk Sm. Fill", G::Funk, T::SmallFill,
         "a..m....a.......",
-        "g...a...........",   // ghost on 1, accent on 2, silent during fill
+        "g...a...........",
         "mmmmmmmm........",
         OFF, OFF, OFF,
-        "........h.h.....",   // tomH
-        "..........h.h...",   // tomM
-        "............h.h.",   // tomL
+        "........h.h.....",
+        "..........h.h...",
+        "............h.h.",
         OFF));
 
-    patterns.push_back (make ("Funk Big Fill", G::Funk, T::BigFill,
+    result.push_back (make ("Funk Big Fill", G::Funk, T::BigFill,
         "a...............",
         "....h.h.h.......",
         OFF, OFF, OFF,
@@ -187,37 +176,34 @@ void PatternLibrary::loadBuiltins()
     // ELECTRONIC
     // ================================================================
 
-    // Four-on-the-floor: kick every beat, snare on 2+4, 8th hihats
-    patterns.push_back (make ("EDM 4-on-Floor", G::Electronic, T::Regular,
-        "a...a...a...a...",   // kick: every beat
+    result.push_back (make ("EDM 4-on-Floor", G::Electronic, T::Regular,
+        "a...a...a...a...",
         "....a.......a...",
         "m.m.m.m.m.m.m.m.",
         OFF, OFF, OFF, OFF, OFF, OFF, OFF));
 
-    // Driving techno: 4otf + 16th hihats
-    patterns.push_back (make ("Techno Drive", G::Electronic, T::Regular,
+    result.push_back (make ("Techno Drive", G::Electronic, T::Regular,
         "a...a...a...a...",
         "....a.......a...",
-        "mmmmmmmmmmmmmmmm",   // 16th hihats
+        "mmmmmmmmmmmmmmmm",
         OFF, OFF, OFF, OFF, OFF, OFF, OFF));
 
-    // Open hihats on the and's, quarter-note closed
-    patterns.push_back (make ("EDM Open Hat", G::Electronic, T::Variance,
+    result.push_back (make ("EDM Open Hat", G::Electronic, T::Variance,
         "a...a...a...a...",
         "....a.......a...",
-        "m...m...m...m...",   // hihat_c: quarter notes
-        "..m...m...m...m.",   // hihat_o: and's
+        "m...m...m...m...",
+        "..m...m...m...m.",
         OFF, OFF, OFF, OFF, OFF, OFF));
 
-    patterns.push_back (make ("EDM Sm. Fill", G::Electronic, T::SmallFill,
+    result.push_back (make ("EDM Sm. Fill", G::Electronic, T::SmallFill,
         "a...a...a.......",
         "....a.......h.h.",
         "m.m.m.m.........",
         OFF, OFF,
-        "............a...",   // crash on beat 4
+        "............a...",
         OFF, OFF, OFF, OFF));
 
-    patterns.push_back (make ("EDM Big Fill", G::Electronic, T::BigFill,
+    result.push_back (make ("EDM Big Fill", G::Electronic, T::BigFill,
         "a...a...........",
         "....a...h.h.h.h.",
         OFF, OFF, OFF,
@@ -228,41 +214,37 @@ void PatternLibrary::loadBuiltins()
     // JAZZ
     // ================================================================
 
-    // Classic jazz ride: ding-ding-da-ding on ride, hihat pedal 2+4
-    patterns.push_back (make ("Jazz Ride", G::Jazz, T::Regular,
-        "s...............",   // feathered kick on beat 1
-        "....s.......s...",   // soft snare (brushes) on 2+4
+    result.push_back (make ("Jazz Ride", G::Jazz, T::Regular,
+        "s...............",
+        "....s.......s...",
         OFF,
         OFF,
-        "m...m.m.m...m.m.",  // ride: 1, 2, and-2, 3, 4, and-4
+        "m...m.m.m...m.m.",
         OFF, OFF, OFF, OFF,
-        "....m.......m..."));  // rim = hihat pedal on 2+4
+        "....m.......m..."));
 
-    // Walking ride + more active kick + ghost snares
-    patterns.push_back (make ("Jazz Groove", G::Jazz, T::Regular,
-        "s.......m.......",   // kick: 1, 3 (feathered)
-        "g...s.g.g...s.g.",   // brush-style ghost snare
+    result.push_back (make ("Jazz Groove", G::Jazz, T::Regular,
+        "s.......m.......",
+        "g...s.g.g...s.g.",
         OFF, OFF,
         "m...m.m.m...m.m.",
         OFF, OFF, OFF, OFF,
         "....m.......m..."));
 
-    // More open, brushes feel — ride swings harder
-    patterns.push_back (make ("Jazz Brush", G::Jazz, T::Variance,
+    result.push_back (make ("Jazz Brush", G::Jazz, T::Variance,
         "s...............",
-        "g.g.s.g.g.g.s.g.",   // very ghost-heavy
+        "g.g.s.g.g.g.s.g.",
         OFF, OFF,
-        "m.m.m.m.m.m.m.m.",   // 8th-note ride
+        "m.m.m.m.m.m.m.m.",
         OFF, OFF, OFF, OFF,
         "....m.......m..."));
 
-    // Tom fill with jazz phrasing
-    patterns.push_back (make ("Jazz Fill", G::Jazz, T::BigFill,
+    result.push_back (make ("Jazz Fill", G::Jazz, T::BigFill,
         "s...............",
         "....h...h.......",
         OFF, OFF,
-        "m...m.m.........",   // ride first half
-        "a...............",   // crash on 1
+        "m...m.m.........",
+        "a...............",
         "........h.......",
         "..........h.....",
         "............h.h.",
@@ -272,34 +254,30 @@ void PatternLibrary::loadBuiltins()
     // LATIN
     // ================================================================
 
-    // Bossa Nova: clave on rim, kick on 1+3, ride 8ths, hihat pedal 2+4
-    patterns.push_back (make ("Bossa Nova", G::Latin, T::Regular,
-        "m.......m.......",   // kick: 1, 3
-        OFF,
-        OFF, OFF,
-        "m.m.m.m.m.m.m.m.",  // ride: 8th notes
-        OFF, OFF, OFF, OFF,
-        "m..m..m.....m.m."));  // rim: 3-2 son clave approximation
-
-    // Samba feel: busier kick, 16th hihats, clave rim
-    patterns.push_back (make ("Samba", G::Latin, T::Regular,
-        "m.m.m.m.m.m.m.m.",   // kick: 8th notes (surdo)
-        "..g...g...g...g.",   // ghost snare between kicks
-        "mmmmmmmmmmmmmmmm",   // hihat_c: 16th notes
-        OFF, OFF, OFF, OFF, OFF, OFF,
-        "m..m..m.....m.m."));  // rim: clave
-
-    // Tighter bossa with more snare presence
-    patterns.push_back (make ("Bossa Groove", G::Latin, T::Variance,
+    result.push_back (make ("Bossa Nova", G::Latin, T::Regular,
         "m.......m.......",
-        "g...s.g.....s...",   // ghost + soft snare hits
+        OFF,
         OFF, OFF,
         "m.m.m.m.m.m.m.m.",
         OFF, OFF, OFF, OFF,
         "m..m..m.....m.m."));
 
-    // Latin big fill with timbale-style tom run
-    patterns.push_back (make ("Latin Fill", G::Latin, T::BigFill,
+    result.push_back (make ("Samba", G::Latin, T::Regular,
+        "m.m.m.m.m.m.m.m.",
+        "..g...g...g...g.",
+        "mmmmmmmmmmmmmmmm",
+        OFF, OFF, OFF, OFF, OFF, OFF,
+        "m..m..m.....m.m."));
+
+    result.push_back (make ("Bossa Groove", G::Latin, T::Variance,
+        "m.......m.......",
+        "g...s.g.....s...",
+        OFF, OFF,
+        "m.m.m.m.m.m.m.m.",
+        OFF, OFF, OFF, OFF,
+        "m..m..m.....m.m."));
+
+    result.push_back (make ("Latin Fill", G::Latin, T::BigFill,
         "m...............",
         "....h...h.......",
         OFF, OFF, OFF,
@@ -308,72 +286,170 @@ void PatternLibrary::loadBuiltins()
         "..........hm....",
         "............hmhm",
         "m..m............"));
+
+    return result;
 }
 
 //==============================================================================
+// File I/O helpers
+//==============================================================================
 
-PatternLibrary::PatternLibrary()
+int PatternLibrary::trackFromKey (const juce::String& key)
 {
-    loadBuiltins();
+    auto k = key.trim().toLowerCase();
+    if (k == "kick")                              return TR_KICK;
+    if (k == "snare")                             return TR_SNARE;
+    if (k == "hihat_c" || k == "hihatc")          return TR_HIHAT_C;
+    if (k == "hihat_o" || k == "hihato")          return TR_HIHAT_O;
+    if (k == "ride")                              return TR_RIDE;
+    if (k == "crash")                             return TR_CRASH;
+    if (k == "tom_h"   || k == "tomh")            return TR_TOM_H;
+    if (k == "tom_m"   || k == "tomm")            return TR_TOM_M;
+    if (k == "tom_l"   || k == "toml")            return TR_TOM_L;
+    if (k == "rim")                               return TR_RIM;
+    return -1;
+}
+
+Genre PatternLibrary::genreFromString (const juce::String& s)
+{
+    auto lower = s.trim().toLowerCase().removeCharacters (" -_");
+    if (lower == "rock")        return Genre::Rock;
+    if (lower == "hiphop")      return Genre::HipHop;
+    if (lower == "funk")        return Genre::Funk;
+    if (lower == "electronic")  return Genre::Electronic;
+    if (lower == "jazz")        return Genre::Jazz;
+    if (lower == "latin")       return Genre::Latin;
+    return Genre::Rock;
+}
+
+PatType PatternLibrary::typeFromString (const juce::String& s)
+{
+    auto lower = s.trim().toLowerCase().removeCharacters (" -_.");
+    if (lower == "regular")                       return PatType::Regular;
+    if (lower == "variance")                      return PatType::Variance;
+    if (lower == "smfill" || lower == "smallfill") return PatType::SmallFill;
+    if (lower == "bigfill")                       return PatType::BigFill;
+    return PatType::Regular;
+}
+
+juce::File PatternLibrary::patternFile (const juce::File& dir, const DrumPattern& p)
+{
+    auto safe = p.name.replaceCharacters ("/\\:*?\"<>|", "_________");
+    return dir.getChildFile (safe + ".beat");
+}
+
+bool PatternLibrary::patternToFile (const DrumPattern& p, const juce::File& f)
+{
+    juce::String text;
+    text << "# WillyBeat Preset\n";
+    text << "name:    " << p.name << "\n";
+    text << "genre:   " << kGenreNames[(int) p.genre] << "\n";
+    text << "type:    " << kPatTypeNames[(int) p.type] << "\n";
+    text << "\n";
+    text << "# velocity codes:  . off   g ghost(25)   s soft(55)   m medium(80)   h hard(100)   a accent(120)\n";
+
+    for (int t = 0; t < NUM_TRACKS; ++t)
+    {
+        juce::String row;
+        for (int s = 0; s < MAX_STEPS; ++s)
+        {
+            uint8_t v = p.velocities[t][s];
+            if      (v == 0)    row += '.';
+            else if (v <= 30)   row += 'g';
+            else if (v <= 65)   row += 's';
+            else if (v <= 90)   row += 'm';
+            else if (v <= 110)  row += 'h';
+            else                row += 'a';
+        }
+        juce::String key (kTrackFileKeys[t]);
+        while (key.length() < 8) key += ' ';
+        text << key << row << "\n";
+    }
+
+    return f.replaceWithText (text);
+}
+
+DrumPattern PatternLibrary::patternFromFile (const juce::File& f)
+{
+    DrumPattern p;
+    p.sourceFile = f;
+
+    juce::StringArray lines;
+    lines.addLines (f.loadFileAsString());
+
+    for (const auto& rawLine : lines)
+    {
+        auto line = rawLine.trim();
+        if (line.startsWithChar ('#') || line.isEmpty())
+            continue;
+
+        if (line.containsChar (':'))
+        {
+            auto key = line.upToFirstOccurrenceOf (":", false, false).trim().toLowerCase();
+            auto val = line.fromFirstOccurrenceOf (":", false, false).trim();
+
+            if      (key == "name")   p.name  = val;
+            else if (key == "genre")  p.genre = genreFromString (val);
+            else if (key == "type")   p.type  = typeFromString  (val);
+        }
+        else
+        {
+            // "trackkey  pattern..."
+            int spaceIdx = line.indexOfAnyOf (" \t");
+            if (spaceIdx < 1) continue;
+
+            auto trackKey   = line.substring (0, spaceIdx).trim();
+            auto patternStr = line.substring (spaceIdx).trim();
+
+            int track = trackFromKey (trackKey);
+            if (track >= 0 && patternStr.isNotEmpty())
+                p.setRow (track, patternStr.toRawUTF8());
+        }
+    }
+
+    if (p.name.isEmpty())
+        p.name = f.getFileNameWithoutExtension();
+
+    return p;
+}
+
+//==============================================================================
+// Public API
+//==============================================================================
+
+void PatternLibrary::installDefaultsTo (const juce::File& dir)
+{
+    dir.createDirectory();
+    for (const auto& p : builtinPatterns())
+        patternToFile (p, patternFile (dir, p));
+}
+
+void PatternLibrary::loadFromDirectory (const juce::File& dir)
+{
+    patterns.clear();
+    auto files = dir.findChildFiles (juce::File::findFiles, false, "*.beat");
+    files.sort();
+    for (const auto& f : files)
+    {
+        auto p = patternFromFile (f);
+        if (p.name.isNotEmpty())
+            patterns.push_back (std::move (p));
+    }
+}
+
+juce::File PatternLibrary::savePattern (const DrumPattern& p, const juce::File& dir)
+{
+    dir.createDirectory();
+    auto f = patternFile (dir, p);
+    patternToFile (p, f);
+    return f;
 }
 
 std::vector<const DrumPattern*> PatternLibrary::get (Genre genre, PatType type) const
 {
     std::vector<const DrumPattern*> result;
-    for (auto& p : patterns)
+    for (const auto& p : patterns)
         if (p.genre == genre && p.type == type)
             result.push_back (&p);
     return result;
-}
-
-void PatternLibrary::addUserPattern (DrumPattern p)
-{
-    p.isUserPattern = true;
-    patterns.push_back (std::move (p));
-}
-
-std::unique_ptr<juce::XmlElement> PatternLibrary::toXml() const
-{
-    auto root = std::make_unique<juce::XmlElement> ("UserPatterns");
-    for (auto& p : patterns)
-    {
-        if (!p.isUserPattern) continue;
-        auto* pe = root->createNewChildElement ("Pattern");
-        pe->setAttribute ("name",  p.name);
-        pe->setAttribute ("genre", (int) p.genre);
-        pe->setAttribute ("type",  (int) p.type);
-        for (int t = 0; t < NUM_TRACKS; ++t)
-        {
-            juce::String row;
-            for (int s = 0; s < MAX_STEPS; ++s)
-                row += juce::String (p.velocities[t][s]) + " ";
-            pe->setAttribute ("track" + juce::String (t), row.trim());
-        }
-    }
-    return root;
-}
-
-void PatternLibrary::fromXml (const juce::XmlElement& xml)
-{
-    // Remove previously-loaded user patterns
-    patterns.erase (std::remove_if (patterns.begin(), patterns.end(),
-                                    [] (auto& p) { return p.isUserPattern; }),
-                    patterns.end());
-
-    for (auto* pe : xml.getChildIterator())
-    {
-        DrumPattern p;
-        p.name          = pe->getStringAttribute ("name", "User");
-        p.genre         = (Genre) pe->getIntAttribute ("genre", 0);
-        p.type          = (PatType) pe->getIntAttribute ("type", 0);
-        p.isUserPattern = true;
-        for (int t = 0; t < NUM_TRACKS; ++t)
-        {
-            juce::StringArray tokens;
-            tokens.addTokens (pe->getStringAttribute ("track" + juce::String (t)), false);
-            for (int s = 0; s < MAX_STEPS && s < tokens.size(); ++s)
-                p.velocities[t][s] = (uint8_t) tokens[s].getIntValue();
-        }
-        patterns.push_back (p);
-    }
 }

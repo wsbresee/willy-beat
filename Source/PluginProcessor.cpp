@@ -5,6 +5,12 @@ WillyBeatAudioProcessor::WillyBeatAudioProcessor()
     : AudioProcessor (BusesProperties()),
       apvts (*this, nullptr, "Parameters", createParameterLayout())
 {
+    // Install built-in presets on first run, then load all .beat files
+    auto dir = getPresetsDirectory();
+    if (!dir.exists() || dir.findChildFiles (juce::File::findFiles, false, "*.beat").isEmpty())
+        library.installDefaultsTo (dir);
+    library.loadFromDirectory (dir);
+
     apvts.addParameterListener ("genre",   this);
     apvts.addParameterListener ("patType", this);
     apvts.addParameterListener ("patIdx",  this);
@@ -53,16 +59,13 @@ void WillyBeatAudioProcessor::parameterChanged (const juce::String&, float)
 
 void WillyBeatAudioProcessor::selectPattern()
 {
-    auto genre  = (Genre)  (int) apvts.getRawParameterValue ("genre")->load();
-    auto type   = (PatType)(int) apvts.getRawParameterValue ("patType")->load();
-    int  idx    = (int)          apvts.getRawParameterValue ("patIdx")->load();
+    auto genre  = (Genre)   (int) apvts.getRawParameterValue ("genre")->load();
+    auto type   = (PatType) (int) apvts.getRawParameterValue ("patType")->load();
+    int  idx    = (int)           apvts.getRawParameterValue ("patIdx")->load();
 
     auto matches = library.get (genre, type);
     if (matches.empty())
-    {
-        // Fallback to first Regular if the requested type doesn't exist
         matches = library.get (genre, PatType::Regular);
-    }
 
     if (!matches.empty())
     {
@@ -73,6 +76,37 @@ void WillyBeatAudioProcessor::selectPattern()
     {
         activePattern = nullptr;
     }
+}
+
+juce::File WillyBeatAudioProcessor::getPresetsDirectory() const
+{
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+               .getChildFile ("WillyBeat/Presets");
+}
+
+void WillyBeatAudioProcessor::reloadLibrary()
+{
+    activePattern = nullptr;                    // prevent dangling pointer on audio thread
+    library.loadFromDirectory (getPresetsDirectory());
+    selectPattern();
+}
+
+void WillyBeatAudioProcessor::navigateToPattern (const DrumPattern& p)
+{
+    // Update all three APVTS parameters in one pass (listeners removed by caller)
+    auto* gParam = apvts.getParameter ("genre");
+    auto* tParam = apvts.getParameter ("patType");
+    auto* iParam = apvts.getParameter ("patIdx");
+
+    if (gParam) gParam->setValueNotifyingHost (gParam->convertTo0to1 ((float) (int) p.genre));
+    if (tParam) tParam->setValueNotifyingHost (tParam->convertTo0to1 ((float) (int) p.type));
+
+    auto matches = library.get (p.genre, p.type);
+    int idx = 0;
+    for (int i = 0; i < (int) matches.size(); ++i)
+        if (matches[i]->name == p.name) { idx = i; break; }
+
+    if (iParam) iParam->setValueNotifyingHost (iParam->convertTo0to1 ((float) idx));
 }
 
 //==============================================================================
@@ -124,13 +158,12 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& /*buf*/,
     const int    blockSize   = getBlockSize();
     const double ppqPerSample = bpm / 60.0 / sr;
 
-    // Each step is one 16th note = 0.25 PPQ
-    constexpr double stepPPQ = 0.25;
+    constexpr double stepPPQ = 0.25;   // one 16th note
     const double ppqStart    = ppqPosition;
     const double ppqEnd      = ppqStart + (double) blockSize * ppqPerSample;
 
     const float  gatePct      = apvts.getRawParameterValue ("gate")->load() / 100.0f;
-    const double stepSamples  = (stepPPQ / ppqPerSample);
+    const double stepSamples  = stepPPQ / ppqPerSample;
     const double noteLenSamp  = stepSamples * (double) gatePct;
 
     const int numSteps = activePattern->numSteps;
@@ -164,7 +197,6 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& /*buf*/,
         int    sampleOffset = (int) std::round ((stepPPQPos - ppqStart) / ppqPerSample);
         sampleOffset = juce::jlimit (0, blockSize - 1, sampleOffset);
 
-        // Emit all active voices for this step
         for (int t = 0; t < NUM_TRACKS; ++t)
         {
             uint8_t vel = activePattern->velocities[t][patStep];
@@ -191,15 +223,14 @@ bool WillyBeatAudioProcessor::loadMidiFile (const juce::File& file)
 
     midiFile.convertTimestampTicksToSeconds();
 
-    // Find the drum track (channel 10, or the one with the most drum notes)
     const juce::MidiMessageSequence* drumTrack = nullptr;
     for (int t = 0; t < midiFile.getNumTracks(); ++t)
     {
         auto* track = midiFile.getTrack (t);
         for (int e = 0; e < track->getNumEvents(); ++e)
         {
-            auto msg = track->getEventPointer(e)->message;
-            if (msg.isNoteOn() && msg.getChannel() == 10)
+            if (track->getEventPointer(e)->message.isNoteOn() &&
+                track->getEventPointer(e)->message.getChannel() == 10)
             {
                 drumTrack = track;
                 break;
@@ -207,10 +238,8 @@ bool WillyBeatAudioProcessor::loadMidiFile (const juce::File& file)
         }
         if (drumTrack) break;
     }
-
     if (!drumTrack) return false;
 
-    // Get tempo: assume 120 BPM if not found
     double bpm = 120.0;
     for (int e = 0; e < drumTrack->getNumEvents(); ++e)
     {
@@ -219,14 +248,13 @@ bool WillyBeatAudioProcessor::loadMidiFile (const juce::File& file)
             bpm = 60.0 / msg.getTempoSecondsPerQuarterNote();
     }
 
-    const double secondsPerStep = (60.0 / bpm) / 4.0; // 16th note duration
+    const double secondsPerStep = (60.0 / bpm) / 4.0;
 
     DrumPattern p;
     p.name  = file.getFileNameWithoutExtension();
-    p.genre = Genre::Rock; // default; user can reassign
+    p.genre = (Genre) (int) apvts.getRawParameterValue ("genre")->load();
     p.type  = PatType::Regular;
 
-    // Quantise every note to the nearest 16th-note step
     for (int e = 0; e < drumTrack->getNumEvents(); ++e)
     {
         auto msg = drumTrack->getEventPointer(e)->message;
@@ -236,7 +264,6 @@ bool WillyBeatAudioProcessor::loadMidiFile (const juce::File& file)
         int note = msg.getNoteNumber();
         uint8_t vel = (uint8_t) msg.getVelocity();
 
-        // Map GM note number to our track slots
         for (int t = 0; t < NUM_TRACKS; ++t)
         {
             if (kTrackNotes[t] == note)
@@ -247,8 +274,19 @@ bool WillyBeatAudioProcessor::loadMidiFile (const juce::File& file)
         }
     }
 
-    library.addUserPattern (p);
+    apvts.removeParameterListener ("genre",   this);
+    apvts.removeParameterListener ("patType", this);
+    apvts.removeParameterListener ("patIdx",  this);
+
+    library.savePattern (p, getPresetsDirectory());
+    reloadLibrary();
+    navigateToPattern (p);
     selectPattern();
+
+    apvts.addParameterListener ("genre",   this);
+    apvts.addParameterListener ("patType", this);
+    apvts.addParameterListener ("patIdx",  this);
+
     return true;
 }
 
@@ -256,8 +294,35 @@ void WillyBeatAudioProcessor::generateVariation()
 {
     if (!activePattern) return;
     auto variation = generator.makeVariance (*activePattern);
-    library.addUserPattern (variation);
+
+    apvts.removeParameterListener ("genre",   this);
+    apvts.removeParameterListener ("patType", this);
+    apvts.removeParameterListener ("patIdx",  this);
+
+    library.savePattern (variation, getPresetsDirectory());
+    reloadLibrary();
+    navigateToPattern (variation);
     selectPattern();
+
+    apvts.addParameterListener ("genre",   this);
+    apvts.addParameterListener ("patType", this);
+    apvts.addParameterListener ("patIdx",  this);
+}
+
+void WillyBeatAudioProcessor::saveEditedPattern (const DrumPattern& p)
+{
+    apvts.removeParameterListener ("genre",   this);
+    apvts.removeParameterListener ("patType", this);
+    apvts.removeParameterListener ("patIdx",  this);
+
+    library.savePattern (p, getPresetsDirectory());
+    reloadLibrary();
+    navigateToPattern (p);
+    selectPattern();
+
+    apvts.addParameterListener ("genre",   this);
+    apvts.addParameterListener ("patType", this);
+    apvts.addParameterListener ("patIdx",  this);
 }
 
 //==============================================================================
@@ -292,24 +357,16 @@ juce::AudioProcessorEditor* WillyBeatAudioProcessor::createEditor()
 void WillyBeatAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
-    auto* root = state.createXml().release();
-    auto userPats = library.toXml();
-    root->addChildElement (userPats.release());
-    copyXmlToBinary (*root, destData);
-    delete root;
+    std::unique_ptr<juce::XmlElement> xml (state.createXml());
+    copyXmlToBinary (*xml, destData);
 }
 
 void WillyBeatAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
     if (!xml) return;
-
-    if (auto* userPats = xml->getChildByName ("UserPatterns"))
-        library.fromXml (*userPats);
-
     if (xml->hasTagName (apvts.state.getType()))
         apvts.replaceState (juce::ValueTree::fromXml (*xml));
-
     selectPattern();
 }
 

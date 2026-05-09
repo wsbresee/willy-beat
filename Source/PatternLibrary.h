@@ -4,22 +4,30 @@
 class PatternLibrary
 {
 public:
-    PatternLibrary();
+    PatternLibrary() = default;
 
-    // All patterns (built-in + user-loaded)
+    // Write every built-in preset as a .beat file to dir (called once on first run)
+    void installDefaultsTo (const juce::File& dir);
+
+    // Clear patterns and reload all *.beat files found in dir
+    void loadFromDirectory (const juce::File& dir);
+
+    // Write one pattern to dir/<name>.beat, returns the file written
+    juce::File savePattern (const DrumPattern& p, const juce::File& dir);
+
+    // Query
     const std::vector<DrumPattern>& all() const { return patterns; }
-
-    // Filtered by genre + type
     std::vector<const DrumPattern*> get (Genre genre, PatType type) const;
-
-    // Add a user-loaded pattern (e.g. from MIDI import)
-    void addUserPattern (DrumPattern p);
-
-    // Serialise/deserialise user patterns to/from XML (for plugin state)
-    std::unique_ptr<juce::XmlElement> toXml() const;
-    void fromXml (const juce::XmlElement& xml);
 
 private:
     std::vector<DrumPattern> patterns;
-    void loadBuiltins();
+
+    static std::vector<DrumPattern> builtinPatterns();
+    static DrumPattern patternFromFile (const juce::File& f);
+    static bool patternToFile (const DrumPattern& p, const juce::File& f);
+    static juce::File patternFile (const juce::File& dir, const DrumPattern& p);
+
+    static int    trackFromKey    (const juce::String& key);
+    static Genre  genreFromString (const juce::String& s);
+    static PatType typeFromString (const juce::String& s);
 };

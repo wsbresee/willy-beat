@@ -54,13 +54,19 @@ static const char* kPatTypeNames[] = { "Regular", "Variance", "Sm. Fill", "Big F
 
 constexpr int MAX_STEPS = 16;
 
+static const char* kTrackFileKeys[NUM_TRACKS] = {
+    "kick", "snare", "hihat_c", "hihat_o",
+    "ride", "crash", "tom_h",   "tom_m",
+    "tom_l", "rim"
+};
+
 struct DrumPattern
 {
     juce::String name;
-    Genre        genre;
-    PatType      type;
+    Genre        genre    = Genre::Rock;
+    PatType      type     = PatType::Regular;
     int          numSteps = MAX_STEPS;
-    bool         isUserPattern = false;
+    juce::File   sourceFile;   // where it was loaded from on disk
 
     // velocities[track][step] — 0 means off
     uint8_t velocities[NUM_TRACKS][MAX_STEPS] = {};
