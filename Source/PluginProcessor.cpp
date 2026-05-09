@@ -2,7 +2,8 @@
 #include "PluginEditor.h"
 
 WillyBeatAudioProcessor::WillyBeatAudioProcessor()
-    : AudioProcessor (BusesProperties()),
+    : AudioProcessor (BusesProperties()
+                          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Parameters", createParameterLayout())
 {
     // Install built-in presets on first run, then load all .beat files
@@ -95,6 +96,11 @@ WillyBeatAudioProcessor::createParameterLayout()
     // which made repeated Generate clicks appear to do nothing.
     pattern->addChild (std::make_unique<AudioParameterInt> (
         ParameterID { "patIdx", 1 }, "Pattern", 0, 999, 0));
+
+    // Internal preview synth toggle. Default OFF so the plugin defers to the
+    // downstream sampler / external instrument for actual sound.
+    pattern->addChild (std::make_unique<AudioParameterBool> (
+        ParameterID { "internalSound", 1 }, "Internal Sound", false));
 
     AudioProcessorValueTreeState::ParameterLayout layout;
     layout.add (std::move (macros));
@@ -200,23 +206,33 @@ void WillyBeatAudioProcessor::navigateToPattern (const DrumPattern& p)
 
 //==============================================================================
 
-void WillyBeatAudioProcessor::prepareToPlay (double, int)
+void WillyBeatAudioProcessor::prepareToPlay (double sampleRate, int)
 {
     activeNotes.clear();
     absoluteSample = 0;
     lastFiredStep  = -1;
     currentStep    = 0;
     wasPlaying     = false;
+    stockDrums.prepare (sampleRate);
 }
 
 void WillyBeatAudioProcessor::releaseResources() {}
 
+bool WillyBeatAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+{
+    auto out = layouts.getMainOutputChannelSet();
+    return out == juce::AudioChannelSet::stereo() || out == juce::AudioChannelSet::mono();
+}
+
 //==============================================================================
 
-void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& /*buf*/,
+void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
                                              juce::MidiBuffer& midi)
 {
     midi.clear();
+    buf.clear();
+
+    const bool internalOn = apvts.getRawParameterValue ("internalSound")->load() > 0.5f;
 
     if (!activePattern) return;
 
@@ -232,6 +248,7 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& /*buf*/,
         if (wasPlaying)
         {
             killAllNotes (midi, 0);
+            stockDrums.allNotesOff();
             currentStep   = 0;
             lastFiredStep = -1;
         }
@@ -327,8 +344,17 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& /*buf*/,
             int note = kTrackNotes[t];
             midi.addEvent (juce::MidiMessage::noteOn (10, note, vel), noteOffset);
             activeNotes.push_back ({ note, absoluteSample + noteOffset + (long) noteLenSamp });
+
+            // Internal preview voice. Voices started inside this block render
+            // from their own phase=0, so timing offset within the block is
+            // approximate (good enough for scrub-style monitoring).
+            if (internalOn)
+                stockDrums.noteOn (note, (float) vel / 127.0f);
         }
     }
+
+    if (internalOn)
+        stockDrums.render (buf, 0, blockSize);
 
     absoluteSample += blockSize;
 }
@@ -503,7 +529,7 @@ void WillyBeatAudioProcessor::killAllNotes (juce::MidiBuffer& midi, int offset)
 const juce::String WillyBeatAudioProcessor::getName() const { return JucePlugin_Name; }
 bool WillyBeatAudioProcessor::acceptsMidi()  const { return true; }
 bool WillyBeatAudioProcessor::producesMidi() const { return true; }
-bool WillyBeatAudioProcessor::isMidiEffect() const { return true; }
+bool WillyBeatAudioProcessor::isMidiEffect() const { return false; }
 double WillyBeatAudioProcessor::getTailLengthSeconds() const { return 0.0; }
 
 int  WillyBeatAudioProcessor::getNumPrograms()              { return 1; }

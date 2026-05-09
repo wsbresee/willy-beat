@@ -2,8 +2,9 @@
 
 A MIDI drum-pattern generator built with JUCE. Type genre tags, hit
 **Generate**, drag the resulting MIDI clip into your DAW. Ships as a VST3 and
-an Audio Unit MIDI effect (no audio engine — feed the MIDI into a drum
-sampler).
+an Audio Unit instrument plugin: it produces MIDI for routing to other
+samplers and ships its own simple synthesized drum kit for in-plugin
+preview (off by default — toggle the "Audio" button in the title bar).
 
 ## Build & install
 
@@ -36,13 +37,16 @@ edits save back to that folder.
    icon, or rescan from **Studio → Studio Setup → VST Plug-in Manager**.
 3. Confirm `WillyBeat` shows up under **MIDI Effects**.
 
-### Set up a MIDI track
+### Set up a track
 
-1. **Project → Add Track → Instrument**, choose Groove Agent SE (or any drum
-   sampler that listens on GM channel 10).
-2. On that instrument track, open the **Inspector → MIDI Inserts** slot and
-   load **WillyBeat**.
-3. Open the WillyBeat editor.
+WillyBeat is now an instrument plugin. Two routes:
+
+- **Use WillyBeat's built-in drum sounds**: **Project → Add Track → Instrument**,
+  pick **WillyBeat**, click the title-bar **Audio** toggle to unmute the
+  internal kit, hit play. No external sampler needed.
+- **Route MIDI to a real sampler**: Add WillyBeat on its own instrument
+  track (audio muted). Add a Groove Agent SE track. In Cubase's MIDI input
+  routing, set Groove Agent's MIDI input to WillyBeat's MIDI output.
 
 ### Use it
 
@@ -74,18 +78,19 @@ sampler underneath plays in real time — no drag needed.
    `auval -a | grep -i willybeat` from Terminal to confirm the AU is
    registered, then `killall -9 AudioComponentRegistrar` and reopen Logic.
 
-### Set up a MIDI track
+### Set up a track
 
-Logic doesn't expose plain "MIDI insert" slots the way Cubase does. The
-cleanest path is the External Instrument / Software Instrument routing
-trick:
+WillyBeat is now an AU instrument. Two routes:
 
-1. **Track → New Software Instrument Track** with **Drum Kit Designer**
-   (or **Drum Machine Designer**, **EXS24**, or any drum sampler that
-   listens on GM channel 10).
-2. On the same track's channel strip, click the **MIDI FX** slot and load
-   **WillyBeat → AU MIDI Effects → WillyBresee**.
-3. Open the WillyBeat editor from the MIDI FX slot.
+- **Use WillyBeat's built-in drum sounds**: **Track → New Software
+  Instrument Track**, pick **AU Instruments → WillyBresee → WillyBeat**.
+  Click the title-bar **Audio** toggle to unmute the internal kit. Hit
+  play.
+- **Route MIDI to a real sampler**: Load WillyBeat on its own software
+  instrument track. Add a second instrument track with Drum Kit Designer
+  / Drum Machine Designer. Use Logic's IAC bus or the **External MIDI**
+  routing in the second track's input to receive WillyBeat's MIDI
+  output.
 
 ### Use it
 
@@ -108,10 +113,18 @@ Same flow as Cubase:
   click produces a different mix.
 - **Drag to DAW** — drag a MIDI file of the current pattern (with fills
   and bar count) onto a track.
+- **Audio toggle** (top-right title bar) — turns the internal preview
+  drum kit on/off. Default off (you'll hear nothing from WillyBeat
+  itself). Turn on to hear simple synthesized drum sounds via WillyBeat's
+  audio output as the DAW transport plays.
 - **Collapse / expand toggle** (`-` / `+` top-right) — shrinks the editor
-  to just the title row + tag/Generate/Drag, useful when WillyBeat is
-  parked in a track header.
+  into a mini-pattern view (read-only thumbnail in the lower-left + Edit
+  Pattern + Import MIDI buttons). Useful when WillyBeat is parked in a
+  track header.
 - **Macro knobs** — Gate, Humanize, Swing, Feel, Density.
+- **Pattern grid** — left-click a cell to drop a hit (medium velocity by
+  default), then drag up to make it louder or down to make it quieter
+  (ghost). Drag all the way down to silence the cell. Right-click clears.
 - **Name field** — rename the active pattern. Saves on Enter or focus loss.
 - **New Pattern / Open Folder** — start a blank pattern with the current
   filter tags, or open the presets folder in Finder.

@@ -503,37 +503,63 @@ void PatternGrid::setEditTarget (DrumPattern* target)
 void PatternGrid::mouseDown (const juce::MouseEvent& e)
 {
     if (editTarget == nullptr) return;
+    if (e.x < kLabelW) return;
 
     const auto bounds = getLocalBounds();
     const float cellW = (float) (bounds.getWidth() - kLabelW) / MAX_STEPS;
     const float cellH = (float) bounds.getHeight() / NUM_TRACKS;
 
-    if (e.x < kLabelW) return;
-
     int col = (int) ((float) (e.x - kLabelW) / cellW);
     int row = (int) ((float) e.y / cellH);
     if (col < 0 || col >= MAX_STEPS || row < 0 || row >= NUM_TRACKS) return;
+
+    dragRow   = row;
+    dragCol   = col;
+    dragMoved = false;
 
     auto& vel = editTarget->velocities[row][col];
 
     if (e.mods.isRightButtonDown())
     {
         vel = 0;
+        dragStartVel = 0;
     }
     else
     {
-        static const uint8_t cycle[] = { 0, 80, 100, 120, 25, 55 };
-        constexpr int n = 6;
-        int cur = 0;
-        for (int i = 0; i < n; ++i)
-            if (vel == cycle[i]) { cur = i; break; }
-        vel = cycle[(cur + 1) % n];
+        // First click on an empty cell drops a medium hit; subsequent drag
+        // tunes velocity. Clicks on existing cells preserve the value
+        // unless the user drags.
+        if (vel == 0) vel = 80;
+        dragStartVel = vel;
     }
 
     repaint();
+    if (onCellChanged) onCellChanged (row, col);
+}
 
-    if (onCellChanged)
-        onCellChanged (row, col);
+void PatternGrid::mouseDrag (const juce::MouseEvent& e)
+{
+    if (editTarget == nullptr || dragRow < 0) return;
+    if (e.mods.isRightButtonDown())            return;
+
+    // Vertical drag: up = louder, down = quieter. Two velocity units per
+    // pixel so the full range covers ~64 px of vertical travel.
+    const int dy        = e.getDistanceFromDragStartY();
+    const int newVel    = juce::jlimit (0, 127, dragStartVel - dy * 2);
+    auto&     vel       = editTarget->velocities[dragRow][dragCol];
+
+    if ((int) vel == newVel) return;
+
+    vel        = (uint8_t) newVel;
+    dragMoved  = true;
+    repaint();
+    if (onCellChanged) onCellChanged (dragRow, dragCol);
+}
+
+void PatternGrid::mouseUp (const juce::MouseEvent&)
+{
+    dragRow = dragCol = -1;
+    dragMoved = false;
 }
 
 void PatternGrid::timerCallback()
@@ -620,6 +646,15 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     collapseBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::bgPanel);
     collapseBtn.setColour (juce::TextButton::textColourOffId, WillyBeatLookAndFeel::textPrimary);
     collapseBtn.setTooltip ("Collapse / expand the editor.");
+
+    // ── Internal preview audio toggle ────────────────────────────────────
+    soundBtn.setClickingTogglesState (true);
+    soundBtn.setColour (juce::TextButton::buttonColourId,    WillyBeatLookAndFeel::bgPanel);
+    soundBtn.setColour (juce::TextButton::buttonOnColourId,  WillyBeatLookAndFeel::accent);
+    soundBtn.setColour (juce::TextButton::textColourOffId,   WillyBeatLookAndFeel::textPrimary);
+    soundBtn.setColour (juce::TextButton::textColourOnId,    juce::Colours::white);
+    soundBtn.setTooltip ("Internal drum-sound preview. When on, WillyBeat plays simple synthesized drums through its audio output as the DAW transport rolls. Default off so the plugin defers to a downstream sampler.");
+    soundAttach = std::make_unique<BA> (p.apvts, "internalSound", soundBtn);
 
     // ── Name bar ──────────────────────────────────────────────────────────
     nameLabel.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
@@ -808,6 +843,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     addAndMakeVisible (densityLabel);   addAndMakeVisible (densityKnob);
     addAndMakeVisible (genBtn);
     addAndMakeVisible (collapseBtn);
+    addAndMakeVisible (soundBtn);
     addAndMakeVisible (nameLabel);      addAndMakeVisible (nameEditor);
     addAndMakeVisible (newPatBtn);      addAndMakeVisible (openFolderBtn);
     addAndMakeVisible (patternTagsLabel); addAndMakeVisible (patternTagBar);
@@ -1134,11 +1170,14 @@ void WillyBeatAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced (8);
 
-    // ── Title row + collapse toggle in the top-right corner ───────────────
+    // ── Title row + collapse toggle + audio toggle (top-right) ───────────
     {
-        auto titleRow = area.removeFromTop (34);
-        auto box = titleRow.removeFromRight (28);
-        collapseBtn.setBounds (box.withSizeKeepingCentre (24, 22));
+        auto titleRow    = area.removeFromTop (34);
+        auto collapseBox = titleRow.removeFromRight (28);
+        collapseBtn.setBounds (collapseBox.withSizeKeepingCentre (24, 22));
+        titleRow.removeFromRight (4);
+        auto soundBox    = titleRow.removeFromRight (72);
+        soundBtn.setBounds (soundBox.withSizeKeepingCentre (68, 22));
     }
 
     // ── Row A: genre tags + pat selector + Generate + Drag-to-DAW ────────

@@ -3,6 +3,7 @@
 #include "DrumPattern.h"
 #include "PatternLibrary.h"
 #include "VariationGenerator.h"
+#include "StockDrums.h"
 
 class WillyBeatAudioProcessor : public juce::AudioProcessor,
                                  public juce::AudioProcessorValueTreeState::Listener
@@ -14,6 +15,7 @@ public:
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override;
@@ -87,6 +89,8 @@ private:
     struct ActiveNote { int note; long offAtSample; };
     std::vector<ActiveNote> activeNotes;
     long absoluteSample = 0;
+
+    StockDrums stockDrums;
 
     void killAllNotes (juce::MidiBuffer& midi, int offset);
 
