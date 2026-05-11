@@ -593,7 +593,15 @@ void PatternLibrary::loadFromDirectory (const juce::File& dir)
 {
     patterns.clear();
     auto files = dir.findChildFiles (juce::File::findFiles, false, "*.beat");
-    files.sort();
+
+    // Sort by last-modification time, oldest first. This makes the patIdx
+    // slider a slot-history timeline: built-in presets land at the front,
+    // user-edited and freshly generated patterns gather at the end. Going
+    // back one slot reliably returns to the previous generation.
+    std::sort (files.begin(), files.end(),
+               [] (const juce::File& a, const juce::File& b)
+               { return a.getLastModificationTime() < b.getLastModificationTime(); });
+
     for (const auto& f : files)
     {
         auto p = patternFromFile (f);

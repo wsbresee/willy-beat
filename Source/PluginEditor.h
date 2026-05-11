@@ -141,7 +141,7 @@ private:
     MiniPatternView miniGrid;
 
     // ── Pattern selector row ─────────────────────────────────────────────
-    juce::Label    genreLabel   { {}, "Genre Tags" };
+    juce::Label    genreLabel   { {}, "Tags" };
     juce::Label    patLabel     { {}, "Pattern #" };
 
     TagChipBar     tagBar;
@@ -185,10 +185,6 @@ private:
     juce::TextButton editPatternBtn { "Edit Pattern" };
 
     std::unique_ptr<juce::FileChooser> midiChooser;
-
-    // ── Per-pattern tag editor ──────────────────────────────────────────
-    juce::Label  patternTagsLabel { {}, "Tags:" };
-    TagChipBar   patternTagBar;
 
     // ── Export / drag controls ───────────────────────────────────────────
     juce::Label      barsLabel       { {}, "Bars:" };
