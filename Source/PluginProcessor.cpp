@@ -135,39 +135,29 @@ void WillyBeatAudioProcessor::parameterChanged (const juce::String&, float)
 
 void WillyBeatAudioProcessor::selectPattern()
 {
+    // The chip bar above the grid IS the active pattern's tags (not a
+    // library filter), so patIdx steps through every non-fill pattern in
+    // load order without any genre-based culling. Fills are still hidden
+    // from the slot list since they're handled by the fill rotaries.
     int idx = (int) apvts.getRawParameterValue ("patIdx")->load();
-    auto tags = getSelectedGenreTags();
 
-    auto scoped = library.getByTags (tags);
+    std::vector<const DrumPattern*> slots;
+    for (const auto& p : library.all())
+        if (p.type == PatType::Regular || p.type == PatType::Variance)
+            slots.push_back (&p);
 
-    // Main-pattern selection only considers non-fill types.  Fills are handled
-    // by the fillSteps rotary in the editor.
-    std::vector<const DrumPattern*> filtered;
-    for (auto* p : scoped)
-        if (p->type == PatType::Regular || p->type == PatType::Variance)
-            filtered.push_back (p);
-
-    if (filtered.empty())
-        filtered = scoped;
-
-    if (filtered.empty())
+    if (slots.empty())
         for (const auto& p : library.all())
-            if (p.type == PatType::Regular || p.type == PatType::Variance)
-                filtered.push_back (&p);
+            slots.push_back (&p);
 
-    if (filtered.empty())
-        for (const auto& p : library.all())
-            filtered.push_back (&p);
-
-    if (! filtered.empty())
-    {
-        idx = juce::jlimit (0, (int) filtered.size() - 1, idx);
-        activePattern = filtered[(size_t) idx];
-    }
-    else
+    if (slots.empty())
     {
         activePattern = nullptr;
+        return;
     }
+
+    idx = juce::jlimit (0, (int) slots.size() - 1, idx);
+    activePattern = slots[(size_t) idx];
 }
 
 juce::File WillyBeatAudioProcessor::getPresetsDirectory() const
@@ -186,19 +176,19 @@ void WillyBeatAudioProcessor::reloadLibrary()
 void WillyBeatAudioProcessor::navigateToPattern (const DrumPattern& p)
 {
     // Inherit the pattern's tags as the user's selection so density
-    // augmentation pulls from the same scope.
+    // augmentation, fill matching, and the chip bar all reflect the same
+    // scope as the active pattern.
     apvts.state.setProperty ("genreTags", p.genres.joinIntoString (","), nullptr);
 
-    auto scoped = library.getByTags (p.genres);
-    std::vector<const DrumPattern*> filtered;
-    for (auto* m : scoped)
-        if (m->type == PatType::Regular || m->type == PatType::Variance)
-            filtered.push_back (m);
-    if (filtered.empty()) filtered = scoped;
-
+    // patIdx is now an index into the unfiltered slot list (see selectPattern).
     int patIdx = 0;
-    for (int i = 0; i < (int) filtered.size(); ++i)
-        if (filtered[i]->name == p.name) { patIdx = i; break; }
+    int i      = 0;
+    for (const auto& m : library.all())
+    {
+        if (m.type != PatType::Regular && m.type != PatType::Variance) continue;
+        if (m.name == p.name) { patIdx = i; break; }
+        ++i;
+    }
 
     if (auto* iParam = apvts.getParameter ("patIdx"))
         iParam->setValueNotifyingHost (iParam->convertTo0to1 ((float) patIdx));
