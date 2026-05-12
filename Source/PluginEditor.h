@@ -222,15 +222,8 @@ private:
     std::unique_ptr<SA>  feelAttach;
     std::unique_ptr<SA>  densityAttach;
 
-    // ── Always-visible name / utility bar ───────────────────────────────
-    juce::Label      nameLabel     { {}, "Name:" };
-    juce::TextEditor nameEditor;
-    juce::TextButton newPatBtn     { "New Pattern" };
-    juce::TextButton openFolderBtn { "Open Folder" };
-    juce::TextButton importMidiBtn { "Import MIDI" };
+    // Compact-mode-only control to expand back to the full editor.
     juce::TextButton editPatternBtn { "Edit Pattern" };
-
-    std::unique_ptr<juce::FileChooser> midiChooser;
 
     // ── Export / drag controls ───────────────────────────────────────────
     juce::Label      barsLabel       { {}, "Bars:" };
@@ -248,8 +241,6 @@ private:
     juce::Slider     fillEndKnob;
     std::unique_ptr<SA> fillEndAttach;
 
-    juce::Label      seedLabel       { {}, "Seed:" };
-    juce::TextEditor seedEditor;
 
     // ── Live edit state ──────────────────────────────────────────────────
     DrumPattern             editingCopy;       // density-filtered view shown in grid
@@ -258,7 +249,6 @@ private:
     float                   lastDensity      = -1.0f;
 
     void autoSaveCurrentEdit (int track, int step);
-    void saveNameChange();
     void applyDensityToEditingCopy();
     void refreshTagSelector();
     void toggleCompactMode();
@@ -269,7 +259,6 @@ private:
     juce::StringArray lastKnownTags;
 
     int         getBarsFromCombo() const;
-    juce::int64 getSeedFromEditor() const;
     const DrumPattern* findFill (const DrumPattern& pat, juce::int64 seed) const;
     DrumPattern buildFillPatternForExport (juce::int64 seed) const;
 
