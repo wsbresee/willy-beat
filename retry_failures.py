@@ -21,8 +21,6 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-LOG_IN = ROOT / "bulk_generate.log"
-LOG_OUT = ROOT / "bulk_retry.log"
 PYTHON = ROOT / ".venv/bin/python"
 
 sys.path.insert(0, str(ROOT))
@@ -30,25 +28,33 @@ from bulk_generate import QUERIES
 
 
 def parse_failed_indices(log_path: Path) -> list[int]:
+    """Return the QUERIES indices (1-based) for each failed entry in the log.
+
+    Logs use one of two header formats:
+      [N/total] <query>...                 # original bulk_generate.log
+      [N/total] (orig #M) <query>...       # retry_failures.py output
+
+    For the second form, M is the QUERIES index. For the first, N already is.
+    """
     text = log_path.read_text(encoding="utf-8", errors="replace")
     lines = text.splitlines()
     failed = []
-    head_re = re.compile(r"^\[(\d+)/\d+\]")
+    head_re = re.compile(r"^\[(\d+)/\d+\](?:\s+\(orig\s+#(\d+)\))?")
     fail_re = re.compile(r"^\s*✗\s+(failure|timeout|exception)")
 
     for i, line in enumerate(lines):
         m = head_re.match(line)
         if not m:
             continue
-        # Look ahead at the next few non-empty lines for the outcome marker.
+        idx = int(m.group(2) if m.group(2) else m.group(1))
         for j in range(i + 1, min(i + 8, len(lines))):
             nxt = lines[j]
             if not nxt.strip():
                 continue
             if head_re.match(nxt):
-                break  # next entry without an outcome — treat as unknown
+                break
             if fail_re.match(nxt):
-                failed.append(int(m.group(1)))
+                failed.append(idx)
                 break
             if "✓ success" in nxt:
                 break
@@ -57,17 +63,24 @@ def parse_failed_indices(log_path: Path) -> list[int]:
 
 def main():
     ap = argparse.ArgumentParser(description="Retry only failed bulk-generate songs.")
+    ap.add_argument("--input",  default="bulk_generate.log",
+                    help="Source log to parse for failed entries")
+    ap.add_argument("--output", default="bulk_retry.log",
+                    help="Where to write this run's log")
     ap.add_argument("--no-stems", action="store_true",
                     help="Skip Demucs stem separation")
     ap.add_argument("--dry-run", action="store_true",
                     help="Print what would be re-run without executing")
     args = ap.parse_args()
 
-    if not LOG_IN.exists():
-        print(f"Missing {LOG_IN}", file=sys.stderr)
+    log_in  = ROOT / args.input
+    log_out = ROOT / args.output
+
+    if not log_in.exists():
+        print(f"Missing {log_in}", file=sys.stderr)
         sys.exit(1)
 
-    indices = parse_failed_indices(LOG_IN)
+    indices = parse_failed_indices(log_in)
     print(f"Found {len(indices)} failed entries to retry", flush=True)
 
     retries = [(idx, QUERIES[idx - 1]) for idx in indices if 1 <= idx <= len(QUERIES)]
@@ -76,7 +89,7 @@ def main():
             print(f"[{idx}] {q}  ({tags})")
         return
 
-    log = open(LOG_OUT, "w", encoding="utf-8")
+    log = open(log_out, "w", encoding="utf-8")
     log.write(f"Starting retry at {time.strftime('%Y-%m-%d %H:%M:%S')} — {len(retries)} queries\n")
     log.flush()
 
