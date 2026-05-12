@@ -14,7 +14,25 @@ TagChipBar::TagChipBar()
     input.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
     input.setTextToShowWhenEmpty ("type to search...", WillyBeatLookAndFeel::textMuted);
     input.addListener (this);
+    input.addKeyListener (this);  // intercept backspace before the editor consumes it
     input.setIndents (4, 2);
+}
+
+bool TagChipBar::keyPressed (const juce::KeyPress& key, juce::Component*)
+{
+    // Backspace with no pending input pops the rightmost chip - same
+    // pattern Gmail / Slack / chips-UIs use.
+    if (key.getKeyCode() == juce::KeyPress::backspaceKey
+        && input.getText().isEmpty()
+        && ! selectedTags.isEmpty())
+    {
+        selectedTags.remove (selectedTags.size() - 1);
+        layoutChips();
+        repaint();
+        if (onTagsChanged) onTagsChanged();
+        return true;
+    }
+    return false;
 }
 
 void TagChipBar::setAvailableTags (const juce::StringArray& all)
@@ -129,26 +147,35 @@ void TagChipBar::textEditorEscapeKeyPressed (juce::TextEditor& te)
 void TagChipBar::commitSearch()
 {
     auto query = input.getText().trim();
-    if (query.isEmpty()) return;
 
-    auto match = findFuzzyMatch (query);
-    if (match.isEmpty())
+    // First chance: the editor gets to handle the raw query (e.g., jump
+    // straight to a pattern when the input matches a pattern name exactly).
+    // If the hook claims the query, clear the input and skip everything else.
+    if (query.isNotEmpty() && onRawInputHandled && onRawInputHandled (query))
     {
-        // Fallback: accept the literal typed value (lets users introduce new tags)
-        match = query;
+        input.clear();
+        return;
     }
 
-    if (! selectedTags.contains (match))
+    // Add a tag only when something was actually typed AND it resolves to a
+    // tag that isn't already selected. Everything else (empty input, exact
+    // duplicate) still falls through to onTagSubmitted so Enter ALWAYS
+    // signals "regenerate" - that's the user's mental model for the key.
+    if (query.isNotEmpty())
     {
-        selectedTags.add (match);
-        layoutChips();
-        repaint();
-        if (onTagsChanged) onTagsChanged();
-    }
-    input.clear();
+        auto match = findFuzzyMatch (query);
+        if (match.isEmpty()) match = query;  // literal fallback for new tags
 
-    // Enter is the "I'm done picking tags" signal — let the editor fire
-    // Generate even when the user re-confirmed an already-selected tag.
+        if (! selectedTags.contains (match))
+        {
+            selectedTags.add (match);
+            layoutChips();
+            repaint();
+            if (onTagsChanged) onTagsChanged();
+        }
+        input.clear();
+    }
+
     if (onTagSubmitted) onTagSubmitted();
 }
 
@@ -510,40 +537,28 @@ void PatternGrid::paint (juce::Graphics& g)
         g.drawHorizontalLine ((int) ((float) row * cellH),
                               (float) gridX, (float) bounds.getWidth());
 
-    // Fading velocity badge — drawn after wheel-scroll, fades over ~1s.
-    if (badgeRow >= 0 && badgeCol >= 0)
+    // Velocity badge: animated fade in/out (~120 ms each way), driven by
+    // badgeAlpha that the timer eases toward badgeTarget. Empty cells
+    // never reach a non-zero target so they stay invisible.
+    if (badgeRow >= 0 && badgeCol >= 0 && badgeVel > 0 && badgeAlpha > 0.001f)
     {
-        constexpr uint32_t fadeMs = 1000;
-        const uint32_t age = juce::Time::getMillisecondCounter() - badgeFireMs;
-        if (age < fadeMs)
-        {
-            const float alpha = 1.0f - (float) age / (float) fadeMs;
+        const float alpha = badgeAlpha;
+        // Draw the velocity number directly on the cell itself. A faint
+        // dark scrim keeps the digit readable on lighter cell colors.
+        juce::Rectangle<float> cell ((float) gridX + (float) badgeCol * cellW,
+                                      (float) badgeRow * cellH,
+                                      cellW, cellH);
 
-            const float bx = (float) gridX + (float) badgeCol * cellW;
-            const float by = (float) badgeRow * cellH;
+        g.setColour (juce::Colours::black.withAlpha (alpha * 0.40f));
+        g.fillRect (cell);
 
-            // Position the badge above the scrolled cell, clamped inside the
-            // grid so it stays visible at the top row.
-            const float padW = 36.0f;
-            const float padH = 22.0f;
-            float px = bx + cellW * 0.5f - padW * 0.5f;
-            float py = by - padH - 2.0f;
-            if (py < 0.0f) py = by + cellH + 2.0f;
-            px = juce::jlimit ((float) gridX, (float) bounds.getWidth() - padW, px);
-
-            juce::Rectangle<float> pad (px, py, padW, padH);
-            g.setColour (WillyBeatLookAndFeel::bgPanel.withAlpha (alpha * 0.95f));
-            g.fillRoundedRectangle (pad, 4.0f);
-            g.setColour (WillyBeatLookAndFeel::accent.withAlpha (alpha));
-            g.drawRoundedRectangle (pad, 4.0f, 1.0f);
-
-            g.setColour (WillyBeatLookAndFeel::textPrimary.withAlpha (alpha));
-            g.setFont (juce::Font (juce::FontOptions{}
-                                       .withHeight (13.0f)
-                                       .withStyle ("Bold")));
-            g.drawText (juce::String (badgeVel), pad,
-                        juce::Justification::centred, false);
-        }
+        const float fontH = juce::jlimit (10.0f, 14.0f, cellH - 4.0f);
+        g.setColour (juce::Colours::white.withAlpha (alpha));
+        g.setFont (juce::Font (juce::FontOptions{}
+                                   .withHeight (fontH)
+                                   .withStyle ("Bold")));
+        g.drawText (juce::String (badgeVel), cell,
+                    juce::Justification::centred, false);
     }
 }
 
@@ -566,25 +581,43 @@ void PatternGrid::mouseDown (const juce::MouseEvent& e)
     int row = (int) ((float) e.y / cellH);
     if (col < 0 || col >= MAX_STEPS || row < 0 || row >= NUM_TRACKS) return;
 
-    dragRow   = row;
-    dragCol   = col;
-    dragMoved = false;
-
     auto& vel = editTarget->velocities[row][col];
 
     if (e.mods.isRightButtonDown())
     {
+        // Right-click clears the cell immediately and skips any further
+        // handling - signal that by leaving dragRow at -1.
         vel = 0;
+        dragRow = dragCol = -1;
+        dragMoved = false;
         dragStartVel = 0;
+
+        badgeRow    = row;
+        badgeCol    = col;
+        badgeVel    = 0;
+        badgeTarget = 0.0f;
+        pendingBadge.valid = false;
+
+        repaint();
+        if (onCellChanged) onCellChanged (row, col);
+        return;
     }
-    else
-    {
-        // First click on an empty cell drops a medium hit; subsequent drag
-        // tunes velocity. Clicks on existing cells preserve the value
-        // unless the user drags.
-        if (vel == 0) vel = 80;
-        dragStartVel = vel;
-    }
+
+    // Left-click toggles the cell: empty cells get a max-velocity accent,
+    // filled cells are cleared. A subsequent drag then tunes the new
+    // velocity by y-delta starting from whatever we just placed.
+    vel = (vel == 0) ? (uint8_t) 120 : (uint8_t) 0;
+
+    dragRow      = row;
+    dragCol      = col;
+    dragMoved    = false;
+    dragStartVel = vel;
+
+    badgeRow    = row;
+    badgeCol    = col;
+    badgeVel    = (int) vel;
+    badgeTarget = (vel > 0) ? 1.0f : 0.0f;
+    pendingBadge.valid = false;
 
     repaint();
     if (onCellChanged) onCellChanged (row, col);
@@ -603,8 +636,16 @@ void PatternGrid::mouseDrag (const juce::MouseEvent& e)
 
     if ((int) vel == newVel) return;
 
-    vel        = (uint8_t) newVel;
-    dragMoved  = true;
+    vel         = (uint8_t) newVel;
+    dragMoved   = true;
+
+    // Keep the velocity badge mirroring the drag so the number tracks the
+    // colour change live, not just on release.
+    badgeRow    = dragRow;
+    badgeCol    = dragCol;
+    badgeVel    = newVel;
+    badgeTarget = (newVel > 0) ? 1.0f : 0.0f;
+
     repaint();
     if (onCellChanged) onCellChanged (dragRow, dragCol);
 }
@@ -614,6 +655,67 @@ void PatternGrid::mouseUp (const juce::MouseEvent&)
     dragRow = dragCol = -1;
     dragMoved = false;
 }
+
+// Shared helper: figure out which cell (if any) is under (x, y), update the
+// badge target there, and pick the appropriate fade target. Empty cells set
+// the badge to fade out so we never sit on a "0" indicator.
+void PatternGrid::updateBadgeAt (int x, int y)
+{
+    auto fadeOutOnly = [&]
+    {
+        pendingBadge.valid = false;
+        if (badgeTarget != 0.0f) badgeTarget = 0.0f;
+    };
+
+    if (editTarget == nullptr || x < kLabelW)
+    {
+        fadeOutOnly();
+        return;
+    }
+
+    const auto bounds = getLocalBounds();
+    const float cellW = (float) (bounds.getWidth() - kLabelW) / MAX_STEPS;
+    const float cellH = (float) bounds.getHeight() / NUM_TRACKS;
+
+    int col = (int) ((float) (x - kLabelW) / cellW);
+    int row = (int) ((float) y / cellH);
+    if (col < 0 || col >= MAX_STEPS || row < 0 || row >= NUM_TRACKS)
+    {
+        fadeOutOnly();
+        return;
+    }
+
+    const int newVel = (int) editTarget->velocities[row][col];
+
+    // Same cell as before: update velocity in place (covers drag/scroll
+    // while hovering) and let the badge target follow.
+    if (row == badgeRow && col == badgeCol)
+    {
+        badgeVel    = newVel;
+        badgeTarget = (newVel > 0) ? 1.0f : 0.0f;
+        pendingBadge.valid = false;
+        repaint();
+        return;
+    }
+
+    scrollAccum = 0.0f;
+
+    // Different cell: fade the current badge out, then swap the new cell
+    // in once alpha hits 0 (handled by the timer). Empty cells skip the
+    // swap step - we just fade out.
+    if (newVel <= 0)
+    {
+        fadeOutOnly();
+        return;
+    }
+
+    pendingBadge = { row, col, newVel, true };
+    badgeTarget  = 0.0f;
+}
+
+void PatternGrid::mouseEnter (const juce::MouseEvent& e) { updateBadgeAt (e.x, e.y); }
+void PatternGrid::mouseExit  (const juce::MouseEvent&)   { badgeTarget = 0.0f; }
+void PatternGrid::mouseMove  (const juce::MouseEvent& e) { updateBadgeAt (e.x, e.y); }
 
 void PatternGrid::mouseWheelMove (const juce::MouseEvent& e,
                                   const juce::MouseWheelDetails& w)
@@ -649,7 +751,7 @@ void PatternGrid::mouseWheelMove (const juce::MouseEvent& e,
     badgeRow   = row;
     badgeCol   = col;
     badgeVel   = newVel;
-    badgeFireMs = juce::Time::getMillisecondCounter();
+    badgeTarget = (newVel > 0) ? 1.0f : 0.0f;
 
     repaint();
     if (onCellChanged) onCellChanged (row, col);
@@ -661,11 +763,33 @@ void PatternGrid::timerCallback()
     bool needRepaint = (step != lastStep);
     if (needRepaint) lastStep = step;
 
-    // Keep repainting while the velocity badge is still visible so the
-    // fade animates smoothly even when transport isn't rolling.
-    if (badgeRow >= 0 && badgeCol >= 0
-        && juce::Time::getMillisecondCounter() - badgeFireMs < 1000)
+    // Ease badgeAlpha toward badgeTarget. ~80 ms each direction at 30 Hz
+    // (kFadeStep == 0.4 ≈ 2.5 ticks to traverse 0↔1). Quick enough that
+    // a cross-cell fade-out → fade-in transition feels brisk while still
+    // being a real animation.
+    constexpr float kFadeStep = 0.40f;
+    if (badgeAlpha < badgeTarget)
+    {
+        badgeAlpha = juce::jmin (badgeTarget, badgeAlpha + kFadeStep);
         needRepaint = true;
+    }
+    else if (badgeAlpha > badgeTarget)
+    {
+        badgeAlpha = juce::jmax (badgeTarget, badgeAlpha - kFadeStep);
+        needRepaint = true;
+    }
+
+    // Old badge has finished fading out and a new cell is waiting — swap
+    // it in and start fading up.
+    if (badgeAlpha <= 0.001f && pendingBadge.valid)
+    {
+        badgeRow    = pendingBadge.row;
+        badgeCol    = pendingBadge.col;
+        badgeVel    = pendingBadge.vel;
+        badgeTarget = 1.0f;
+        pendingBadge.valid = false;
+        needRepaint = true;
+    }
 
     if (needRepaint) repaint();
 }
@@ -699,11 +823,49 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
             tagBar.setAvailableTags (audioProcessor.getLibrary().getGenres());
         }
     };
-    // Enter on the chip-bar input commits the tag and immediately generates
-    // a new pattern from the current selection - same as clicking Generate.
+    // Exact pattern-name match short-circuits the tag flow entirely and
+    // navigates to that saved pattern. Lets users type e.g. "Classic Funk Groove"
+    // and land on the canonical preset rather than generating something new.
+    tagBar.onRawInputHandled = [this] (const juce::String& q) -> bool
+    {
+        return audioProcessor.navigateToPatternByName (q);
+    };
+
+    // Enter on the chip-bar input commits the tag (if any) and ALWAYS
+    // regenerates. The source pool is built by vector-expanding the current
+    // chip selection into the ~12 nearest neighbours, then randomly
+    // picking a small handful to drive makeComposite. The new pattern is
+    // still saved with the user's exact chip selection as its genres, so
+    // the chip bar doesn't drift between presses.
     tagBar.onTagSubmitted = [this]
     {
-        audioProcessor.generateComposite();
+        auto selected = tagBar.getSelectedTags();
+        const auto& vi = tagBar.getVectorIndex();
+
+        if (selected.isEmpty() || ! vi.isAvailable())
+        {
+            audioProcessor.generateComposite();
+        }
+        else
+        {
+            auto pool = vi.findNearestN (selected, 12);
+            if (pool.isEmpty()) pool = selected; // graceful fallback
+
+            // Random subset of size 3 (or pool size, whichever is smaller).
+            // Partial Fisher-Yates so each Enter draws a fresh combination.
+            juce::Random rng (juce::Random::getSystemRandom().nextInt64());
+            const int wanted = juce::jmin (3, pool.size());
+            juce::StringArray picks;
+            for (int i = 0; i < wanted; ++i)
+            {
+                int j = i + rng.nextInt (pool.size() - i);
+                auto tmp = pool[i];
+                pool.set (i, pool[j]);
+                pool.set (j, tmp);
+                picks.add (pool[i]);
+            }
+            audioProcessor.generateComposite (picks, selected);
+        }
         refreshTagSelector();
     };
 
@@ -928,7 +1090,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     lastKnownTags.clear();
     tagBar.setSelectedTags ({});
     grid.setEditTarget (&editingCopy);
-    grid.setTooltip ("Click a cell to cycle its velocity (off  ->  medium  ->  hard  ->  accent  ->  ghost  ->  soft). Right-click clears it. Edits auto-save and the playback follows immediately.");
+    grid.setTooltip ("Click an empty cell to place a max-velocity (120) hit; click a filled cell to clear it. Click and drag vertically to tune the velocity (up = louder, down = quieter). Scroll over a cell for finer steps. Right-click also clears. Edits auto-save and playback follows immediately.");
 
     // ── Add everything ────────────────────────────────────────────────────
     addAndMakeVisible (dragStrip);

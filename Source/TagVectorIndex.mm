@@ -66,6 +66,74 @@ static double cosine (const std::vector<double>& a, const std::vector<double>& b
     return dot / (std::sqrt (na) * std::sqrt (nb));
 }
 
+juce::StringArray TagVectorIndex::findNearestN (const juce::StringArray& seeds,
+                                                int maxResults) const
+{
+    juce::StringArray out;
+    if (impl->embedding == nil || seeds.isEmpty() || maxResults <= 0) return out;
+
+    // Pre-embed every seed so we score candidates against the BEST seed
+    // match (not an averaged centroid — distinct seeds shouldn't smear).
+    std::vector<std::vector<double>> seedVecs;
+    seedVecs.reserve ((size_t) seeds.size());
+    for (const auto& s : seeds)
+        seedVecs.push_back (embedString (impl->embedding, s));
+
+    // Seeds always come first — they're the user's intent.
+    for (const auto& s : seeds)
+    {
+        if (out.size() >= maxResults) break;
+        if (impl->tags.contains (s) && ! out.contains (s))
+            out.add (s);
+    }
+
+    // Score non-seed candidates by max cosine against any seed.
+    struct Cand { int idx; double score; };
+    std::vector<Cand> cands;
+    cands.reserve (impl->vectors.size());
+
+    for (size_t i = 0; i < impl->vectors.size(); ++i)
+    {
+        if (out.contains (impl->tags[(int) i])) continue;
+        double best = -1.0;
+        for (const auto& sv : seedVecs)
+        {
+            double s = cosine (sv, impl->vectors[i]);
+            if (s > best) best = s;
+        }
+        if (best > 0.0) cands.push_back ({ (int) i, best });
+    }
+
+    std::sort (cands.begin(), cands.end(),
+               [] (const Cand& a, const Cand& b) { return a.score > b.score; });
+
+    // Floor: anything below this similarity is too unrelated to include.
+    constexpr double kMinSimilarity = 0.55;
+    while (! cands.empty() && cands.back().score < kMinSimilarity)
+        cands.pop_back();
+
+    // Gap-aware sizing. Walk the sorted candidates; if there's a big drop
+    // between consecutive scores, cut there. Yields:
+    //   - exact tag with no close neighbours  → seeds only (cands empty
+    //     after floor, or the first non-seed is far below the cliff)
+    //   - tight cluster of 2-5 close neighbours → that cluster
+    //   - long tail of similar scores → up to maxResults
+    constexpr double kGapThreshold = 0.10;
+
+    const int budget = juce::jmax (0, maxResults - out.size());
+    int cut = juce::jmin (budget, (int) cands.size());
+    for (int i = 1; i < cut; ++i)
+    {
+        const double gap = cands[(size_t) i - 1].score - cands[(size_t) i].score;
+        if (gap > kGapThreshold) { cut = i; break; }
+    }
+
+    for (int i = 0; i < cut; ++i)
+        out.add (impl->tags[cands[(size_t) i].idx]);
+
+    return out;
+}
+
 juce::String TagVectorIndex::findBestMatch (const juce::String& query,
                                             const juce::StringArray& excluded) const
 {

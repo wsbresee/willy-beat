@@ -47,11 +47,21 @@ public:
     // Import a MIDI file and store it as a user preset
     bool loadMidiFile (const juce::File& file);
 
+    // Navigate to a saved pattern by exact case-insensitive name match.
+    // Returns true if found and selected.
+    bool navigateToPatternByName (const juce::String& name);
+
     // Generate a variation of the active pattern and store it as a preset
     void generateVariation();
 
-    // Generate a composite pattern from same-genre patterns and store it
+    // Generate a composite pattern from same-genre patterns and store it.
+    // Defaults to using the user's currently-selected tags for both the
+    // source pool and the new pattern's saved genres. The editor uses the
+    // overload to pass a vector-expanded source pool while still saving
+    // the pattern with the user's original chip-bar selection.
     void generateComposite();
+    void generateComposite (const juce::StringArray& sourcePool,
+                            const juce::StringArray& assignedGenres);
 
     // Save an edited pattern (from the in-plugin editor) to disk and reload
     void saveEditedPattern (const DrumPattern& p);

@@ -452,19 +452,45 @@ void WillyBeatAudioProcessor::generateVariation()
     apvts.addParameterListener ("patIdx",  this);
 }
 
+bool WillyBeatAudioProcessor::navigateToPatternByName (const juce::String& name)
+{
+    for (const auto& pat : library.all())
+    {
+        if (pat.name.equalsIgnoreCase (name))
+        {
+            apvts.removeParameterListener ("patIdx", this);
+            navigateToPattern (pat);
+            selectPattern();
+            apvts.addParameterListener ("patIdx", this);
+            return true;
+        }
+    }
+    return false;
+}
+
 void WillyBeatAudioProcessor::generateComposite()
 {
     auto tags = getSelectedGenreTags();
+    generateComposite (tags, tags);
+}
+
+void WillyBeatAudioProcessor::generateComposite (const juce::StringArray& sourcePool,
+                                                  const juce::StringArray& assignedGenres)
+{
     juce::int64 seed = juce::Random::getSystemRandom().nextInt64();
 
-    auto composite = library.makeComposite (tags, PatType::Regular, seed);
+    auto composite = library.makeComposite (sourcePool, PatType::Regular, seed);
     if (composite.name.isEmpty()) return;
+
+    // Saved-pattern genres reflect the user's intent (the chip bar at the
+    // moment of Generate), not the random expanded pool used as sources.
+    composite.genres = assignedGenres;
 
     // Each Generate yields a fresh pattern with a unique filename so users can
     // keep clicking and accumulate variations.  Name format: "{firstTag} {N}"
     // (or just "Generated {N}" with no tags), where N is the next free slot.
-    juce::String prefix = tags.isEmpty() ? juce::String ("Generated")
-                                         : tags[0];
+    juce::String prefix = assignedGenres.isEmpty() ? juce::String ("Generated")
+                                                   : assignedGenres[0];
     auto dir = getPresetsDirectory();
     int n = 1;
     juce::String candidate;

@@ -122,9 +122,11 @@ Same flow as Cubase:
   Pattern + Import MIDI buttons). Useful when WillyBeat is parked in a
   track header.
 - **Macro knobs** — Gate, Humanize, Swing, Feel, Density.
-- **Pattern grid** — left-click a cell to drop a hit (medium velocity by
-  default), then drag up to make it louder or down to make it quieter
-  (ghost). Drag all the way down to silence the cell. Right-click clears.
+- **Pattern grid** — left-click an empty cell to place a max-velocity hit
+  (120); left-click a filled cell to clear it. Click + drag vertically
+  to tune the velocity (up = louder, down = quieter). Scroll over a cell
+  with the wheel for finer adjustments. Right-click also clears. Hovering
+  any cell shows its current velocity as a fading number on the cell.
 - **Name field** — rename the active pattern. Saves on Enter or focus loss.
 - **New Pattern / Open Folder** — start a blank pattern with the current
   filter tags, or open the presets folder in Finder.
