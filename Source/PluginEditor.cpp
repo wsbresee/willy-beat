@@ -1163,6 +1163,67 @@ void WillyBeatAudioProcessorEditor::paint (juce::Graphics& g)
     // Hairline below the title
     g.setColour (WillyBeatLookAndFeel::border);
     g.drawHorizontalLine (30, 16.0f, (float) getWidth() - 16.0f);
+
+    // Drop-zone overlay while a MIDI file is dragged over the editor.
+    if (midiDragHovered)
+    {
+        auto b = getLocalBounds().toFloat();
+        g.setColour (WillyBeatLookAndFeel::accent.withAlpha (0.12f));
+        g.fillRect (b);
+        g.setColour (WillyBeatLookAndFeel::accent);
+        g.drawRect (b, 2.5f);
+        g.setFont (juce::Font (juce::FontOptions{}
+                                  .withHeight (18.0f)
+                                  .withStyle ("Bold")));
+        g.drawFittedText ("Drop MIDI to import (first 4 bars)",
+                          getLocalBounds(),
+                          juce::Justification::centred, 1);
+    }
+}
+
+bool WillyBeatAudioProcessorEditor::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    for (auto& f : files)
+        if (f.endsWithIgnoreCase (".mid") || f.endsWithIgnoreCase (".midi"))
+            return true;
+    return false;
+}
+
+void WillyBeatAudioProcessorEditor::fileDragEnter (const juce::StringArray& files, int, int)
+{
+    if (isInterestedInFileDrag (files))
+    {
+        midiDragHovered = true;
+        repaint();
+    }
+}
+
+void WillyBeatAudioProcessorEditor::fileDragExit (const juce::StringArray&)
+{
+    midiDragHovered = false;
+    repaint();
+}
+
+void WillyBeatAudioProcessorEditor::filesDropped (const juce::StringArray& files, int, int)
+{
+    midiDragHovered = false;
+    repaint();
+
+    // Import the first MIDI file in the drop. The processor's loadMidiFile
+    // handles parsing, quantizing onsets to 16ths, capping at the first 4
+    // bars, saving the .beat preset, and navigating to the new pattern.
+    for (auto& path : files)
+    {
+        if (! (path.endsWithIgnoreCase (".mid") || path.endsWithIgnoreCase (".midi")))
+            continue;
+
+        juce::File f { path };
+        if (f.existsAsFile())
+        {
+            audioProcessor.loadMidiFile (f);
+            break;
+        }
+    }
 }
 
 void WillyBeatAudioProcessorEditor::resized()
