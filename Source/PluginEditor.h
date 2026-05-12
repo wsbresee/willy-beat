@@ -2,6 +2,7 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 #include "WillyBeatLookAndFeel.h"
+#include "TagVectorIndex.h"
 
 // ─── TagChipBar ──────────────────────────────────────────────────────────────
 // Multi-select genre tags with fuzzy search.  Shows currently-selected tags
@@ -35,6 +36,7 @@ private:
     juce::TextEditor   input;
     juce::StringArray  availableTags;
     juce::StringArray  selectedTags;
+    TagVectorIndex     vectorIndex;
 
     struct Chip { juce::String tag; juce::Rectangle<int> bounds; juce::Rectangle<int> closeBox; };
     std::vector<Chip> chips;
