@@ -149,8 +149,13 @@ public:
 
     void paint        (juce::Graphics& g)         override;
     void timerCallback()                           override;
+    void mouseDown    (const juce::MouseEvent& e) override;
 
     void setEditTarget (DrumPattern* target) { editTarget = target; repaint(); }
+
+    // Fired when the user clicks the thumbnail. Editor wires this to
+    // expand back to the full grid.
+    std::function<void()> onClick;
 
 private:
     WillyBeatAudioProcessor& proc;
@@ -222,13 +227,11 @@ private:
     std::unique_ptr<SA>  feelAttach;
     std::unique_ptr<SA>  densityAttach;
 
-    // Compact-mode-only control to expand back to the full editor.
-    juce::TextButton editPatternBtn { "Edit Pattern" };
-
     // ── Export / drag controls ───────────────────────────────────────────
     juce::Label      barsLabel       { {}, "Bars:" };
     juce::ComboBox   exportBarsBox;
 
+    juce::Label      fillSectionLabel { {}, "Fill" };
     juce::Label      fillStartLabel  { {}, "Start" };
     juce::Slider     fillStartKnob;
     std::unique_ptr<SA> fillStartAttach;

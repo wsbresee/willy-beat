@@ -125,10 +125,10 @@ Same flow as Cubase:
   itself). Turn on to hear simple synthesized drum sounds via WillyBeat's
   audio output as the DAW transport plays.
 - **Collapse / expand toggle** (`-` / `+` top-right) — shrinks the editor
-  into a mini-pattern view (read-only thumbnail in the lower-left + Edit
-  Pattern + Import MIDI buttons). Useful when WillyBeat is parked in a
-  track header.
-- **Macro knobs** — Gate, Humanize, Swing, Feel, Density.
+  into a mini view: clickable thumbnail of the pattern on the left, the
+  five macro rotaries in the middle, and the three Fill rotaries on the
+  right. Click the thumbnail to expand back to the full grid.
+- **Macro knobs** — Duration, Dynamics, Slop, Swing, Density.
 - **Pattern grid** — left-click an empty cell to place a max-velocity hit
   (120); left-click a filled cell to clear it. Click + drag vertically
   to tune the velocity (up = louder, down = quieter). Scroll over a cell
