@@ -27,6 +27,14 @@ public:
     juce::String findBestMatch (const juce::String& query,
                                 const juce::StringArray& excluded) const;
 
+    // Return up to `maxResults` tags that are nearest (by cosine) to the
+    // union of `seeds`'s embeddings. Used to expand a small user-chosen
+    // tag set into a broader source pool for pattern generation. Seeds
+    // themselves are included first; the rest are filled in by descending
+    // similarity. Returns empty when the embedder is unavailable.
+    juce::StringArray findNearestN (const juce::StringArray& seeds,
+                                    int maxResults) const;
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;

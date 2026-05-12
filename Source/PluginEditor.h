@@ -10,7 +10,8 @@
 // input fuzzy-matches against the available tags and adds the best match.
 class TagChipBar : public juce::Component,
                    public juce::SettableTooltipClient,
-                   public juce::TextEditor::Listener
+                   public juce::TextEditor::Listener,
+                   public juce::KeyListener
 {
 public:
     TagChipBar();
@@ -20,6 +21,11 @@ public:
     // Fires only when the user commits a tag via Enter in the input box.
     // Used by the editor to trigger Generate as soon as you finish typing.
     std::function<void()> onTagSubmitted;
+    // Fires with the trimmed raw query on Enter BEFORE any tag is added.
+    // Return true to signal the input was handled (e.g., matched a
+    // pattern name and the editor navigated to it) — the chip-bar then
+    // clears the input and skips the normal add/submit flow.
+    std::function<bool (const juce::String&)> onRawInputHandled;
 
     void setAvailableTags (const juce::StringArray& all);
     void setSelectedTags  (const juce::StringArray& sel);
@@ -31,6 +37,10 @@ public:
 
     void textEditorReturnKeyPressed (juce::TextEditor&) override;
     void textEditorEscapeKeyPressed (juce::TextEditor&) override;
+
+    bool keyPressed (const juce::KeyPress& key, juce::Component* origin) override;
+
+    const TagVectorIndex& getVectorIndex() const { return vectorIndex; }
 
 private:
     juce::TextEditor   input;
@@ -80,6 +90,9 @@ public:
     void mouseDown       (const juce::MouseEvent& e)  override;
     void mouseDrag       (const juce::MouseEvent& e)  override;
     void mouseUp         (const juce::MouseEvent& e)  override;
+    void mouseMove       (const juce::MouseEvent& e)  override;
+    void mouseEnter      (const juce::MouseEvent& e)  override;
+    void mouseExit       (const juce::MouseEvent& e)  override;
     void mouseWheelMove  (const juce::MouseEvent& e,
                           const juce::MouseWheelDetails& w)  override;
 
@@ -89,6 +102,8 @@ public:
     std::function<void(int track, int step)> onCellChanged;
 
 private:
+    void updateBadgeAt (int x, int y);
+
     WillyBeatAudioProcessor& proc;
     DrumPattern*             editTarget = nullptr;
     int                      lastStep   = -1;
@@ -105,8 +120,16 @@ private:
     int       badgeRow      = -1;
     int       badgeCol      = -1;
     int       badgeVel      = 0;
-    uint32_t  badgeFireMs   = 0;
     float     scrollAccum   = 0.0f; // partial-step accumulator for fine trackpad input
+    float     badgeAlpha    = 0.0f; // current opacity, animated by the timer
+    float     badgeTarget   = 0.0f; // target opacity (0 or 1) set by mouse events
+
+    // When the cursor moves to a different cell, we queue the new cell
+    // here and drive the current badge's alpha to 0. Once it reaches 0
+    // the timer swaps in the queued cell and fades it back up - a real
+    // crossfade rather than a teleport.
+    struct PendingBadge { int row = -1; int col = -1; int vel = 0; bool valid = false; };
+    PendingBadge pendingBadge;
 
     static constexpr int kLabelW = 68;
 
