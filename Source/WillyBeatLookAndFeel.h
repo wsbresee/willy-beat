@@ -15,6 +15,10 @@ public:
                        juce::ComboBox&) override;
     void positionComboBoxText (juce::ComboBox&, juce::Label&) override;
 
+    // Skip the background fill and outline for a Slider's value-display
+    // label so the readout number sits naked over the window.
+    void drawLabel (juce::Graphics&, juce::Label&) override;
+
     juce::Font getTextButtonFont (juce::TextButton&, int) override;
     juce::Font getComboBoxFont   (juce::ComboBox&)         override;
     juce::Font getPopupMenuFont()                          override;

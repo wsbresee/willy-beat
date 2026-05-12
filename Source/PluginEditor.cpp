@@ -145,6 +145,10 @@ void TagChipBar::commitSearch()
         if (onTagsChanged) onTagsChanged();
     }
     input.clear();
+
+    // Enter is the "I'm done picking tags" signal — let the editor fire
+    // Generate even when the user re-confirmed an already-selected tag.
+    if (onTagSubmitted) onTagSubmitted();
 }
 
 juce::String TagChipBar::findFuzzyMatch (const juce::String& query) const
@@ -492,6 +496,42 @@ void PatternGrid::paint (juce::Graphics& g)
     for (int row = 0; row <= NUM_TRACKS; ++row)
         g.drawHorizontalLine ((int) ((float) row * cellH),
                               (float) gridX, (float) bounds.getWidth());
+
+    // Fading velocity badge — drawn after wheel-scroll, fades over ~1s.
+    if (badgeRow >= 0 && badgeCol >= 0)
+    {
+        constexpr uint32_t fadeMs = 1000;
+        const uint32_t age = juce::Time::getMillisecondCounter() - badgeFireMs;
+        if (age < fadeMs)
+        {
+            const float alpha = 1.0f - (float) age / (float) fadeMs;
+
+            const float bx = (float) gridX + (float) badgeCol * cellW;
+            const float by = (float) badgeRow * cellH;
+
+            // Position the badge above the scrolled cell, clamped inside the
+            // grid so it stays visible at the top row.
+            const float padW = 36.0f;
+            const float padH = 22.0f;
+            float px = bx + cellW * 0.5f - padW * 0.5f;
+            float py = by - padH - 2.0f;
+            if (py < 0.0f) py = by + cellH + 2.0f;
+            px = juce::jlimit ((float) gridX, (float) bounds.getWidth() - padW, px);
+
+            juce::Rectangle<float> pad (px, py, padW, padH);
+            g.setColour (WillyBeatLookAndFeel::bgPanel.withAlpha (alpha * 0.95f));
+            g.fillRoundedRectangle (pad, 4.0f);
+            g.setColour (WillyBeatLookAndFeel::accent.withAlpha (alpha));
+            g.drawRoundedRectangle (pad, 4.0f, 1.0f);
+
+            g.setColour (WillyBeatLookAndFeel::textPrimary.withAlpha (alpha));
+            g.setFont (juce::Font (juce::FontOptions{}
+                                       .withHeight (13.0f)
+                                       .withStyle ("Bold")));
+            g.drawText (juce::String (badgeVel), pad,
+                        juce::Justification::centred, false);
+        }
+    }
 }
 
 void PatternGrid::setEditTarget (DrumPattern* target)
@@ -562,14 +602,59 @@ void PatternGrid::mouseUp (const juce::MouseEvent&)
     dragMoved = false;
 }
 
+void PatternGrid::mouseWheelMove (const juce::MouseEvent& e,
+                                  const juce::MouseWheelDetails& w)
+{
+    if (editTarget == nullptr || e.x < kLabelW) return;
+
+    const auto bounds = getLocalBounds();
+    const float cellW = (float) (bounds.getWidth() - kLabelW) / MAX_STEPS;
+    const float cellH = (float) bounds.getHeight() / NUM_TRACKS;
+
+    int col = (int) ((float) (e.x - kLabelW) / cellW);
+    int row = (int) ((float) e.y / cellH);
+    if (col < 0 || col >= MAX_STEPS || row < 0 || row >= NUM_TRACKS) return;
+
+    // Reset the partial-step accumulator whenever the cursor jumps to a
+    // different cell so steps don't carry over across cells.
+    if (row != badgeRow || col != badgeCol)
+        scrollAccum = 0.0f;
+
+    // ~64 velocity units per "click" of the wheel. Trackpad deltas are
+    // continuous, so we keep the fractional remainder in scrollAccum.
+    const float gain = w.isReversed ? -1.0f : 1.0f;
+    scrollAccum += w.deltaY * gain * 64.0f;
+    const int delta = (int) scrollAccum;
+    scrollAccum -= (float) delta;
+    if (delta == 0) return;
+
+    auto& vel = editTarget->velocities[row][col];
+    const int newVel = juce::jlimit (0, 127, (int) vel + delta);
+    if (newVel == (int) vel) return;
+
+    vel        = (uint8_t) newVel;
+    badgeRow   = row;
+    badgeCol   = col;
+    badgeVel   = newVel;
+    badgeFireMs = juce::Time::getMillisecondCounter();
+
+    repaint();
+    if (onCellChanged) onCellChanged (row, col);
+}
+
 void PatternGrid::timerCallback()
 {
     int step = proc.getCurrentStep().load();
-    if (step != lastStep)
-    {
-        lastStep = step;
-        repaint();
-    }
+    bool needRepaint = (step != lastStep);
+    if (needRepaint) lastStep = step;
+
+    // Keep repainting while the velocity badge is still visible so the
+    // fade animates smoothly even when transport isn't rolling.
+    if (badgeRow >= 0 && badgeCol >= 0
+        && juce::Time::getMillisecondCounter() - badgeFireMs < 1000)
+        needRepaint = true;
+
+    if (needRepaint) repaint();
 }
 
 //==============================================================================
@@ -600,6 +685,13 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
             // Refresh available tags in case a brand-new one was introduced.
             tagBar.setAvailableTags (audioProcessor.getLibrary().getGenres());
         }
+    };
+    // Enter on the chip-bar input commits the tag and immediately generates
+    // a new pattern from the current selection - same as clicking Generate.
+    tagBar.onTagSubmitted = [this]
+    {
+        audioProcessor.generateComposite();
+        refreshTagSelector();
     };
 
     // ── Pattern index slider ──────────────────────────────────────────────

@@ -16,6 +16,9 @@ public:
     ~TagChipBar() override = default;
 
     std::function<void()> onTagsChanged;
+    // Fires only when the user commits a tag via Enter in the input box.
+    // Used by the editor to trigger Generate as soon as you finish typing.
+    std::function<void()> onTagSubmitted;
 
     void setAvailableTags (const juce::StringArray& all);
     void setSelectedTags  (const juce::StringArray& sel);
@@ -70,11 +73,13 @@ public:
     explicit PatternGrid (WillyBeatAudioProcessor& p);
     ~PatternGrid() override;
 
-    void paint        (juce::Graphics& g)         override;
-    void timerCallback()                           override;
-    void mouseDown    (const juce::MouseEvent& e)  override;
-    void mouseDrag    (const juce::MouseEvent& e)  override;
-    void mouseUp      (const juce::MouseEvent& e)  override;
+    void paint           (juce::Graphics& g)         override;
+    void timerCallback   ()                           override;
+    void mouseDown       (const juce::MouseEvent& e)  override;
+    void mouseDrag       (const juce::MouseEvent& e)  override;
+    void mouseUp         (const juce::MouseEvent& e)  override;
+    void mouseWheelMove  (const juce::MouseEvent& e,
+                          const juce::MouseWheelDetails& w)  override;
 
     void setEditTarget (DrumPattern* target);
 
@@ -91,6 +96,15 @@ private:
     int dragCol      = -1;
     int dragStartVel = 0;
     bool dragMoved   = false;
+
+    // Scroll-velocity badge state: which cell was most recently scrolled,
+    // its current velocity, and when the last scroll happened (ms since
+    // boot). The timer animates fade-out.
+    int       badgeRow      = -1;
+    int       badgeCol      = -1;
+    int       badgeVel      = 0;
+    uint32_t  badgeFireMs   = 0;
+    float     scrollAccum   = 0.0f; // partial-step accumulator for fine trackpad input
 
     static constexpr int kLabelW = 68;
 
