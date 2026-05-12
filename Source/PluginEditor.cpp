@@ -701,10 +701,10 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     patIdxSlider.setTooltip ("Step through saved patterns. Generate appends a new pattern at the end - go back one slot to see your previous generation.");
 
     // ── Knob row ──────────────────────────────────────────────────────────
-    gateAttach     = std::make_unique<SA> (p.apvts, "gate",      gateKnob);
-    humanizeAttach = std::make_unique<SA> (p.apvts, "humanize",  humanizeKnob);
+    gateAttach     = std::make_unique<SA> (p.apvts, "duration",      gateKnob);
+    humanizeAttach = std::make_unique<SA> (p.apvts, "dynamics",  humanizeKnob);
     swingAttach    = std::make_unique<SA> (p.apvts, "swing",     swingKnob);
-    feelAttach     = std::make_unique<SA> (p.apvts, "feel",      feelKnob);
+    feelAttach     = std::make_unique<SA> (p.apvts, "slop",      feelKnob);
     densityAttach  = std::make_unique<SA> (p.apvts, "density",   densityKnob);
 
     // JUCE LookAndFeel_V4 default rotary sweep — matches the fill rotaries
@@ -722,11 +722,11 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     for (auto* k : { &gateKnob, &humanizeKnob, &swingKnob, &feelKnob, &densityKnob })
         setupRotary (*k, 48, 18);
 
-    gateKnob    .setTooltip ("Gate  -  note length as a percentage of the step duration. Lower = staccato, higher = legato.");
-    humanizeKnob.setTooltip ("Humanize  -  random velocity variation per hit, in MIDI velocity units.");
+    gateKnob    .setTooltip ("Duration  -  note length as a percentage of the step duration. Lower = staccato, higher = legato.");
+    humanizeKnob.setTooltip ("Dynamics  -  random velocity variation per hit, in MIDI velocity units. Higher = more loudness contrast between hits.");
     swingKnob   .setTooltip ("Swing  -  delays the off-beat 16th notes for a shuffle/jazz feel. ~67% lands on triplets.");
-    feelKnob    .setTooltip ("Feel  -  per-note timing jitter, bell-curved. Louder hits stay closer to the grid.");
-    densityKnob .setTooltip ("Density  -  0-100% filters quiet hits by velocity threshold; 100-200% adds extra hits at empty slots, drawn from same-tag patterns (most-shared slots first).");
+    feelKnob    .setTooltip ("Slop  -  random per-note timing offset, bell-curved. Louder hits stay closer to the grid. Higher = looser feel.");
+    densityKnob .setTooltip ("Density  -  0-100% removes hits one-by-one in importance order (low-velocity 16th-offbeat hits first; downbeats and loud backbeats last). 100-200% adds extra hits at empty slots, drawn from same-tag patterns (most-shared slots first).");
 
     auto labelStyle = [] (juce::Label* lbl)
     {
@@ -880,9 +880,9 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
                 fillPtr = &fillPattern;
         }
 
-        float humanize = audioProcessor.apvts.getRawParameterValue ("humanize")->load();
+        float humanize = audioProcessor.apvts.getRawParameterValue ("dynamics")->load();
         float swing    = audioProcessor.apvts.getRawParameterValue ("swing")->load();
-        float feel     = audioProcessor.apvts.getRawParameterValue ("feel")->load();
+        float feel     = audioProcessor.apvts.getRawParameterValue ("slop")->load();
 
         return writePatternToMidi (editingCopy, fillPtr, numBars,
                                    fillStart, fillMid, fillEnd,
@@ -894,6 +894,10 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     grid.onCellChanged = [this] (int t, int s) { autoSaveCurrentEdit (t, s); };
 
     // ── Initialise full + filtered patterns from the active pattern ───────
+    // Tags are intentionally NOT pulled from the initial pattern here: a
+    // fresh plugin instance should open with an empty chip bar so the user
+    // chooses their own scope. Subsequent patIdx changes (or Generate) DO
+    // populate the chip bar from the active pattern via the timer.
     lastDensity = audioProcessor.apvts.getRawParameterValue ("density")->load() / 100.0f;
     if (auto* pat = audioProcessor.getActivePattern())
     {
@@ -905,10 +909,11 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         applyDensityToEditingCopy();
         audioProcessor.getLibrary().updatePattern (editingCopy);
         nameEditor.setText (editingCopy.name, false);
-        tagBar.setSelectedTags (editingCopy.genres);
-        lastKnownTags = editingCopy.genres;
-        audioProcessor.setSelectedGenreTags (editingCopy.genres);
     }
+    // Clear any persisted scope so the chip bar starts truly empty on open.
+    audioProcessor.setSelectedGenreTags ({});
+    lastKnownTags.clear();
+    tagBar.setSelectedTags ({});
     grid.setEditTarget (&editingCopy);
     grid.setTooltip ("Click a cell to cycle its velocity (off  ->  medium  ->  hard  ->  accent  ->  ghost  ->  soft). Right-click clears it. Edits auto-save and the playback follows immediately.");
 
@@ -1050,16 +1055,42 @@ static void applyDensity (DrumPattern& target,
         for (int s = 0; s < MAX_STEPS; ++s)
             target.velocities[t][s] = src.velocities[t][s];
 
-    if (density <= 1.0f)
+    if (density < 1.0f)
     {
-        uint8_t minVel = (uint8_t) ((1.0f - density) * 127.0f);
+        // Importance-based hit removal: score every active hit, sort the
+        // least-important to the front, then silence the first N where N
+        // = (1 - density) * totalHits. Score combines velocity with a
+        // beat-position tier so ghost notes and 16th offbeats fall away
+        // first while downbeat / backbeat hits survive.
+        struct Hit { int track, step; int importance; };
+        std::vector<Hit> hits;
+        hits.reserve (NUM_TRACKS * MAX_STEPS);
+
+        auto tierBonus = [] (int step) -> int
+        {
+            if (step % 16 == 0) return 80; // bar downbeat
+            if (step %  4 == 0) return 40; // quarter beats (incl. backbeats)
+            if (step %  2 == 0) return 10; // 8th-note positions
+            return 0;                      // 16th-note offbeats
+        };
+
         for (int t = 0; t < NUM_TRACKS; ++t)
             for (int s = 0; s < MAX_STEPS; ++s)
-            {
-                uint8_t v = target.velocities[t][s];
-                if (v > 0 && v < minVel)
-                    target.velocities[t][s] = 0;
-            }
+                if (auto v = target.velocities[t][s])
+                    hits.push_back ({ t, s, (int) v * 2 + tierBonus (s) });
+
+        std::sort (hits.begin(), hits.end(),
+                   [] (const Hit& a, const Hit& b)
+                   {
+                       if (a.importance != b.importance) return a.importance < b.importance;
+                       if (a.track      != b.track)      return a.track      < b.track;
+                       return a.step < b.step;
+                   });
+
+        const int numHits     = (int) hits.size();
+        const int numToRemove = numHits - (int) std::round (density * (float) numHits);
+        for (int i = 0; i < numToRemove && i < numHits; ++i)
+            target.velocities[hits[i].track][hits[i].step] = 0;
     }
     else
     {
@@ -1379,10 +1410,12 @@ void WillyBeatAudioProcessorEditor::resized()
         // 5 mini macro rotaries spread across whatever's left. Each rotary
         // keeps its built-in wheel-scroll handling so they can be edited
         // without expanding the editor.
-        juce::Label*  labels[] = { &gateLabel, &humanizeLabel, &swingLabel,
-                                   &feelLabel, &densityLabel };
-        juce::Slider* knobs[]  = { &gateKnob,  &humanizeKnob,  &swingKnob,
-                                   &feelKnob,  &densityKnob };
+        // Order: Duration, Dynamics, Slop, Swing, Density - clusters the
+        // three variation knobs (Dynamics/Slop/Swing) together.
+        juce::Label*  labels[] = { &gateLabel, &humanizeLabel, &feelLabel,
+                                   &swingLabel, &densityLabel };
+        juce::Slider* knobs[]  = { &gateKnob,  &humanizeKnob,  &feelKnob,
+                                   &swingKnob, &densityKnob };
         int colW = miniRow.getWidth() / 5;
         for (int i = 0; i < 5; ++i)
         {
@@ -1399,8 +1432,8 @@ void WillyBeatAudioProcessorEditor::resized()
     auto rowB = area.removeFromTop (110);
     {
         int sectionW = rowB.getWidth() / 5;
-        juce::Label*  labels[] = { &gateLabel, &humanizeLabel, &swingLabel, &feelLabel, &densityLabel };
-        juce::Slider* knobs[]  = { &gateKnob,  &humanizeKnob,  &swingKnob,  &feelKnob,  &densityKnob };
+        juce::Label*  labels[] = { &gateLabel, &humanizeLabel, &feelLabel, &swingLabel, &densityLabel };
+        juce::Slider* knobs[]  = { &gateKnob,  &humanizeKnob,  &feelKnob,  &swingKnob,  &densityKnob };
         for (int i = 0; i < 5; ++i)
         {
             auto section = rowB.removeFromLeft (i < 4 ? sectionW : rowB.getWidth());
