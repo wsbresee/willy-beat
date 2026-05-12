@@ -37,6 +37,7 @@ target_sources(WillyBeat
         Source/PluginEditor.cpp
         Source/WillyBeatLookAndFeel.cpp
         Source/StockDrums.cpp
+        Source/TagVectorIndex.mm
 )
 
 target_compile_definitions(WillyBeat
@@ -54,3 +55,8 @@ target_link_libraries(WillyBeat
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
 )
+
+if(APPLE)
+    find_library(NATURAL_LANGUAGE_FRAMEWORK NaturalLanguage)
+    target_link_libraries(WillyBeat PRIVATE ${NATURAL_LANGUAGE_FRAMEWORK})
+endif()

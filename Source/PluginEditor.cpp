@@ -20,6 +20,7 @@ TagChipBar::TagChipBar()
 void TagChipBar::setAvailableTags (const juce::StringArray& all)
 {
     availableTags = all;
+    vectorIndex.setKnownTags (all);
 }
 
 void TagChipBar::setSelectedTags (const juce::StringArray& sel)
@@ -153,6 +154,8 @@ void TagChipBar::commitSearch()
 
 juce::String TagChipBar::findFuzzyMatch (const juce::String& query) const
 {
+    // 1. Exact / prefix / substring match wins outright - cheaper than the
+    //    embedding lookup and matches obvious typing intent.
     auto qLow = query.toLowerCase();
 
     for (const auto& tag : availableTags)
@@ -166,6 +169,16 @@ juce::String TagChipBar::findFuzzyMatch (const juce::String& query) const
     for (const auto& tag : availableTags)
         if (tag.toLowerCase().contains (qLow) && ! selectedTags.contains (tag))
             return tag;
+
+    // 2. Semantic vector search via Apple's NaturalLanguage embedding.
+    //    Lets "metal" match "Heavy Metal", "edm" match "Electronic",
+    //    "sad slow" find "Lofi" or "Ambient", and so on. Falls back to
+    //    nothing (empty) if no tag clears the similarity threshold.
+    if (vectorIndex.isAvailable())
+    {
+        auto match = vectorIndex.findBestMatch (query, selectedTags);
+        if (match.isNotEmpty()) return match;
+    }
 
     return {};
 }
