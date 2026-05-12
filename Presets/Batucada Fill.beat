@@ -1,0 +1,17 @@
+# WillyBeat Preset
+name:    Batucada Fill
+genres:  Latin, Samba, Brazilian
+type:    Big Fill
+density: 0.3812
+
+# velocity codes:  . off   g ghost(25)   s soft(55)   m medium(80)   h hard(100)   a accent(120)
+kick    a.a.a.a.a.a.a.a.
+snare   gsmgsmgsmgsmgsmg
+hihat_c mmmmmmmmmmmmmmmm
+hihat_o ................
+ride    ................
+crash   a...............
+tom_h   ........mhmh....
+tom_m   ............mhmh
+tom_l   ................
+rim     m.mmm.mmm.mmm.mm

@@ -21,9 +21,16 @@ automatically:
 - VST3 → `~/Library/Audio/Plug-Ins/VST3/WillyBeat.vst3`
 - AU → `~/Library/Audio/Plug-Ins/Components/WillyBeat.component`
 
-The first time the plugin loads it writes its preset library to
-`~/Library/Application Support/WillyBeat/Presets/`. New patterns and tag
-edits save back to that folder.
+The plugin reads its preset library from
+`~/Library/Application Support/WillyBeat/Presets/`. Install the bundled
+library with:
+
+```bash
+./install_presets.sh           # copy any missing presets, skip existing
+./install_presets.sh --force   # overwrite all
+```
+
+New patterns and tag edits save back to that folder.
 
 ---
 
