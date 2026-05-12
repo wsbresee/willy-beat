@@ -42,12 +42,12 @@ WillyBeatAudioProcessor::createParameterLayout()
         "macros", "Macros", "|");
 
     macros->addChild (std::make_unique<AudioParameterFloat> (
-        ParameterID { "gate", 1 }, "Gate",
+        ParameterID { "duration", 1 }, "Duration",
         NormalisableRange<float> (10.0f, 100.0f, 1.0f), 80.0f,
         AudioParameterFloatAttributes().withLabel ("%")));
 
     macros->addChild (std::make_unique<AudioParameterFloat> (
-        ParameterID { "humanize", 1 }, "Humanize",
+        ParameterID { "dynamics", 1 }, "Dynamics",
         NormalisableRange<float> (0.0f, 50.0f, 1.0f), 0.0f,
         AudioParameterFloatAttributes().withLabel ("vel")));
 
@@ -57,7 +57,7 @@ WillyBeatAudioProcessor::createParameterLayout()
         AudioParameterFloatAttributes().withLabel ("%")));
 
     macros->addChild (std::make_unique<AudioParameterFloat> (
-        ParameterID { "feel", 1 }, "Feel",
+        ParameterID { "slop", 1 }, "Slop",
         NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f,
         AudioParameterFloatAttributes().withLabel ("%")));
 
@@ -258,20 +258,17 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
     const double ppqStart    = ppqPosition;
     const double ppqEnd      = ppqStart + (double) blockSize * ppqPerSample;
 
-    const float  gatePct      = apvts.getRawParameterValue ("gate")->load() / 100.0f;
-    const int    humanize     = (int) apvts.getRawParameterValue ("humanize")->load();
+    const float  gatePct      = apvts.getRawParameterValue ("duration")->load() / 100.0f;
+    const int    humanize     = (int) apvts.getRawParameterValue ("dynamics")->load();
     const double swingDelay   = apvts.getRawParameterValue ("swing")->load() * (stepPPQ * 0.5 / 100.0);
-    const double maxFeelSamp  = apvts.getRawParameterValue ("feel")->load() / 100.0
+    const double maxFeelSamp  = apvts.getRawParameterValue ("slop")->load() / 100.0
                                     * (stepPPQ / ppqPerSample) * 0.08;
     const double stepSamples  = stepPPQ / ppqPerSample;
     const double noteLenSamp  = stepSamples * (double) gatePct;
 
-    // Density gate: filter out notes with velocity below threshold when
-    // density < 100%.  At density >= 100% the gate passes everything; the
-    // editor handles >100% augmentation by writing extra hits into the
-    // library's active pattern, so processBlock just plays whatever is there.
-    const float   density = apvts.getRawParameterValue ("density")->load() / 100.0f;
-    const uint8_t minVel  = (uint8_t) (juce::jlimit (0.0f, 1.0f, 1.0f - density) * 127.0f);
+    // Density is applied in the editor's applyDensity pass before the
+    // pattern reaches the library, so processBlock just plays whatever
+    // velocities are currently in activePattern.
 
     auto stepToPPQ = [&] (long step) -> double
     {
@@ -313,7 +310,7 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
         for (int t = 0; t < NUM_TRACKS; ++t)
         {
             uint8_t stored = activePattern->velocities[t][patStep];
-            if (stored == 0 || stored < minVel) continue;
+            if (stored == 0) continue;
 
             uint8_t vel = stored;
             if (humanize > 0)

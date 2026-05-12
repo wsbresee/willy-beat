@@ -179,10 +179,10 @@ private:
     std::unique_ptr<BA> soundAttach;
 
     // ── Knob row ─────────────────────────────────────────────────────────
-    juce::Label  gateLabel      { {}, "Gate %" };
-    juce::Label  humanizeLabel  { {}, "Humanize" };
+    juce::Label  gateLabel      { {}, "Duration" };
+    juce::Label  humanizeLabel  { {}, "Dynamics" };
     juce::Label  swingLabel     { {}, "Swing" };
-    juce::Label  feelLabel      { {}, "Feel" };
+    juce::Label  feelLabel      { {}, "Slop" };
     juce::Label  densityLabel   { {}, "Density" };
 
     juce::Slider gateKnob;
