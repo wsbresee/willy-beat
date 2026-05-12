@@ -1357,8 +1357,9 @@ void WillyBeatAudioProcessorEditor::resized()
     patLabel    .setBounds (patArea.removeFromTop (18));
     patIdxSlider.setBounds (patArea.removeFromTop (24));
 
-    // In compact mode, show a read-only thumbnail in the lower-left and
-    // surface Edit-Pattern + Import-MIDI buttons.
+    // In compact mode, show a read-only thumbnail in the lower-left, a
+    // strip of mini macro knobs in the middle, and the Edit-Pattern +
+    // Import-MIDI buttons on the right.
     if (compactMode)
     {
         area.removeFromTop (8);
@@ -1368,7 +1369,27 @@ void WillyBeatAudioProcessorEditor::resized()
         editPatternBtn.setBounds (buttonsCol.removeFromTop (32).reduced (4, 4));
         importMidiBtn .setBounds (buttonsCol.removeFromTop (32).reduced (4, 4));
 
-        miniGrid.setBounds (miniRow.reduced (0, 4));
+        miniRow.removeFromRight (6);
+
+        auto miniGridArea = miniRow.removeFromLeft (260);
+        miniGrid.setBounds (miniGridArea.reduced (0, 4));
+
+        miniRow.removeFromLeft (4);
+
+        // 5 mini macro rotaries spread across whatever's left. Each rotary
+        // keeps its built-in wheel-scroll handling so they can be edited
+        // without expanding the editor.
+        juce::Label*  labels[] = { &gateLabel, &humanizeLabel, &swingLabel,
+                                   &feelLabel, &densityLabel };
+        juce::Slider* knobs[]  = { &gateKnob,  &humanizeKnob,  &swingKnob,
+                                   &feelKnob,  &densityKnob };
+        int colW = miniRow.getWidth() / 5;
+        for (int i = 0; i < 5; ++i)
+        {
+            auto col = miniRow.removeFromLeft (i < 4 ? colW : miniRow.getWidth());
+            labels[i]->setBounds (col.removeFromTop (14));
+            knobs[i] ->setBounds (col);
+        }
         return;
     }
 
@@ -1451,14 +1472,12 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     compactMode = ! compactMode;
     collapseBtn.setButtonText (compactMode ? "+" : "-");
 
+    // Macro rotaries and their labels stay visible in compact mode so the
+    // user can still wheel-edit them; everything else (name/util bar,
+    // export controls, full grid) hides.
     const bool show = ! compactMode;
     juce::Component* hideInCompact[] = {
         &grid,
-        &gateLabel,      &gateKnob,
-        &humanizeLabel,  &humanizeKnob,
-        &swingLabel,     &swingKnob,
-        &feelLabel,      &feelKnob,
-        &densityLabel,   &densityKnob,
         &nameLabel,      &nameEditor,
         &newPatBtn,      &openFolderBtn,  &importMidiBtn,
         &barsLabel,      &exportBarsBox,
