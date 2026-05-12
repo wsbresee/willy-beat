@@ -1070,7 +1070,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // Poll for active-pattern changes at 10 Hz
     startTimerHz (10);
 
-    setSize (760, 660);
+    setSize (760, 678);
 }
 
 WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
@@ -1554,7 +1554,7 @@ void WillyBeatAudioProcessorEditor::resized()
 
     // ── Export row (now ABOVE the grid, so users see export config first) ─
     {
-        auto exportRow = area.removeFromTop (70);
+        auto exportRow = area.removeFromTop (88);
 
         auto centred = [&] (juce::Rectangle<int> r) {
             int yOff = (exportRow.getHeight() - 24) / 2;
@@ -1572,7 +1572,7 @@ void WillyBeatAudioProcessorEditor::resized()
         // Three fill rotaries grouped under a single "Fill" section header.
         // Sub-labels per knob just read "Start" / "Mid" / "End".
         auto fillArea = exportRow.removeFromLeft (3 * 70 + 2 * 4);
-        fillSectionLabel.setBounds (fillArea.removeFromTop (16));
+        fillSectionLabel.setBounds (fillArea.removeFromTop (18));
 
         auto layoutFillKnob = [&] (juce::Label& lbl, juce::Slider& knob)
         {
@@ -1618,5 +1618,5 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     fillMidLabel  .setText (compactMode ? "Fill Mid"   : "Mid",   juce::dontSendNotification);
     fillEndLabel  .setText (compactMode ? "Fill End"   : "End",   juce::dontSendNotification);
 
-    setSize (760, compactMode ? 184 : 660);
+    setSize (760, compactMode ? 184 : 678);
 }
