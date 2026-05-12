@@ -65,6 +65,30 @@ WillyBeatLookAndFeel::WillyBeatLookAndFeel()
 
 //==============================================================================
 
+void WillyBeatLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
+{
+    // Slider value labels: draw the text only - no background fill, no
+    // outline rectangle, even when the underlying LookAndFeel_V4 default
+    // would draw one. Other labels (rotary captions etc.) fall through to
+    // the inherited path.
+    if (dynamic_cast<juce::Slider*> (label.getParentComponent()) == nullptr)
+    {
+        juce::LookAndFeel_V4::drawLabel (g, label);
+        return;
+    }
+
+    if (label.isBeingEdited()) return; // a TextEditor takes over while editing
+
+    auto font = getLabelFont (label);
+    g.setColour (label.findColour (juce::Label::textColourId)
+                     .withMultipliedAlpha (label.isEnabled() ? 1.0f : 0.5f));
+    g.setFont (font);
+    auto textArea = getLabelBorderSize (label).subtractedFrom (label.getLocalBounds());
+    g.drawFittedText (label.getText(), textArea, label.getJustificationType(),
+                      juce::jmax (1, (int) ((float) textArea.getHeight() / font.getHeight())),
+                      label.getMinimumHorizontalScale());
+}
+
 void WillyBeatLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height,
                                          bool /*isButtonDown*/,
                                          int /*bx*/, int /*by*/, int /*bw*/, int /*bh*/,
