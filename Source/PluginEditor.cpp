@@ -408,6 +408,11 @@ void MiniPatternView::timerCallback()
     repaint();
 }
 
+void MiniPatternView::mouseDown (const juce::MouseEvent&)
+{
+    if (onClick) onClick();
+}
+
 void MiniPatternView::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
@@ -934,9 +939,6 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     soundBtn.setTooltip ("Internal drum-sound preview. When on, WillyBeat plays simple synthesized drums through its audio output as the DAW transport rolls. Default off so the plugin defers to a downstream sampler.");
     soundAttach = std::make_unique<BA> (p.apvts, "internalSound", soundBtn);
 
-    editPatternBtn.setTooltip ("Open the full edit view (channel labels + per-cell editing).");
-    editPatternBtn.onClick = [this] { if (compactMode) toggleCompactMode(); };
-
     // ── Export / drag controls ────────────────────────────────────────────
     exportBarsBox.addItem ("1 bar",   1);
     exportBarsBox.addItem ("2 bars",  2);
@@ -976,6 +978,10 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     fillLabelStyle (fillStartLabel);
     fillLabelStyle (fillMidLabel);
     fillLabelStyle (fillEndLabel);
+
+    fillSectionLabel.setFont (juce::Font (juce::FontOptions{}.withHeight (13.0f)));
+    fillSectionLabel.setJustificationType (juce::Justification::centred);
+    fillSectionLabel.setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textPrimary);
 
     // ── Drag strip — exports current editingCopy ──────────────────────────
     dragStrip.onDrag = [this]() -> juce::File
@@ -1040,11 +1046,11 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     addAndMakeVisible (dragStrip);
     addAndMakeVisible (grid);
     addAndMakeVisible (miniGrid);
-    addAndMakeVisible (editPatternBtn);
-    miniGrid       .setVisible (false);
-    editPatternBtn .setVisible (false);
+    miniGrid.setVisible (false);
     miniGrid.setEditTarget (&editingCopy);
-    miniGrid.setTooltip ("Mini view of the active pattern. Click 'Edit Pattern' to open the full grid.");
+    miniGrid.setMouseCursor (juce::MouseCursor::PointingHandCursor);
+    miniGrid.setTooltip ("Mini view of the active pattern. Click to open the full grid.");
+    miniGrid.onClick = [this] { if (compactMode) toggleCompactMode(); };
     addAndMakeVisible (genreLabel);     addAndMakeVisible (tagBar);
     addAndMakeVisible (patLabel);       addAndMakeVisible (patIdxSlider);
     addAndMakeVisible (gateLabel);      addAndMakeVisible (gateKnob);
@@ -1056,6 +1062,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     addAndMakeVisible (collapseBtn);
     addAndMakeVisible (soundBtn);
     addAndMakeVisible (barsLabel);       addAndMakeVisible (exportBarsBox);
+    addAndMakeVisible (fillSectionLabel);
     addAndMakeVisible (fillStartLabel);  addAndMakeVisible (fillStartKnob);
     addAndMakeVisible (fillMidLabel);    addAndMakeVisible (fillMidKnob);
     addAndMakeVisible (fillEndLabel);    addAndMakeVisible (fillEndKnob);
@@ -1481,16 +1488,25 @@ void WillyBeatAudioProcessorEditor::resized()
     patLabel    .setBounds (patArea.removeFromTop (18));
     patIdxSlider.setBounds (patArea.removeFromTop (24));
 
-    // In compact mode, show a read-only thumbnail in the lower-left, a
-    // strip of mini macro knobs in the middle, and the Edit-Pattern
-    // button on the right.
+    // In compact mode: clickable thumbnail on the left, 5 mini macro
+    // rotaries in the middle, three fill rotaries on the right.
     if (compactMode)
     {
         area.removeFromTop (8);
         auto miniRow = area.removeFromTop (84);
 
-        auto buttonsCol = miniRow.removeFromRight (140);
-        editPatternBtn.setBounds (buttonsCol.withSizeKeepingCentre (132, 36));
+        auto fillCol = miniRow.removeFromRight (165);
+        {
+            juce::Label*  fLabels[] = { &fillStartLabel, &fillMidLabel, &fillEndLabel };
+            juce::Slider* fKnobs[]  = { &fillStartKnob,  &fillMidKnob,  &fillEndKnob  };
+            int colW = fillCol.getWidth() / 3;
+            for (int i = 0; i < 3; ++i)
+            {
+                auto col = fillCol.removeFromLeft (i < 2 ? colW : fillCol.getWidth());
+                fLabels[i]->setBounds (col.removeFromTop (14));
+                fKnobs[i] ->setBounds (col);
+            }
+        }
 
         miniRow.removeFromRight (6);
 
@@ -1553,13 +1569,17 @@ void WillyBeatAudioProcessorEditor::resized()
         exportBarsBox.setBounds (centred      (exportRow.removeFromLeft (72)));
         exportRow.removeFromLeft (12);
 
-        // Three fill rotaries: Start / Mid / End — 70-px columns, label above.
+        // Three fill rotaries grouped under a single "Fill" section header.
+        // Sub-labels per knob just read "Start" / "Mid" / "End".
+        auto fillArea = exportRow.removeFromLeft (3 * 70 + 2 * 4);
+        fillSectionLabel.setBounds (fillArea.removeFromTop (16));
+
         auto layoutFillKnob = [&] (juce::Label& lbl, juce::Slider& knob)
         {
-            auto col = exportRow.removeFromLeft (70);
+            auto col = fillArea.removeFromLeft (70);
             lbl .setBounds (col.removeFromTop (14));
             knob.setBounds (col);
-            exportRow.removeFromLeft (4);
+            fillArea.removeFromLeft (4);
         };
         layoutFillKnob (fillStartLabel, fillStartKnob);
         layoutFillKnob (fillMidLabel,   fillMidKnob);
@@ -1577,21 +1597,26 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     compactMode = ! compactMode;
     collapseBtn.setButtonText (compactMode ? "+" : "-");
 
-    // Macro rotaries and their labels stay visible in compact mode so the
-    // user can still wheel-edit them; everything else hides.
+    // Macro rotaries, fill rotaries, and their labels stay visible in
+    // compact mode so the user can still wheel-edit them; the big grid,
+    // the bars selector, and the "Fill" section header hide.
     const bool show = ! compactMode;
     juce::Component* hideInCompact[] = {
         &grid,
-        &barsLabel,      &exportBarsBox,
-        &fillStartLabel, &fillStartKnob,
-        &fillMidLabel,   &fillMidKnob,
-        &fillEndLabel,   &fillEndKnob
+        &barsLabel, &exportBarsBox,
+        &fillSectionLabel
     };
     for (auto* c : hideInCompact)
         c->setVisible (show);
 
-    miniGrid       .setVisible (! show);
-    editPatternBtn .setVisible (! show);
+    miniGrid.setVisible (! show);
+
+    // In compact mode each rotary needs its own "Fill"-prefixed label
+    // because there's no section header. In full mode the header carries
+    // that word and the sub-labels read just Start / Mid / End.
+    fillStartLabel.setText (compactMode ? "Fill Start" : "Start", juce::dontSendNotification);
+    fillMidLabel  .setText (compactMode ? "Fill Mid"   : "Mid",   juce::dontSendNotification);
+    fillEndLabel  .setText (compactMode ? "Fill End"   : "End",   juce::dontSendNotification);
 
     setSize (760, compactMode ? 184 : 660);
 }
