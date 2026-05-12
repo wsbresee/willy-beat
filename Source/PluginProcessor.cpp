@@ -399,12 +399,20 @@ bool WillyBeatAudioProcessor::loadMidiFile (const juce::File& file)
     else
         p.genres = selTags;
 
+    // Take only the first 4 bars worth of notes (anything later is ignored),
+    // then fold those bars onto the 1-bar display grid by mod-16. Quantize
+    // by rounding each onset to the nearest 16th-note step.
+    constexpr int kMaxBars = 4;
+    constexpr int kCutoffSteps = kMaxBars * MAX_STEPS;
+
     for (int e = 0; e < drumTrack->getNumEvents(); ++e)
     {
         auto msg = drumTrack->getEventPointer(e)->message;
         if (!msg.isNoteOn()) continue;
 
-        int step = (int) std::round (msg.getTimeStamp() / secondsPerStep) % MAX_STEPS;
+        int rawStep = (int) std::round (msg.getTimeStamp() / secondsPerStep);
+        if (rawStep < 0 || rawStep >= kCutoffSteps) continue;
+        int step = rawStep % MAX_STEPS;
         int note = msg.getNoteNumber();
         uint8_t vel = (uint8_t) msg.getVelocity();
 
