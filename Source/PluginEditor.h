@@ -58,6 +58,21 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TagChipBar)
 };
 
+// Width of the fixed track-label column shown to the left of the grid.
+inline constexpr int kPatternLabelColW = 68;
+
+// Minimum horizontal pixels per grid cell. When the pattern would need
+// more width than the viewport allows, the grid scrolls.
+inline constexpr int kPatternMinCellW = 18;
+
+// ─── TrackLabels ─────────────────────────────────────────────────────────
+// Fixed (non-scrolling) column rendering the kTrackNames[] vertically.
+class TrackLabels : public juce::Component
+{
+public:
+    void paint (juce::Graphics& g) override;
+};
+
 // Minimal click-aware Label used for the "Swing 16 / Swing 8" toggle.
 class ClickableLabel : public juce::Label
 {
@@ -107,6 +122,11 @@ public:
 
     void setEditTarget (DrumPattern* target);
 
+    // Width in pixels the grid needs to honour `kPatternMinCellW` for the
+    // current pattern. If smaller than viewportW it returns viewportW so
+    // the grid fills available space; otherwise scrolling kicks in.
+    int  getNaturalWidth (int viewportW) const;
+
     // Fired after a cell edit; passes the track and tick that changed.
     std::function<void(int track, int tick)> onHitChanged;
 
@@ -142,8 +162,6 @@ private:
     // crossfade rather than a teleport.
     struct PendingBadge { int row = -1; int col = -1; int vel = 0; bool valid = false; };
     PendingBadge pendingBadge;
-
-    static constexpr int kLabelW = 68;
 
 public:
     static juce::Colour velColour (uint8_t vel);
@@ -201,6 +219,8 @@ private:
 
     DragStrip       dragStrip;
     PatternGrid     grid;
+    TrackLabels     trackLabels;
+    juce::Viewport  gridViewport;
     MiniPatternView miniGrid;
 
     // ── Pattern selector row ─────────────────────────────────────────────
@@ -273,6 +293,7 @@ private:
     void applyDensityToEditingCopy();
     void refreshTagSelector();
     void syncShapeCombos();
+    void updateGridLayout();
     void toggleCompactMode();
 
     bool compactMode = false;

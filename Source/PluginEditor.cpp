@@ -1,5 +1,17 @@
 #include "PluginEditor.h"
 
+// ─── TrackLabels — fixed-column track names beside the scrollable grid ──
+void TrackLabels::paint (juce::Graphics& g)
+{
+    g.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
+    g.setColour (WillyBeatLookAndFeel::textSecondary);
+    const float cellH = (float) getHeight() / (float) NUM_TRACKS;
+    for (int row = 0; row < NUM_TRACKS; ++row)
+        g.drawText (kTrackNames[row],
+                    0, (int) ((float) row * cellH), getWidth() - 6, (int) cellH,
+                    juce::Justification::centredRight, true);
+}
+
 // Common time signatures the editor exposes. Indexed by combo ID - 1.
 static const std::pair<int,int> kTimeSigChoices[] = {
     {4,4}, {3,4}, {2,4}, {5,4}, {6,8}, {7,8}, {12,8}
@@ -561,9 +573,9 @@ PatternGrid::Layout PatternGrid::computeLayout (const DrumPattern& pat) const
     L.cellsPerBeat = juce::jmax (1, pat.ticksPerBeat() / L.cellTicks);
     L.cellsPerBar  = juce::jmax (1, pat.timeSigNum * L.cellsPerBeat);
     L.isTriplet    = gridSubIsTriplet (pat.gridSub);
-    L.gridX        = kLabelW;
+    L.gridX        = 0;   // labels live in a sibling component, not inside this one
     const auto bounds = getLocalBounds();
-    L.cellW        = (float) (bounds.getWidth() - L.gridX) / (float) L.numCells;
+    L.cellW        = (float) bounds.getWidth() / (float) L.numCells;
     L.cellH        = (float) bounds.getHeight() / (float) NUM_TRACKS;
     return L;
 }
@@ -653,19 +665,10 @@ void PatternGrid::paint (juce::Graphics& g)
         }
     }
 
-    g.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
-    for (int row = 0; row < NUM_TRACKS; ++row)
-    {
-        g.setColour (WillyBeatLookAndFeel::textSecondary);
-        g.drawText (kTrackNames[row],
-                    0, (int) ((float) row * L.cellH), kLabelW - 6, (int) L.cellH,
-                    juce::Justification::centredRight, true);
-    }
-
     g.setColour (WillyBeatLookAndFeel::border);
     for (int row = 0; row <= NUM_TRACKS; ++row)
         g.drawHorizontalLine ((int) ((float) row * L.cellH),
-                              (float) L.gridX, (float) bounds.getWidth());
+                              0.0f, (float) bounds.getWidth());
 
     // Velocity badge.
     if (badgeRow >= 0 && badgeCol >= 0 && badgeVel > 0 && badgeAlpha > 0.001f
@@ -683,6 +686,15 @@ void PatternGrid::paint (juce::Graphics& g)
         g.setFont (juce::Font (juce::FontOptions{}.withHeight (fontH).withStyle ("Bold")));
         g.drawText (juce::String (badgeVel), cell, juce::Justification::centred, false);
     }
+}
+
+int PatternGrid::getNaturalWidth (int viewportW) const
+{
+    const auto* p = (editTarget != nullptr) ? editTarget : proc.getActivePattern();
+    if (p == nullptr) return viewportW;
+    const int cellTicks = juce::jmax (1, gridSubCellTicks (p->gridSub));
+    const int numCells  = juce::jmax (1, p->totalTicks() / cellTicks);
+    return juce::jmax (viewportW, numCells * kPatternMinCellW);
 }
 
 void PatternGrid::setEditTarget (DrumPattern* target)
@@ -1096,6 +1108,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         audioProcessor.autoSavePattern (fullPattern);
         editingCopy.timeSigNum = n; editingCopy.timeSigDen = d;
         applyDensityToEditingCopy();
+        updateGridLayout();
         grid.repaint(); miniGrid.repaint();
     };
 
@@ -1113,6 +1126,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         audioProcessor.autoSavePattern (fullPattern);
         editingCopy.bars = newBars;
         applyDensityToEditingCopy();
+        updateGridLayout();
         grid.repaint(); miniGrid.repaint();
     };
 
@@ -1123,6 +1137,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         fullPattern.gridSub = g;
         audioProcessor.autoSavePattern (fullPattern);
         editingCopy.gridSub = g;
+        updateGridLayout();
         grid.repaint(); miniGrid.repaint();
     };
 
@@ -1215,7 +1230,11 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     // ── Add everything ────────────────────────────────────────────────────
     addAndMakeVisible (dragStrip);
-    addAndMakeVisible (grid);
+    addAndMakeVisible (trackLabels);
+    addAndMakeVisible (gridViewport);
+    gridViewport.setViewedComponent (&grid, false);
+    gridViewport.setScrollBarsShown (false, true);  // horizontal only
+    gridViewport.setScrollBarThickness (8);
     addAndMakeVisible (miniGrid);
     miniGrid.setVisible (false);
     miniGrid.setEditTarget (&editingCopy);
@@ -1285,6 +1304,7 @@ void WillyBeatAudioProcessorEditor::timerCallback()
             lastKnownTags = editingCopy.genres;
             audioProcessor.setSelectedGenreTags (editingCopy.genres);
             syncShapeCombos();
+            updateGridLayout();
             grid.repaint(); miniGrid.repaint();
         }
     }
@@ -1872,8 +1892,19 @@ void WillyBeatAudioProcessorEditor::resized()
 
     area.removeFromTop (4);
 
-    // ── Pattern grid fills the remaining middle ───────────────────────────
-    grid.setBounds (area);
+    // ── Track labels + scrollable grid fill the remaining middle ──────────
+    auto labelCol = area.removeFromLeft (kPatternLabelColW);
+    trackLabels.setBounds (labelCol);
+    gridViewport.setBounds (area);
+    updateGridLayout();
+}
+
+void WillyBeatAudioProcessorEditor::updateGridLayout()
+{
+    const int innerW = gridViewport.getWidth();
+    const int innerH = gridViewport.getHeight();
+    const int natural = grid.getNaturalWidth (innerW);
+    grid.setBounds (0, 0, natural, innerH);
 }
 
 void WillyBeatAudioProcessorEditor::toggleCompactMode()
@@ -1886,7 +1917,7 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     // the bars selector, and the "Fill" section header hide.
     const bool show = ! compactMode;
     juce::Component* hideInCompact[] = {
-        &grid,
+        &gridViewport, &trackLabels,
         &timeSigLabel, &timeSigBox,
         &barsLabel,    &barsBox,
         &gridLabel,    &gridBox,
