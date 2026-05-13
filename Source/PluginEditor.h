@@ -272,6 +272,7 @@ private:
     TagChipBar     tagBar;
     juce::Slider   patIdxSlider;
 
+    juce::TextButton clearBtn    { "Clear" };
     juce::TextButton genBtn      { "Generate" };
     juce::TextButton collapseBtn { "-" };
     juce::TextButton soundBtn    { "Audio" };

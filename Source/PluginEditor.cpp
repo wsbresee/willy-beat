@@ -1175,6 +1175,20 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     genBtn.setColour (juce::TextButton::textColourOffId, juce::Colours::white);
     genBtn.setTooltip ("Generate a brand-new pattern from the selected genre tags. Each click produces a different mix.");
 
+    // ── Clear button ──────────────────────────────────────────────────────
+    clearBtn.onClick = [this]
+    {
+        for (int t = 0; t < NUM_TRACKS; ++t)
+            fullPattern.hits[t].clear();
+        editingCopy = fullPattern;
+        audioProcessor.autoSavePattern (fullPattern);
+        grid.setEditTarget (&editingCopy);
+        repaint();
+    };
+    clearBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::bgPanel);
+    clearBtn.setColour (juce::TextButton::textColourOffId, WillyBeatLookAndFeel::textPrimary);
+    clearBtn.setTooltip ("Clear all hits from the current pattern.");
+
     // ── Collapse / expand toggle ──────────────────────────────────────────
     collapseBtn.onClick = [this] { toggleCompactMode(); };
     collapseBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::bgPanel);
@@ -1279,9 +1293,9 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     setupRotary (fillEndKnob);
     // Fill range is only 0-16, so use a much higher drag distance to avoid
     // the large per-step visual jumps feeling jerky and uncontrollable.
-    fillStartKnob.setMouseDragSensitivity (1600);
-    fillMidKnob  .setMouseDragSensitivity (1600);
-    fillEndKnob  .setMouseDragSensitivity (1600);
+    fillStartKnob.setMouseDragSensitivity (3200);
+    fillMidKnob  .setMouseDragSensitivity (3200);
+    fillEndKnob  .setMouseDragSensitivity (3200);
 
     fillStartKnob.setTooltip ("Fill at start  -  number of leading 16th notes drawn from a fill pattern (head of the fill). 0 = none, 16 = full bar.");
     fillMidKnob  .setTooltip ("Mid-pattern fill  -  number of 16th notes scattered through the middle of the export, drawn from fill content. Deterministic per seed.");
@@ -1451,6 +1465,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     addAndMakeVisible (swingLabel);       addAndMakeVisible (swingKnob);
     addAndMakeVisible (feelLabel);      addAndMakeVisible (feelKnob);
     addAndMakeVisible (densityLabel);   addAndMakeVisible (densityKnob);
+    addAndMakeVisible (clearBtn);
     addAndMakeVisible (genBtn);
     addAndMakeVisible (collapseBtn);
     addAndMakeVisible (soundBtn);
@@ -2058,8 +2073,11 @@ void WillyBeatAudioProcessorEditor::resized()
         dragStrip.setBounds (dragCol.withHeight (34).withY (rowA.getY() + 4));
         rowA.removeFromRight (6);
 
-        auto genCol = rowA.removeFromRight (130);
+        auto genCol = rowA.removeFromRight (100);
         genBtn.setBounds (genCol.withHeight (34).withY (rowA.getY() + 4));
+        rowA.removeFromRight (6);
+        auto clearCol = rowA.removeFromRight (68);
+        clearBtn.setBounds (clearCol.withHeight (34).withY (rowA.getY() + 4));
         rowA.removeFromRight (10);
     }
 
