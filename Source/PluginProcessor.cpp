@@ -588,6 +588,21 @@ void WillyBeatAudioProcessor::autoSavePattern (DrumPattern& p)
     library.updatePattern (p);
 }
 
+void WillyBeatAudioProcessor::resetAllPatterns()
+{
+    activePattern = nullptr;
+
+    for (auto& f : getPresetsDirectory().findChildFiles (juce::File::findFiles, false, "*.beat"))
+        f.deleteFile();
+
+    library.loadFromDirectory (getPresetsDirectory());
+
+    apvts.removeParameterListener ("patIdx", this);
+    if (auto* p = apvts.getParameter ("patIdx"))
+        p->setValueNotifyingHost (p->convertTo0to1 (0.0f));
+    apvts.addParameterListener ("patIdx", this);
+}
+
 void WillyBeatAudioProcessor::saveEditedPattern (const DrumPattern& p)
 {
     apvts.removeParameterListener ("patIdx",  this);

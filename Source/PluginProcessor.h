@@ -76,6 +76,10 @@ public:
     // Used for auto-save on every cell edit so edits survive plugin crashes.
     void autoSavePattern (DrumPattern& p);
 
+    // Delete every .beat file in the presets directory, reload the (now-empty)
+    // library, and reset patIdx to 0. Used for the Shift+Clear factory reset.
+    void resetAllPatterns();
+
     juce::AudioProcessorValueTreeState apvts;
 
     // ── Multi-tag genre selection (stored as a CSV property in apvts.state) ─

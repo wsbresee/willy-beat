@@ -1178,16 +1178,32 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // ── Clear button ──────────────────────────────────────────────────────
     clearBtn.onClick = [this]
     {
-        for (int t = 0; t < NUM_TRACKS; ++t)
-            fullPattern.hits[t].clear();
-        editingCopy = fullPattern;
-        audioProcessor.autoSavePattern (fullPattern);
-        grid.setEditTarget (&editingCopy);
-        repaint();
+        if (juce::ModifierKeys::getCurrentModifiers().isShiftDown())
+        {
+            // Shift+Clear: factory reset — delete all .beat files and start fresh
+            audioProcessor.resetAllPatterns();
+            fullPattern          = DrumPattern{};
+            editingCopy          = DrumPattern{};
+            lastKnownPattern     = nullptr;
+            lastDensity          = -1.0f;
+            grid.setEditTarget (nullptr);
+            tagBar.setSelectedTags ({});
+            refreshTagSelector();
+            repaint();
+        }
+        else
+        {
+            for (int t = 0; t < NUM_TRACKS; ++t)
+                fullPattern.hits[t].clear();
+            editingCopy = fullPattern;
+            audioProcessor.autoSavePattern (fullPattern);
+            grid.setEditTarget (&editingCopy);
+            repaint();
+        }
     };
     clearBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::bgPanel);
     clearBtn.setColour (juce::TextButton::textColourOffId, WillyBeatLookAndFeel::textPrimary);
-    clearBtn.setTooltip ("Clear all hits from the current pattern.");
+    clearBtn.setTooltip ("Clear hits from current pattern.  Shift+Click to delete ALL patterns and start fresh.");
 
     // ── Collapse / expand toggle ──────────────────────────────────────────
     collapseBtn.onClick = [this] { toggleCompactMode(); };
