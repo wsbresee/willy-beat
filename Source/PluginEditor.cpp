@@ -2007,11 +2007,11 @@ void WillyBeatAudioProcessorEditor::resized()
     //   Dynamics ↔ Swing/Density  |  Slop ↔ Density/Start  |  Mid ↔ Start/End
     {
         constexpr int kLabH  = 14;
-        constexpr int kKnobH = 50;
-        constexpr int kRowH  = kLabH + kKnobH;    // 64
+        constexpr int kKnobH = 70;
+        constexpr int kRowH  = kLabH + kKnobH;    // 84
         constexpr int kGapR  = 6;
-        constexpr int kBotY  = kRowH + kGapR;     // 70
-        constexpr int kSecH  = 2 * kRowH + kGapR; // 134
+        constexpr int kBotY  = kRowH + kGapR;     // 90
+        constexpr int kSecH  = 2 * kRowH + kGapR; // 174
 
         auto rowB = area.removeFromTop (kSecH);
         const int Y0 = rowB.getY();
@@ -2029,6 +2029,8 @@ void WillyBeatAudioProcessorEditor::resized()
         };
         placeTop (gateLabel,      gateKnob,      0);  // Duration
         placeTop (swingLabel,     swingKnob,      1);  // Swing
+        // Swing label is a pill toggle — constrain its width so it doesn't fill the slot
+        swingLabel.setBounds (swingLabel.getBounds().withSizeKeepingCentre (72, kLabH));
         placeTop (densityLabel,   densityKnob,    2);  // Density
         placeTop (fillStartLabel, fillStartKnob,  3);  // Start
         placeTop (fillEndLabel,   fillEndKnob,    4);  // End
