@@ -595,6 +595,9 @@ void WillyBeatAudioProcessor::resetAllPatterns()
     for (auto& f : getPresetsDirectory().findChildFiles (juce::File::findFiles, false, "*.beat"))
         f.deleteFile();
 
+    // Reinstall built-in defaults so makeComposite always has source material.
+    // User-generated patterns are gone; this just restores the factory library.
+    library.installDefaultsTo (getPresetsDirectory());
     library.loadFromDirectory (getPresetsDirectory());
 
     apvts.removeParameterListener ("patIdx", this);
