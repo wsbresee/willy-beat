@@ -56,9 +56,17 @@ std::unordered_map<std::string, std::vector<double>>& cache()
 
 NLEmbedding* sharedEmbedding()
 {
+    // The file isn't compiled with ARC, so the autoreleased object that
+    // sentenceEmbeddingForLanguage: hands back must be explicitly retained
+    // before we cache it in a function-local static. Without this retain,
+    // the object is freed when the surrounding autoreleasepool drains and
+    // the next vectorForString: call dereferences a dangling pointer.
     static NLEmbedding* e = []() -> NLEmbedding* {
         if (@available (macOS 11.0, *))
-            return [NLEmbedding sentenceEmbeddingForLanguage: NLLanguageEnglish];
+        {
+            NLEmbedding* tmp = [NLEmbedding sentenceEmbeddingForLanguage: NLLanguageEnglish];
+            return [tmp retain];
+        }
         return nil;
     }();
     return e;
