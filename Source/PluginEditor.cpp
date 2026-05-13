@@ -1153,9 +1153,14 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     };
     for (juce::Label* lbl : { (juce::Label*) &genreLabel, (juce::Label*) &patLabel,
                               (juce::Label*) &gateLabel, (juce::Label*) &humanizeLabel,
-                              (juce::Label*) &swingLabel, (juce::Label*) &feelLabel,
-                              (juce::Label*) &densityLabel })
+                              (juce::Label*) &feelLabel, (juce::Label*) &densityLabel })
         labelStyle (lbl);
+
+    // swingLabel is a clickable toggle — styled to look like a button.
+    swingLabel.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
+    swingLabel.setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textPrimary);
+    swingLabel.setJustificationType (juce::Justification::centred);
+    swingLabel.setMouseCursor (juce::MouseCursor::PointingHandCursor);
 
     // ── Generate button (the primary action) ──────────────────────────────
     genBtn.onClick = [this] { audioProcessor.generateComposite(); refreshTagSelector(); };
@@ -1801,26 +1806,28 @@ void WillyBeatAudioProcessorEditor::paint (juce::Graphics& g)
     // Title bar
     auto titleArea = getLocalBounds().removeFromTop (30);
 
-    // Brand logo — top-left
+    // Hairline — drawn first so the logo paints over it, making the line
+    // appear to emerge from the centre of the image.
     {
-        constexpr int logoSize = 24;
+        constexpr int logoSize   = 48;
         constexpr int logoMargin = 3;
-        auto logo = juce::ImageCache::getFromMemory (BinaryData::logo_png, BinaryData::logo_pngSize);
+        const int     lineY      = logoMargin + logoSize / 2;
+        g.setColour (WillyBeatLookAndFeel::border);
+        g.drawHorizontalLine (lineY, 16.0f, (float) getWidth() - 16.0f);
+    }
+
+    // Brand logo — top-left (painted after the hairline so it sits on top)
+    {
+        constexpr int logoSize   = 48;
+        constexpr int logoMargin = 3;
+        auto logo = juce::ImageCache::getFromMemory (BinaryData::logo_ui_png, BinaryData::logo_ui_pngSize);
         if (logo.isValid())
             g.drawImageWithin (logo,
                                logoMargin, logoMargin, logoSize, logoSize,
                                juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize);
     }
 
-    g.setColour (WillyBeatLookAndFeel::accent);
-    g.setFont (juce::Font (juce::FontOptions{}
-                              .withHeight (16.0f)
-                              .withStyle ("Bold")));
-    g.drawFittedText ("WillyBeat", titleArea, juce::Justification::centred, 1);
-
-    // Hairline below the title
-    g.setColour (WillyBeatLookAndFeel::border);
-    g.drawHorizontalLine (30, 16.0f, (float) getWidth() - 16.0f);
+    juce::ignoreUnused (titleArea);
 
     // Drop-zone overlay while a MIDI file is dragged over the editor.
     if (midiDragHovered)
@@ -1917,21 +1924,21 @@ void WillyBeatAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced (8);
 
-    // ── Title row + collapse toggle + audio toggle (top-right) ───────────
+    // ── Title row (h=56 to contain the 48px logo drawn in paint()) ────────
+    // Buttons are vertically centred on the hairline (y=27 = logoMargin + logoSize/2).
     {
-        auto titleRow    = area.removeFromTop (34);
+        constexpr int lineY = 3 + 48 / 2; // 27 — must match paint()
+        auto titleRow    = area.removeFromTop (56);
         auto collapseBox = titleRow.removeFromRight (28);
-        collapseBtn.setBounds (collapseBox.withSizeKeepingCentre (24, 22));
+        collapseBtn.setBounds (collapseBox.withSizeKeepingCentre (24, 22).withY (lineY - 11));
         titleRow.removeFromRight (4);
         auto soundBox    = titleRow.removeFromRight (72);
-        soundBtn.setBounds (soundBox.withSizeKeepingCentre (68, 22));
+        soundBtn.setBounds (soundBox.withSizeKeepingCentre (68, 22).withY (lineY - 11));
     }
 
     // ── Row A: genre tags + pat selector + Generate + Drag-to-DAW ────────
     auto rowA = area.removeFromTop (42);
 
-    // Right-aligned primary actions: Generate, then Drag (so Drag sits
-    // immediately to Generate's right).
     {
         auto dragCol = rowA.removeFromRight (140);
         dragStrip.setBounds (dragCol.withHeight (34).withY (rowA.getY() + 4));
@@ -1942,7 +1949,6 @@ void WillyBeatAudioProcessorEditor::resized()
         rowA.removeFromRight (10);
     }
 
-    // Tag chip-bar takes the left side.
     auto tagsArea = rowA.removeFromLeft (260);
     genreLabel.setBounds (tagsArea.removeFromTop (18));
     tagBar    .setBounds (tagsArea.removeFromTop (24));
@@ -1952,8 +1958,7 @@ void WillyBeatAudioProcessorEditor::resized()
     patLabel    .setBounds (patArea.removeFromTop (18));
     patIdxSlider.setBounds (patArea.removeFromTop (24));
 
-    // In compact mode: clickable thumbnail on the left, 5 mini macro
-    // rotaries in the middle, three fill rotaries on the right.
+    // ── Compact mode ──────────────────────────────────────────────────────
     if (compactMode)
     {
         area.removeFromTop (8);
@@ -1979,11 +1984,6 @@ void WillyBeatAudioProcessorEditor::resized()
 
         miniRow.removeFromLeft (4);
 
-        // 5 mini macro rotaries spread across whatever's left. Each rotary
-        // keeps its built-in wheel-scroll handling so they can be edited
-        // without expanding the editor.
-        // Order: Duration, Dynamics, Slop, Swing, Density - clusters the
-        // three variation knobs (Dynamics/Slop/Swing) together.
         juce::Label*  labels[] = { &gateLabel, &humanizeLabel, &feelLabel,
                                    &swingLabel, &densityLabel };
         juce::Slider* knobs[]  = { &gateKnob,  &humanizeKnob,  &feelKnob,
@@ -2000,65 +2000,65 @@ void WillyBeatAudioProcessorEditor::resized()
 
     area.removeFromTop (4);
 
-    // ── Row B: macro knobs ────────────────────────────────────────────────
-    auto rowB = area.removeFromTop (110);
+    // ── Two staggered rows ────────────────────────────────────────────────
+    // Row 1: [Duration] [Swing] [Density] [Start] [End]
+    // Row 2: [Time][Bars][Grid] [Dynamics] [Slop] [Mid]
+    //   Each row-2 knob lands at the midpoint of two adjacent row-1 slots:
+    //   Dynamics ↔ Swing/Density  |  Slop ↔ Density/Start  |  Mid ↔ Start/End
     {
-        int sectionW = rowB.getWidth() / 5;
-        juce::Label*  labels[] = { &gateLabel, &humanizeLabel, &feelLabel, &swingLabel, &densityLabel };
-        juce::Slider* knobs[]  = { &gateKnob,  &humanizeKnob,  &feelKnob,  &swingKnob,  &densityKnob };
-        for (int i = 0; i < 5; ++i)
+        constexpr int kLabH  = 14;
+        constexpr int kKnobH = 50;
+        constexpr int kRowH  = kLabH + kKnobH;    // 64
+        constexpr int kGapR  = 6;
+        constexpr int kBotY  = kRowH + kGapR;     // 70
+        constexpr int kSecH  = 2 * kRowH + kGapR; // 134
+
+        auto rowB = area.removeFromTop (kSecH);
+        const int Y0 = rowB.getY();
+        const int Y1 = Y0 + kBotY;
+        const int X0 = rowB.getX();
+        const int kW = rowB.getWidth() / 5;  // five equal top-row slots
+
+        // Row 1: five equal slots
+        auto placeTop = [&] (juce::Label& lbl, juce::Slider& knob, int col)
         {
-            auto section = rowB.removeFromLeft (i < 4 ? sectionW : rowB.getWidth());
-            labels[i]->setBounds (section.removeFromTop (18));
-            knobs[i]->setBounds (section);
+            int x = X0 + col * kW;
+            int w = (col == 4) ? (rowB.getRight() - x) : kW;
+            lbl .setBounds (x, Y0,         w, kLabH);
+            knob.setBounds (x, Y0 + kLabH, w, kKnobH);
+        };
+        placeTop (gateLabel,      gateKnob,      0);  // Duration
+        placeTop (swingLabel,     swingKnob,      1);  // Swing
+        placeTop (densityLabel,   densityKnob,    2);  // Density
+        placeTop (fillStartLabel, fillStartKnob,  3);  // Start
+        placeTop (fillEndLabel,   fillEndKnob,    4);  // End
+
+        // Row 2 knobs at half-slot offsets (halfCol * kW/2 from X0)
+        auto placeBot = [&] (juce::Label& lbl, juce::Slider& knob, int halfCol)
+        {
+            int x = X0 + halfCol * kW / 2;
+            lbl .setBounds (x, Y1,         kW, kLabH);
+            knob.setBounds (x, Y1 + kLabH, kW, kKnobH);
+        };
+        placeBot (humanizeLabel, humanizeKnob, 3);  // Dynamics — between Swing (1) + Density (2)
+        placeBot (feelLabel,     feelKnob,     5);  // Slop     — between Density (2) + Start (3)
+        placeBot (fillMidLabel,  fillMidKnob,  7);  // Mid      — between Start (3) + End (4)
+
+        // Row 2 dropdowns fill the empty left space (X0 to Dynamics start = X0 + 3*kW/2)
+        {
+            int cx = X0;
+            auto placeCombo = [&] (juce::Label& lbl, juce::ComboBox& box, int w)
+            {
+                lbl.setBounds (cx, Y1,      w, 16);
+                box.setBounds (cx, Y1 + 16, w, 24);
+                cx += w + 6;
+            };
+            placeCombo (timeSigLabel, timeSigBox, 50);
+            placeCombo (barsLabel,    barsBox,    60);
+            placeCombo (gridLabel,    gridBox,    88);
         }
-    }
 
-    area.removeFromTop (6);
-
-    // ── Export row (now ABOVE the grid, so users see export config first) ─
-    {
-        auto exportRow = area.removeFromTop (88);
-
-        auto centred = [&] (juce::Rectangle<int> r) {
-            int yOff = (exportRow.getHeight() - 24) / 2;
-            return r.withHeight (24).withY (exportRow.getY() + yOff);
-        };
-        auto centredLabel = [&] (juce::Rectangle<int> r) {
-            int yOff = (exportRow.getHeight() - 20) / 2;
-            return r.withHeight (20).withY (exportRow.getY() + yOff + 1);
-        };
-
-        // Pattern-shape combos: Time Sig (50px), Bars (60px), Grid (88px).
-        // Each has a small label above and the combo below, with the combo
-        // centred vertically alongside the fill rotaries to the right.
-        auto layoutCombo = [&] (juce::Label& lbl, juce::ComboBox& box, int width)
-        {
-            auto col = exportRow.removeFromLeft (width);
-            lbl.setBounds (col.removeFromTop (16));
-            box.setBounds (centred (col));
-            exportRow.removeFromLeft (6);
-        };
-        layoutCombo (timeSigLabel, timeSigBox, 50);
-        layoutCombo (barsLabel,    barsBox,    60);
-        layoutCombo (gridLabel,    gridBox,    88);
-        exportRow.removeFromLeft (6);
-
-        // Three fill rotaries grouped under a single "Fill" section header.
-        // Sub-labels per knob just read "Start" / "Mid" / "End".
-        auto fillArea = exportRow.removeFromLeft (3 * 70 + 2 * 4);
-        fillSectionLabel.setBounds (fillArea.removeFromTop (18));
-
-        auto layoutFillKnob = [&] (juce::Label& lbl, juce::Slider& knob)
-        {
-            auto col = fillArea.removeFromLeft (70);
-            lbl .setBounds (col.removeFromTop (14));
-            knob.setBounds (col);
-            fillArea.removeFromLeft (4);
-        };
-        layoutFillKnob (fillStartLabel, fillStartKnob);
-        layoutFillKnob (fillMidLabel,   fillMidKnob);
-        layoutFillKnob (fillEndLabel,   fillEndKnob);
+        fillSectionLabel.setBounds ({});
     }
 
     area.removeFromTop (4);

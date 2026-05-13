@@ -91,7 +91,27 @@ class ClickableLabel : public juce::Label
 public:
     using juce::Label::Label;
     std::function<void()> onClick;
-    void mouseDown (const juce::MouseEvent&) override { if (onClick) onClick(); }
+
+    void mouseDown  (const juce::MouseEvent&) override { if (onClick) onClick(); }
+    void mouseEnter (const juce::MouseEvent&) override { hovered = true;  repaint(); }
+    void mouseExit  (const juce::MouseEvent&) override { hovered = false; repaint(); }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto b = getLocalBounds().toFloat().reduced (0.5f, 1.5f);
+        g.setColour (hovered ? WillyBeatLookAndFeel::accent.withAlpha (0.18f)
+                             : WillyBeatLookAndFeel::bgPanel);
+        g.fillRoundedRectangle (b, 4.0f);
+        g.setColour (hovered ? WillyBeatLookAndFeel::accentBright
+                             : WillyBeatLookAndFeel::accent.withAlpha (0.75f));
+        g.drawRoundedRectangle (b, 4.0f, 1.0f);
+        g.setColour (findColour (juce::Label::textColourId));
+        g.setFont (getFont());
+        g.drawText (getText(), getLocalBounds(), getJustificationType(), true);
+    }
+
+private:
+    bool hovered = false;
 };
 
 // ─── DragStrip ───────────────────────────────────────────────────────────────

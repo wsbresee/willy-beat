@@ -102,7 +102,7 @@ if(APPLE)
         NAMESPACE   BinaryData
         SOURCES     "${BAKED_BIN}"
                     "${PRESET_BUNDLE}"
-                    "${CMAKE_SOURCE_DIR}/Resources/logo.png")
+                    "${CMAKE_SOURCE_DIR}/Resources/logo_ui.png")
 
     target_link_libraries(WillyBeat PRIVATE WillyBeatBakedData)
     target_compile_definitions(WillyBeat PRIVATE
