@@ -548,10 +548,10 @@ void WillyBeatAudioProcessor::generateComposite (const juce::StringArray& source
     composite.genres = assignedGenres;
 
     // Each Generate yields a fresh pattern with a unique filename so users can
-    // keep clicking and accumulate variations.  Name format: "{firstTag} {N}"
-    // (or just "Generated {N}" with no tags), where N is the next free slot.
+    // keep clicking and accumulate variations.  Name format: "{lastTag} {N}"
+    // (last = most recently typed, so renaming the chip bar takes effect).
     juce::String prefix = assignedGenres.isEmpty() ? juce::String ("Generated")
-                                                   : assignedGenres[0];
+                                                   : assignedGenres[assignedGenres.size() - 1];
     auto dir = getPresetsDirectory();
     int n = 1;
     juce::String candidate;

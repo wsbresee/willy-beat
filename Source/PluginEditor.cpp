@@ -257,13 +257,13 @@ void TagChipBar::commitSearch()
         auto match = findFuzzyMatch (query);
         if (match.isEmpty()) match = query;  // literal fallback for new tags
 
-        if (! selectedTags.contains (match))
-        {
-            selectedTags.add (match);
-            layoutChips();
-            repaint();
-            if (onTagsChanged) onTagsChanged();
-        }
+        // Typing a tag replaces the current selection — treats the input as
+        // "generate with THIS tag" rather than "add another tag".
+        selectedTags.clear();
+        selectedTags.add (match);
+        layoutChips();
+        repaint();
+        if (onTagsChanged) onTagsChanged();
         input.clear();
     }
 
