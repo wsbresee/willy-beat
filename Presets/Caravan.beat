@@ -1,6 +1,6 @@
 # WillyBeat Preset
 name:    Caravan
-genres:  Jazz, Latin Jazz, Big Band
+genres: Jazz, Latin Jazz, Big Band, Improvised, Swing, Sophisticated, Latin, Rhythm, Classic, Duke Ellington, Juan Tizol, Afro-Cuban, Exotica, 1930s, Bebop, Hard Bop, Jazz Standard, Mambo, Drum Solo
 type:    Regular
 
 # velocity codes:  . off   g ghost(25)   s soft(55)   m medium(80)   h hard(100)   a accent(120)

@@ -1,6 +1,6 @@
 # WillyBeat Preset
 name:    Ring of Fire
-genres:  Country
+genres: Country, Roots, Americana, Acoustic, Johnny Cash, Outlaw Country, 60s, Mariachi Horns, Boom Chicka Boom, Heartbreak, Train Beat, Western, Folk Rock, Storytelling
 type:    Regular
 
 # velocity codes:  . off   g ghost(25)   s soft(55)   m medium(80)   h hard(100)   a accent(120)

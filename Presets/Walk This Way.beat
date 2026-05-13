@@ -1,6 +1,6 @@
 # WillyBeat Preset
 name:    Walk This Way
-genres:  Rock, Hard Rock
+genres: Rock, Hard Rock, Guitar, Band, Heavy, Aggressive, 70s, 80s, Aerosmith, Run-DMC, Rap Rock, Crossover, Arena Rock, Riff Rock, Swagger, Groovy, Classic Rock, MTV Era
 type:    Regular
 
 # velocity codes:  . off   g ghost(25)   s soft(55)   m medium(80)   h hard(100)   a accent(120)
