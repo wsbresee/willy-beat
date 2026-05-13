@@ -1,6 +1,6 @@
 # WillyBeat Preset
 name:    Sing, Sing, Sing
-genres:  Jazz, Big Band, Swing
+genres: Jazz, Big Band, Swing, Improvised, Sophisticated, Classic, 30s, 40s, Benny Goodman, Gene Krupa, Swing Era, Tom Toms, Drum Feature, Dance Band, Uptempo, Roaring, Hollywood, Jitterbug
 type:    Regular
 
 # velocity codes:  . off   g ghost(25)   s soft(55)   m medium(80)   h hard(100)   a accent(120)

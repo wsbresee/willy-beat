@@ -1,6 +1,6 @@
 # WillyBeat Preset
 name:    Birdland
-genres:  Jazz, Fusion
+genres: Jazz, Fusion, Improvised, Swing, Sophisticated, Rock, Electric, Complex, 70s, Weather Report, Joe Zawinul, Jazz Fusion, Heavy Weather, Latin Jazz, Virtuosic, Groovy, Syncopated, Big Band Tribute, Manhattan
 type:    Regular
 
 # velocity codes:  . off   g ghost(25)   s soft(55)   m medium(80)   h hard(100)   a accent(120)
