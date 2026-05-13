@@ -1288,6 +1288,28 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     fillSectionLabel.setJustificationType (juce::Justification::centred);
     fillSectionLabel.setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textPrimary);
 
+    // ── Flash-on-dial: show the live value while a knob is being turned ───
+    // onValueChange fires on the message thread via SliderAttachment.
+    {
+        auto wire = [&] (juce::Label& lbl, juce::Slider& sl)
+        {
+            sl.onValueChange = [this, &lbl, &sl]
+            {
+                labelFlashEnd.set (&lbl, juce::Time::currentTimeMillis() + 1000);
+                lbl.setText (sl.getTextFromValue (sl.getValue()),
+                             juce::dontSendNotification);
+            };
+        };
+        wire (gateLabel,      gateKnob);
+        wire (humanizeLabel,  humanizeKnob);
+        wire (swingLabel,     swingKnob);
+        wire (feelLabel,      feelKnob);
+        wire (densityLabel,   densityKnob);
+        wire (fillStartLabel, fillStartKnob);
+        wire (fillMidLabel,   fillMidKnob);
+        wire (fillEndLabel,   fillEndKnob);
+    }
+
     // ── Drag strip — exports current editingCopy ──────────────────────────
     dragStrip.onDrag = [this]() -> juce::File
     {
@@ -1399,11 +1421,30 @@ WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
 
 void WillyBeatAudioProcessorEditor::timerCallback()
 {
-    // Cheap: keep the swing label in sync with the swing8th param so
-    // state-restore and host automation reflect in the UI.
-    const bool swing8 = audioProcessor.apvts.getRawParameterValue ("swing8th")->load() > 0.5f;
-    const juce::String want = swing8 ? "Swing 8" : "Swing 16";
-    if (swingLabel.getText() != want) swingLabel.setText (want, juce::dontSendNotification);
+    // Revert any knob labels that finished their 1-second value flash.
+    {
+        const juce::int64 now = juce::Time::currentTimeMillis();
+        juce::Array<juce::Label*> toRemove;
+        for (juce::HashMap<juce::Label*, juce::int64>::Iterator it (labelFlashEnd); it.next();)
+        {
+            if (now >= it.getValue())
+            {
+                it.getKey()->setText (knobLabelRestingText (it.getKey()),
+                                      juce::dontSendNotification);
+                toRemove.add (it.getKey());
+            }
+        }
+        for (auto* k : toRemove)
+            labelFlashEnd.remove (k);
+    }
+
+    // Keep swing label in sync with the swing8th param (skip while flashing a value).
+    if (! labelFlashEnd.contains (&swingLabel))
+    {
+        const bool swing8 = audioProcessor.apvts.getRawParameterValue ("swing8th")->load() > 0.5f;
+        const juce::String want = swing8 ? "Swing 8" : "Swing 16";
+        if (swingLabel.getText() != want) swingLabel.setText (want, juce::dontSendNotification);
+    }
 
     // Auto-sync the editing pattern's time signature to the DAW when the
     // host reports one. We only react when the host's value CHANGES so a
@@ -2070,6 +2111,23 @@ void WillyBeatAudioProcessorEditor::resized()
     trackLabels.setBounds (labelCol);
     gridViewport.setBounds (area);
     updateGridLayout();
+}
+
+juce::String WillyBeatAudioProcessorEditor::knobLabelRestingText (juce::Label* lbl) const
+{
+    if (lbl == &gateLabel)      return "Duration";
+    if (lbl == &humanizeLabel)  return "Dynamics";
+    if (lbl == &swingLabel)
+    {
+        const bool s8 = audioProcessor.apvts.getRawParameterValue ("swing8th")->load() > 0.5f;
+        return s8 ? "Swing 8" : "Swing 16";
+    }
+    if (lbl == &feelLabel)      return "Slop";
+    if (lbl == &densityLabel)   return "Density";
+    if (lbl == &fillStartLabel) return "Start";
+    if (lbl == &fillMidLabel)   return "Mid";
+    if (lbl == &fillEndLabel)   return "End";
+    return lbl->getText();
 }
 
 void WillyBeatAudioProcessorEditor::updateGridLayout()

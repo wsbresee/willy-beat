@@ -328,6 +328,10 @@ private:
     void updateGridLayout();
     void applyTimeSig (int newNum, int newDen);
     void toggleCompactMode();
+    juce::String knobLabelRestingText (juce::Label*) const;
+
+    // Flash-on-edit: maps each knob label → ms timestamp at which to revert
+    juce::HashMap<juce::Label*, juce::int64> labelFlashEnd;
 
     bool compactMode = false;
     bool midiDragHovered = false;
