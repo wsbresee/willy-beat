@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Fill: 16tr Tom Run
+genres:  Fill, 16th Triplet, Tom, Cascade, Technical, Footwork-Adjacent
+type:    Big Fill
+timesig: 4/4
+bars:    1
+grid:    16tr
+density: 0.0750
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 192=100
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash    368=120
+tom_h    192=100, 224=100, 256=100, 288=100
+tom_m    256=100, 288=100, 320=100
+tom_l    320=100, 352=100
+rim     

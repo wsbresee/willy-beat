@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Fill: 32nd Kick Flurry
+genres:  Fill, Kick, 32nd, Metal, Blast, Intense
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+grid:    32nd
+density: 0.0938
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 96=100, 192=100, 216=100, 240=100, 264=100, 288=100, 312=100, 336=100, 360=100
+snare    96=120, 192=120
+hihat_c 
+hihat_o 
+ride     0=80, 96=80, 192=80
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

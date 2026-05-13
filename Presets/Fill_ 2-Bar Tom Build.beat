@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Fill: 2-Bar Tom Build
+genres:  Fill, Tom, 2-Bar, Build, Big, Rock, Orchestral
+type:    Big Fill
+timesig: 4/4
+bars:    2
+grid:    16th
+density: 0.0656
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 96=100, 192=100, 288=100, 384=100, 480=100, 576=100, 672=100
+snare    96=120, 288=120, 480=120, 672=120
+hihat_c 
+hihat_o 
+ride    
+crash    0=100
+tom_h    528=100, 576=100, 624=100, 672=100
+tom_m    624=100, 672=100, 720=100
+tom_l    720=100
+rim     

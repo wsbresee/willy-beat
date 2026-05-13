@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Fill: 32nd Tom Descent
+genres:  Fill, Tom, 32nd, Fast, Continuous, Big
+type:    Big Fill
+timesig: 4/4
+bars:    1
+grid:    32nd
+density: 0.1125
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 96=100, 192=100, 288=100
+snare    96=120
+hihat_c 
+hihat_o 
+ride    
+crash    372=100
+tom_h    192=100, 216=100, 240=100, 264=100
+tom_m    240=100, 264=100, 288=100, 312=100
+tom_l    288=100, 312=100, 336=100, 360=100
+rim     

@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Fill: 32nd Snare Roll
+genres:  Fill, Snare, 32nd, Roll, Marching, Orchestral
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+grid:    32nd
+density: 0.1250
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 96=100, 276=100
+snare    96=120, 192=25, 204=100, 216=55, 228=100, 240=80, 252=100, 264=120, 276=100, 288=55, 300=100, 312=80, 324=100, 336=120, 348=100, 360=120, 372=100
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

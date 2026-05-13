@@ -1078,6 +1078,573 @@ add("House 2-Bar Variation",
     })
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# FILL PATTERNS — Sm. Fill and Big Fill types
+# ════════════════════════════════════════════════════════════════════════════
+# All fills are standalone 1- or 2-bar patterns whose musical content IS the
+# fill action.  Most start with 1–2 beats of setup groove so the fill lands
+# in context, then break into the featured technique.
+
+# ── Snare fills (16th grid) ─────────────────────────────────────────────────
+
+add("Fill: Last Beat 16ths",
+    ["Fill", "Snare", "Rock", "Pop", "16th", "Resolution"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.......",
+        "snare":   "....a.......mmmm",
+        "hihat_c": "m.m.m.m.m.m.....",
+    })
+
+add("Fill: 2-Beat Snare Build",
+    ["Fill", "Snare", "Rock", "Build", "16th"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...........",
+        "snare":   "....a...m.mmmmmm",
+        "hihat_c": "m.m.m.m.........",
+    })
+
+add("Fill: Snare Half Bar",
+    ["Fill", "Snare", "Full", "16th", "Rock", "Power"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...............",
+        "snare":   "....a...mmmmmmmm",
+        "hihat_c": "m.m.m.m.........",
+    })
+
+add("Fill: Snare 8ths",
+    ["Fill", "Snare", "8th", "Simple", "Rock", "Pop"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.......",
+        "snare":   "....a.......m.m.",
+        "hihat_c": "m.m.m.m.m.m.....",
+    })
+
+add("Fill: Snare Accent Build",
+    ["Fill", "Snare", "Velocity", "Build", "Dynamic"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.......",
+        "snare":   "....a.......g.ma",
+        "hihat_c": "m.m.m.m.m.m.....",
+    })
+
+add("Fill: Snare-Kick Linear",
+    ["Fill", "Linear", "Snare", "Kick", "Syncopated"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.h.h...",
+        "snare":   "....a...a.a.a.a.",
+        "hihat_c": "m.m.m.m.........",
+    })
+
+# ── Tom fills (16th grid) ───────────────────────────────────────────────────
+
+add("Fill: Tom Drop",
+    ["Fill", "Tom", "Simple", "Descend", "Rock", "Resolution"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.......",
+        "snare":   "....a...........",
+        "tom_h":   "............h...",
+        "tom_m":   "..............h.",
+        "tom_l":   "...............h",
+        "crash":   "a...............",
+    })
+
+add("Fill: Tom Descent Beats 3-4",
+    ["Fill", "Tom", "Descend", "Rock", "Classic", "Big"],
+    type_="Big Fill",
+    rows={
+        "kick":    "h...h...........",
+        "snare":   "....a...........",
+        "tom_h":   "........h.h.....",
+        "tom_m":   "............h...",
+        "tom_l":   "..............h.",
+        "crash":   "...............a",
+    })
+
+add("Fill: Tom Ascend",
+    ["Fill", "Tom", "Ascend", "Rising", "Big"],
+    type_="Big Fill",
+    rows={
+        "kick":    "h...h...........",
+        "snare":   "....a...........",
+        "tom_l":   "........h.......",
+        "tom_m":   "..........h.....",
+        "tom_h":   "............h.h.",
+        "crash":   "...............a",
+    })
+
+add("Fill: Tom 8ths",
+    ["Fill", "Tom", "8th", "Simple", "Rock"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...........",
+        "snare":   "....a...........",
+        "tom_h":   "........h...h...",
+        "tom_l":   "..........h...h.",
+    })
+
+add("Fill: Snare-Tom Combo",
+    ["Fill", "Tom", "Snare", "Combo", "Rock", "Classic"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...........",
+        "snare":   "....a...m.......",
+        "tom_h":   "..........h.....",
+        "tom_m":   "............h...",
+        "tom_l":   "..............h.",
+        "crash":   "a...............",
+    })
+
+add("Fill: Tom Run Full Bar",
+    ["Fill", "Tom", "16th", "Continuous", "Big", "Drum Solo"],
+    type_="Big Fill",
+    rows={
+        "kick":    "h...............",
+        "tom_h":   "h.h.h.h.h.......",
+        "tom_m":   "........h.h.h...",
+        "tom_l":   "............h.h.",
+        "crash":   "...............a",
+    })
+
+add("Fill: Unison Tom Hit",
+    ["Fill", "Tom", "Unison", "Heavy", "Impact", "Metal-Adjacent"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h...h...",
+        "snare":   "....a...........",
+        "tom_h":   "............h.h.",
+        "tom_m":   "............h.h.",
+        "tom_l":   "............h.h.",
+    })
+
+# ── Triplet fills (8th-triplet grid, 12 cells per bar) ───────────────────────
+
+add("Fill: Triplet Snare Beat 4",
+    ["Fill", "Triplet", "Snare", "Swing", "Jazz-Adjacent"],
+    type_="Sm. Fill",
+    grid="8tr",
+    rows={
+        "kick":    "h.....h.....",
+        "snare":   "...a.....mmm",
+        "ride":    "m.mm.mm.....",
+    })
+
+add("Fill: Triplet Tom Cascade",
+    ["Fill", "Triplet", "Tom", "Cascade", "Big", "Jazz"],
+    type_="Big Fill",
+    grid="8tr",
+    rows={
+        "kick":    "h...........",
+        "snare":   "...a........",
+        "tom_h":   "h..h..h.....",
+        "tom_m":   "....h..h....",
+        "tom_l":   "........h..h",
+        "crash":   "...........a",
+    })
+
+add("Fill: Triplet Snare Roll",
+    ["Fill", "Triplet", "Snare", "Roll", "Funk", "Soul"],
+    type_="Sm. Fill",
+    grid="8tr",
+    rows={
+        "kick":    "h.....h.....",
+        "snare":   "...a..mmmmmm",
+        "hihat_c": "m..m..m.....",
+    })
+
+add("Fill: Jazz Triplet",
+    ["Fill", "Triplet", "Jazz", "Ride", "Acoustic", "Bebop"],
+    type_="Sm. Fill",
+    grid="8tr",
+    rows={
+        "kick":    "h.....h.....",
+        "snare":   "...m.....m..",
+        "ride":    "m.mm.mm.mm.m",
+        "crash":   "...........a",
+    })
+
+add("Fill: Metal Triplet Tom",
+    ["Fill", "Triplet", "Metal", "Tom", "Aggressive", "Heavy"],
+    type_="Big Fill",
+    grid="8tr",
+    rows={
+        "kick":    "h.....h.....",
+        "snare":   "...a........",
+        "tom_h":   "....h..h..h.",
+        "tom_m":   ".....h..h...",
+        "crash":   "...........a",
+    })
+
+add("Fill: Funk Triplet Groove",
+    ["Fill", "Triplet", "Funk", "Groove", "Soul"],
+    type_="Sm. Fill",
+    grid="8tr",
+    rows={
+        "kick":    "h.h.h.......",
+        "snare":   "...a......a.",
+        "hihat_c": "m..m..m.....",
+    })
+
+# ── 32nd-note fills ──────────────────────────────────────────────────────────
+
+add("Fill: 32nd Snare Burst",
+    ["Fill", "Snare", "32nd", "Fast", "Rock", "Blast"],
+    type_="Sm. Fill",
+    grid="32nd",
+    rows={
+        "kick":    "h.......h.......h.......h.......",
+        "snare":   "........a.......a.......mmmmmmmm",
+        "hihat_c": "m.......m.......m...............",
+    })
+
+add("Fill: 32nd Tom Descent",
+    ["Fill", "Tom", "32nd", "Fast", "Continuous", "Big"],
+    type_="Big Fill",
+    grid="32nd",
+    rows={
+        "kick":    "h.......h.......h.......h.......",
+        "snare":   "........a...............",
+        "tom_h":   "................h.h.h.h.........",
+        "tom_m":   "....................h.h.h.h.....",
+        "tom_l":   "........................h.h.h.h.",
+        "crash":   "...............................h",
+    })
+
+add("Fill: 32nd Kick Flurry",
+    ["Fill", "Kick", "32nd", "Metal", "Blast", "Intense"],
+    type_="Sm. Fill",
+    grid="32nd",
+    rows={
+        "kick":    "h.......h.......h.h.h.h.h.h.h.h.",
+        "snare":   "........a.......a...............",
+        "ride":    "m.......m.......m...............",
+    })
+
+add("Fill: 32nd Snare Roll",
+    ["Fill", "Snare", "32nd", "Roll", "Marching", "Orchestral"],
+    type_="Sm. Fill",
+    grid="32nd",
+    rows={
+        "kick":    "h.......h..............h........",
+        "snare":   "........a.......ghshmhahshmhahah",
+    })
+
+# ── 16th-triplet fills (16tr, 24 cells per bar in 4/4) ──────────────────────
+
+add("Fill: 16tr Triplet Roll",
+    ["Fill", "16th Triplet", "Roll", "Fast", "Technical"],
+    type_="Sm. Fill",
+    grid="16tr",
+    rows={
+        "kick":    "h...........h...........",
+        "snare":   "......a...........mmmmmm",
+        "hihat_c": "m.m.m.m.m.m.m.m.m.......",
+    })
+
+add("Fill: 16tr Tom Run",
+    ["Fill", "16th Triplet", "Tom", "Cascade", "Technical", "Footwork-Adjacent"],
+    type_="Big Fill",
+    grid="16tr",
+    rows={
+        "kick":    "h...........h...........",
+        "tom_h":   "............h.h.h.h.....",
+        "tom_m":   "................h.h.h...",
+        "tom_l":   "....................h.h.",
+        "crash":   ".......................a.",
+    })
+
+# ── Linear and combo fills (16th) ────────────────────────────────────────────
+
+add("Fill: Linear Rock",
+    ["Fill", "Linear", "Rock", "No-Unison", "Technical", "Modern"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h.h.h.......",
+        "snare":   "....a...a.a.a...",
+        "tom_h":   "..............h.",
+        "tom_l":   "...............h",
+    })
+
+add("Fill: Orchestral Full Kit",
+    ["Fill", "Orchestral", "Full-Kit", "Rock", "Big", "Stadium"],
+    type_="Big Fill",
+    rows={
+        "kick":    "h...h...h.h.h.h.",
+        "snare":   "....a...m.m.m.mm",
+        "tom_h":   "........h.......",
+        "tom_m":   "..........h.....",
+        "tom_l":   "............h...",
+        "crash":   "a...............",
+    })
+
+add("Fill: Syncopated Snare-Tom",
+    ["Fill", "Syncopated", "Snare", "Tom", "Funk", "Soul"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.......",
+        "snare":   "....a.m.....m.m.",
+        "tom_h":   "..........h.....",
+        "crash":   "a...............",
+    })
+
+add("Fill: Kick-Snare Punch",
+    ["Fill", "Kick", "Snare", "Punch", "Power", "Rock"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.h.h...",
+        "snare":   "....a...a.a.a.a.",
+        "crash":   "a...............",
+    })
+
+add("Fill: Open Hat Accent Fill",
+    ["Fill", "Open Hat", "Accent", "Funk", "Disco-Adjacent"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.......",
+        "snare":   "....a.......m.m.",
+        "hihat_o": "..h...h...h.....",
+    })
+
+add("Fill: Ride Bell Feature",
+    ["Fill", "Ride Bell", "Jazz", "Accent", "Feature"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.......",
+        "snare":   "....m.......m...",
+        "ride":    "m.m.m.m.m.m.h.h.",
+    })
+
+# ── Style-specific fills ─────────────────────────────────────────────────────
+
+add("Fill: Jazz Crash Accent",
+    ["Fill", "Jazz", "Crash", "Accent", "Bebop", "Resolution"],
+    type_="Sm. Fill",
+    grid="8tr",
+    rows={
+        "kick":    "h.....h.....",
+        "ride":    "m.mm.mm.mm..",
+        "crash":   "...........a",
+        "snare":   "...m........",
+    })
+
+add("Fill: Funk Ghost Roll",
+    ["Fill", "Funk", "Ghost", "Soul", "R&B", "Pocket"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.......",
+        "snare":   "....a..gg...a.gg",
+        "hihat_c": "m.m.m.m.m.m.....",
+    })
+
+add("Fill: Funk Linear Punch",
+    ["Fill", "Funk", "Linear", "Punch", "Soul", "Accent"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.h.h...",
+        "snare":   "....a...m.m.m.m.",
+        "tom_h":   "..........h.....",
+    })
+
+add("Fill: Boom Bap Hip Hop",
+    ["Fill", "Hip Hop", "Boom Bap", "90s", "Snare", "Classic"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h.h.h...h.......",
+        "snare":   "....a.......a...",
+        "hihat_c": "m.m.m.m.........",
+    })
+
+add("Fill: Trap Snare Stutter",
+    ["Fill", "Trap", "Stutter", "Snare", "Half-Time", "Modern"],
+    type_="Sm. Fill",
+    grid="32nd",
+    rows={
+        "kick":    "h.......h...............h.......",
+        "snare":   "........a.......a...a.a.a.a.a.a.",
+        "hihat_c": "mmmmmmmmmmmmmmmm................",
+    })
+
+add("Fill: Rimshot Roll",
+    ["Fill", "Rim", "Roll", "Hip Hop", "Jazz-Adjacent", "Percussive"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.......",
+        "snare":   "....a...........",
+        "rim":     ".........h.h.h.h",
+    })
+
+add("Fill: Latin Tom Cascade",
+    ["Fill", "Latin", "Tom", "Cascade", "Salsa", "Percussion"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.......",
+        "snare":   "....a...........",
+        "tom_h":   "........h.h.....",
+        "tom_m":   "............h...",
+        "tom_l":   "..............h.",
+        "rim":     "....h..h..h.h...",
+    })
+
+add("Fill: Cascara Accent",
+    ["Fill", "Latin", "Cascara", "Clave", "Timbale", "Snare"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h...h.......",
+        "rim":     "h.hh.h..h.hh.h..",
+        "snare":   "....a........m..",
+        "crash":   "a...............",
+    })
+
+add("Fill: Double Kick Fill",
+    ["Fill", "Metal", "Double Kick", "Heavy", "Thrash", "Intense"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h.h.h.h.h.h.h.h.",
+        "snare":   "....a.......a...",
+        "ride":    "m...m...m...m...",
+    })
+
+add("Fill: Metal Tom Assault",
+    ["Fill", "Metal", "Tom", "Assault", "Death", "Aggressive", "Big"],
+    type_="Big Fill",
+    rows={
+        "kick":    "h...h...........",
+        "snare":   "....a...........",
+        "tom_h":   "........h.h.h.h.",
+        "tom_m":   "............h.h.",
+        "tom_l":   "..............h.",
+        "crash":   "a...............",
+    })
+
+add("Fill: DnB Jungle Break",
+    ["Fill", "DnB", "Break", "Jungle", "Chop"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...............",
+        "snare":   "....a..a....a...",
+        "hihat_c": "m.m.m.m.m.m.m.m.",
+        "ride":    "............m.m.",
+    })
+
+add("Fill: Trap Hi-Hat Burst",
+    ["Fill", "Trap", "Hi-Hat", "Burst", "Modern", "808-Adjacent"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h.......h.......",
+        "snare":   "........a.......",
+        "hihat_c": "mmmmmmmmmmmmmmmm",
+    })
+
+add("Fill: Electronic Stutter",
+    ["Fill", "Electronic", "Stutter", "Drum-Machine", "Glitch", "Modern"],
+    type_="Sm. Fill",
+    rows={
+        "kick":    "h...h.h.h.h.h...",
+        "snare":   "....a.......a...",
+        "hihat_c": "mmmmmmmmm.......",
+    })
+
+# ── 2-bar fills ──────────────────────────────────────────────────────────────
+
+add("Fill: 2-Bar Tom Build",
+    ["Fill", "Tom", "2-Bar", "Build", "Big", "Rock", "Orchestral"],
+    type_="Big Fill",
+    bars=2,
+    rows={
+        "kick":    "h...h...h...h...h...h...h...h...",
+        "snare":   "....a.......a.......a.......a...",
+        "tom_h":   "......................h.h.h.h...",
+        "tom_m":   "..........................h.h.h.",
+        "tom_l":   "..............................h.",
+        "crash":   "h...............................",
+    })
+
+add("Fill: 2-Bar Snare Escalate",
+    ["Fill", "Snare", "2-Bar", "Escalate", "Build", "Rock"],
+    type_="Big Fill",
+    bars=2,
+    rows={
+        "kick":    "h...h...h...h...h.......h.......",
+        "snare":   "....a.......a.......a.m.m.a.m.mm",
+        "hihat_c": "m.m.m.m.m.m.m.m.m.m.m.m.m.m....",
+    })
+
+add("Fill: 2-Bar Full Spectrum",
+    ["Fill", "2-Bar", "Full-Kit", "Orchestral", "Big", "Stadium"],
+    type_="Big Fill",
+    bars=2,
+    rows={
+        "kick":    "h...h...h...h...h.h.h.h.h...h...",
+        "snare":   "....a.......a...m.m.m.m.m...a...",
+        "tom_h":   "................h...h...........",
+        "tom_m":   "..................h.h.h.........",
+        "tom_l":   "......................h.h.h......",
+        "crash":   "h...............................",
+    })
+
+add("Fill: 2-Bar Groove into Fill",
+    ["Fill", "2-Bar", "Groove", "Transition", "Funk", "Rock"],
+    type_="Big Fill",
+    bars=2,
+    rows={
+        "kick":    "h...h...h...h...h...h...h.......",
+        "snare":   "....a.......a.......a.......mmmm",
+        "hihat_c": "m.m.m.m.m.m.m.m.m.m.m.m.m.m....",
+    })
+
+# ── Odd-meter fills ──────────────────────────────────────────────────────────
+
+add("Fill: 3/4 Waltz Resolution",
+    ["Fill", "3/4", "Waltz", "Resolution", "Jazz", "Classic"],
+    type_="Sm. Fill",
+    timesig=(3, 4), grid="16th",
+    rows={
+        "kick":    "h...........",
+        "snare":   "....m...m...",
+        "tom_h":   "........m.m.",
+        "crash":   "...........a",
+    })
+
+add("Fill: 5/4 Odd Fill",
+    ["Fill", "5/4", "Odd Meter", "Prog", "Technical", "Jazz"],
+    type_="Sm. Fill",
+    timesig=(5, 4), grid="16th",
+    rows={
+        "kick":    "h...h...h...........",
+        "snare":   "....a...........a...",
+        "tom_h":   "..............h.h...",
+        "crash":   "a...................",
+    })
+
+add("Fill: 7/8 Odd Fill",
+    ["Fill", "7/8", "Odd Meter", "Balkan", "Prog", "World"],
+    type_="Sm. Fill",
+    timesig=(7, 8), grid="16th",
+    rows={
+        "kick":    "h...h...h.....",
+        "snare":   "....a.....m.m.",
+        "tom_h":   "..........h...",
+        "crash":   ".............a",
+    })
+
+add("Fill: 6/8 Compound Fill",
+    ["Fill", "6/8", "Compound", "Resolution", "Blues-Adjacent"],
+    type_="Sm. Fill",
+    timesig=(6, 8), grid="16th",
+    rows={
+        "kick":    "h...........",
+        "snare":   "...a......a.",
+        "tom_h":   "........h...",
+        "tom_l":   "..........h.",
+        "crash":   "a...........",
+    })
+
 # ─── Output ────────────────────────────────────────────────────────────────
 
 def main():

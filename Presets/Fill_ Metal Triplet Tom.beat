@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Fill: Metal Triplet Tom
+genres:  Fill, Triplet, Metal, Tom, Aggressive, Heavy
+type:    Big Fill
+timesig: 4/4
+bars:    1
+grid:    8tr
+density: 0.0563
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 192=100
+snare    96=120
+hihat_c 
+hihat_o 
+ride    
+crash    352=120
+tom_h    128=100, 224=100, 320=100
+tom_m    160=100, 256=100
+tom_l   
+rim     

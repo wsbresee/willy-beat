@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Fill: Tom Run Full Bar
+genres:  Fill, Tom, 16th, Continuous, Big, Drum Solo
+type:    Big Fill
+timesig: 4/4
+bars:    1
+grid:    16th
+density: 0.0750
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash    360=120
+tom_h    0=100, 48=100, 96=100, 144=100, 192=100
+tom_m    192=100, 240=100, 288=100
+tom_l    288=100, 336=100
+rim     

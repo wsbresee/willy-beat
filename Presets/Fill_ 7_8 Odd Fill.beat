@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Fill: 7/8 Odd Fill
+genres:  Fill, 7/8, Odd Meter, Balkan, Prog, World
+type:    Sm. Fill
+timesig: 7/8
+bars:    1
+grid:    16th
+density: 0.0571
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 96=100, 192=100
+snare    96=120, 240=80, 288=80
+hihat_c 
+hihat_o 
+ride    
+crash    312=120
+tom_h    240=100
+tom_m   
+tom_l   
+rim     

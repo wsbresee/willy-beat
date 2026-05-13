@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Fill: 6/8 Compound Fill
+genres:  Fill, 6/8, Compound, Resolution, Blues-Adjacent
+type:    Sm. Fill
+timesig: 6/8
+bars:    1
+grid:    16th
+density: 0.0500
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100
+snare    72=120, 240=120
+hihat_c 
+hihat_o 
+ride    
+crash    0=120
+tom_h    192=100
+tom_m   
+tom_l    240=100
+rim     

@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Fill: 3/4 Waltz Resolution
+genres:  Fill, 3/4, Waltz, Resolution, Jazz, Classic
+type:    Sm. Fill
+timesig: 3/4
+bars:    1
+grid:    16th
+density: 0.0500
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100
+snare    96=80, 192=80
+hihat_c 
+hihat_o 
+ride    
+crash    264=120
+tom_h    192=80, 240=80
+tom_m   
+tom_l   
+rim     

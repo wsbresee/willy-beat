@@ -1056,8 +1056,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         }
     };
     // Exact pattern-name match short-circuits the tag flow entirely and
-    // navigates to that saved pattern. Lets users type e.g. "Classic Funk Groove"
-    // and land on the canonical preset rather than generating something new.
+    // navigates to that saved pattern rather than generating something new.
     tagBar.onRawInputHandled = [this] (const juce::String& q) -> bool
     {
         return audioProcessor.navigateToPatternByName (q);

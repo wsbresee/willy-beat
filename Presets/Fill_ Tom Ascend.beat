@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Fill: Tom Ascend
+genres:  Fill, Tom, Ascend, Rising, Big
+type:    Big Fill
+timesig: 4/4
+bars:    1
+grid:    16th
+density: 0.0500
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 96=100
+snare    96=120
+hihat_c 
+hihat_o 
+ride    
+crash    360=120
+tom_h    288=100, 336=100
+tom_m    240=100
+tom_l    192=100
+rim     

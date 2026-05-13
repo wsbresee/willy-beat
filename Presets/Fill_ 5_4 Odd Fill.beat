@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Fill: 5/4 Odd Fill
+genres:  Fill, 5/4, Odd Meter, Prog, Technical, Jazz
+type:    Sm. Fill
+timesig: 5/4
+bars:    1
+grid:    16th
+density: 0.0400
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 96=100, 192=100
+snare    96=120, 384=120
+hihat_c 
+hihat_o 
+ride    
+crash    0=120
+tom_h    336=100, 384=100
+tom_m   
+tom_l   
+rim     
