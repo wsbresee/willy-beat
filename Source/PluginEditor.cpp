@@ -1120,9 +1120,10 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     auto setupRotary = [] (juce::Slider& k)
     {
-        k.setSliderStyle (juce::Slider::Rotary);
+        k.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         k.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
         k.setRotaryParameters (kRotaryStart, kRotaryEnd, true);
+        k.setMouseDragSensitivity (250);
     };
 
     for (auto* k : { &gateKnob, &humanizeKnob, &swingKnob, &feelKnob, &densityKnob })
@@ -1136,7 +1137,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     auto labelStyle = [] (juce::Label* lbl)
     {
-        lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
+        lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (14.0f)));
         lbl->setColour (juce::Label::textColourId, juce::Colour (0xffaaaacc));
         lbl->setJustificationType (juce::Justification::centred);
     };
@@ -1209,7 +1210,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     auto shapeLabelStyle = [] (juce::Label* lbl)
     {
-        lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
+        lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (13.0f)));
         lbl->setJustificationType (juce::Justification::centred);
     };
     shapeLabelStyle (&timeSigLabel);
@@ -1283,7 +1284,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     auto fillLabelStyle = [] (juce::Label& l)
     {
-        l.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
+        l.setFont (juce::Font (juce::FontOptions{}.withHeight (13.0f)));
         l.setJustificationType (juce::Justification::centred);
     };
     fillLabelStyle (fillStartLabel);
@@ -1325,7 +1326,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     {
         auto wireEdit = [&] (KnobLabel& lbl, juce::Slider& sl)
         {
-            lbl.setEditable (false, true, true);   // double-click opens editor; Escape/blur discards
+            lbl.setEditable (true, true, true);    // single-click opens editor; Escape/blur discards
             lbl.onEditorShow = [this, &lbl, &sl]
             {
                 labelFlashEnd.remove (&lbl);       // stop the flash timer touching this label
@@ -1333,19 +1334,27 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
                 {
                     ed->setText (sl.getTextFromValue (sl.getValue()), false);
                     ed->selectAll();
+                    ed->setJustification (juce::Justification::centred);
+                    ed->setColour (juce::TextEditor::backgroundColourId,     juce::Colours::transparentBlack);
+                    ed->setColour (juce::TextEditor::outlineColourId,        juce::Colours::transparentBlack);
+                    ed->setColour (juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+                    ed->setColour (juce::TextEditor::textColourId,           lbl.findColour (juce::Label::textColourId));
                 }
             };
             lbl.onTextChange = [this, &lbl, &sl]
             {
                 const juce::String t = lbl.getText().trim();
-                auto restore = [&] { lbl.setText (knobLabelRestingText (&lbl), juce::dontSendNotification); };
                 if (t.isEmpty() || ! t.containsAnyOf ("0123456789"))
-                    { restore(); return; }
+                {
+                    lbl.setText (knobLabelRestingText (&lbl), juce::dontSendNotification);
+                    return;
+                }
                 const double v = juce::jlimit (sl.getMinimum(), sl.getMaximum(), t.getDoubleValue());
-                if (juce::approximatelyEqual (sl.getValue(), v))
-                    restore();                     // no change → no onValueChange, restore manually
-                else
-                    sl.setValue (v, juce::sendNotificationSync);  // onValueChange starts flash
+                if (! juce::approximatelyEqual (sl.getValue(), v))
+                    sl.setValue (v, juce::sendNotificationSync);
+                // Always flash the formatted value for 1 s after a typed commit
+                labelFlashEnd.set (&lbl, juce::Time::currentTimeMillis() + 1000);
+                lbl.setText (sl.getTextFromValue (sl.getValue()), juce::dontSendNotification);
             };
         };
         wireEdit (gateLabel,      gateKnob);
