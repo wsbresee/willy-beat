@@ -56,6 +56,10 @@ WillyBeatAudioProcessor::createParameterLayout()
         NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f,
         AudioParameterFloatAttributes().withLabel ("%")));
 
+    // Swing target: false (default) = swing 16ths, true = swing 8ths.
+    macros->addChild (std::make_unique<AudioParameterBool> (
+        ParameterID { "swing8th", 1 }, "Swing 8th", false));
+
     macros->addChild (std::make_unique<AudioParameterFloat> (
         ParameterID { "slop", 1 }, "Slop",
         NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f,
@@ -260,7 +264,12 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
 
     const float  gatePct      = apvts.getRawParameterValue ("duration")->load() / 100.0f;
     const int    humanize     = (int) apvts.getRawParameterValue ("dynamics")->load();
-    const double swingDelay   = apvts.getRawParameterValue ("swing")->load() * (stepPPQ * 0.5 / 100.0);
+    const bool   swing8th     = apvts.getRawParameterValue ("swing8th")->load() > 0.5f;
+    // 8th swing delays the second 8th of each quarter (boundary = 48 ticks).
+    // 16th swing delays the second 16th of each 8th (boundary = 24 ticks).
+    const int    swingUnitTicks = swing8th ? (PPQN / 2) : (PPQN / 4);
+    const double swingMaxPPQ  = (double) swingUnitTicks / (double) PPQN * 0.5;  // up to half the unit
+    const double swingDelay   = apvts.getRawParameterValue ("swing")->load() * swingMaxPPQ / 100.0;
     const double maxFeelSamp  = apvts.getRawParameterValue ("slop")->load() / 100.0
                                     * (stepPPQ / ppqPerSample) * 0.08;
     const double stepSamples  = stepPPQ / ppqPerSample;
@@ -275,14 +284,14 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
     if (totalTicks <= 0) { absoluteSample += blockSize; return; }
     const double patternPPQ  = (double) totalTicks / (double) PPQN;
 
-    // 16th-grid swing: delay the second 16th of every 8th-note pair.
-    // Hits that don't land on a 16th boundary are not swung.
+    // Selected-subdivision swing: only hits that land exactly on the
+    // swing-unit boundary get displaced, and only the odd-indexed ones
+    // (the "and" of every pair). Off-grid hits stay where they were.
     auto swungPPQOffset = [&] (int patTick) -> double
     {
         if (swingDelay == 0.0) return 0.0;
-        constexpr int sixteenthTicks = PPQN / 4;  // 24
-        if (patTick % sixteenthTicks != 0) return 0.0;
-        return ((patTick / sixteenthTicks) & 1) ? swingDelay : 0.0;
+        if (patTick % swingUnitTicks != 0) return 0.0;
+        return ((patTick / swingUnitTicks) & 1) ? swingDelay : 0.0;
     };
 
     // Drain note-offs

@@ -58,6 +58,15 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TagChipBar)
 };
 
+// Minimal click-aware Label used for the "Swing 16 / Swing 8" toggle.
+class ClickableLabel : public juce::Label
+{
+public:
+    using juce::Label::Label;
+    std::function<void()> onClick;
+    void mouseDown (const juce::MouseEvent&) override { if (onClick) onClick(); }
+};
+
 // ─── DragStrip ───────────────────────────────────────────────────────────────
 class DragStrip : public juce::Component,
                   public juce::SettableTooltipClient
@@ -214,7 +223,7 @@ private:
     // ── Knob row ─────────────────────────────────────────────────────────
     juce::Label  gateLabel      { {}, "Duration" };
     juce::Label  humanizeLabel  { {}, "Dynamics" };
-    juce::Label  swingLabel     { {}, "Swing" };
+    ClickableLabel swingLabel   { {}, "Swing 16" };
     juce::Label  feelLabel      { {}, "Slop" };
     juce::Label  densityLabel   { {}, "Density" };
 
