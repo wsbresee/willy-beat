@@ -1070,6 +1070,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // the chip bar doesn't drift between presses.
     tagBar.onTagSubmitted = [this]
     {
+        capturePendingShape();
         auto selected = tagBar.getSelectedTags();
         const auto& vi = tagBar.getVectorIndex();
 
@@ -1103,7 +1104,15 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // ── Pattern index slider ──────────────────────────────────────────────
     patIdxAttach = std::make_unique<SA> (p.apvts, "patIdx", patIdxSlider);
     patIdxSlider.setSliderStyle (juce::Slider::IncDecButtons);
-    patIdxSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 36, 22);
+    patIdxSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, true, 96, 22);
+    patIdxSlider.textFromValueFunction = [this] (double v) -> juce::String
+    {
+        const auto& pats = audioProcessor.getLibrary().all();
+        int idx = juce::jlimit (0, (int) pats.size() - 1, (int) std::round (v));
+        if (! pats.empty()) return pats[(size_t) idx].name;
+        return {};
+    };
+    patIdxSlider.valueFromTextFunction = [] (const juce::String&) -> double { return 0.0; };
     patIdxSlider.setTooltip ("Step through saved patterns. Generate appends a new pattern at the end - go back one slot to see your previous generation.");
 
     // ── Knob row ──────────────────────────────────────────────────────────
@@ -1150,24 +1159,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // ── Generate button (the primary action) ──────────────────────────────
     genBtn.onClick = [this]
     {
-        // Capture the UI shape before generating so timerCallback can apply
-        // it to the new pattern instead of letting syncShapeCombos reset it.
-        pendingGenerate = true;
-        pendingBars     = getBarsFromCombo();
-        pendingGridSub  = (GridSub) juce::jlimit (0, (int) GridSub::NUM_GRID_SUBS - 1,
-                                                   gridBox.getSelectedId() - 1);
-        const int tsId = timeSigBox.getSelectedId();
-        if (tsId >= 1 && tsId <= kNumTimeSigChoices)
-        {
-            auto [n, d]   = kTimeSigChoices[(size_t) tsId - 1];
-            pendingTsNum  = n;
-            pendingTsDen  = d;
-        }
-        else if (! parseTimeSigText (timeSigBox.getText(), pendingTsNum, pendingTsDen))
-        {
-            pendingTsNum = 4;
-            pendingTsDen = 4;
-        }
+        capturePendingShape();
         audioProcessor.generateComposite();
         refreshTagSelector();
     };
@@ -1585,6 +1577,7 @@ void WillyBeatAudioProcessorEditor::timerCallback()
             syncShapeCombos();
             updateGridLayout();
             grid.repaint(); miniGrid.repaint();
+            patIdxSlider.repaint();
         }
     }
 
@@ -1835,6 +1828,26 @@ DrumPattern WillyBeatAudioProcessorEditor::buildFillPatternForExport (juce::int6
                   audioProcessor.getSelectedGenreTags(),
                   /*restrictToSameType=*/true);
     return result;
+}
+
+void WillyBeatAudioProcessorEditor::capturePendingShape()
+{
+    pendingGenerate = true;
+    pendingBars     = getBarsFromCombo();
+    pendingGridSub  = (GridSub) juce::jlimit (0, (int) GridSub::NUM_GRID_SUBS - 1,
+                                               gridBox.getSelectedId() - 1);
+    const int tsId = timeSigBox.getSelectedId();
+    if (tsId >= 1 && tsId <= kNumTimeSigChoices)
+    {
+        auto [n, d]  = kTimeSigChoices[(size_t) tsId - 1];
+        pendingTsNum = n;
+        pendingTsDen = d;
+    }
+    else if (! parseTimeSigText (timeSigBox.getText(), pendingTsNum, pendingTsDen))
+    {
+        pendingTsNum = 4;
+        pendingTsDen = 4;
+    }
 }
 
 void WillyBeatAudioProcessorEditor::syncShapeCombos()
@@ -2102,7 +2115,7 @@ void WillyBeatAudioProcessorEditor::resized()
     tagBar    .setBounds (tagsArea.removeFromTop (24));
     rowA.removeFromLeft (8);
 
-    auto patArea = rowA.removeFromLeft (86);
+    auto patArea = rowA;   // take all remaining space
     patLabel    .setBounds (patArea.removeFromTop (18));
     patIdxSlider.setBounds (patArea.removeFromTop (24));
 

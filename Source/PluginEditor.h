@@ -267,7 +267,7 @@ private:
 
     // ── Pattern selector row ─────────────────────────────────────────────
     juce::Label    genreLabel   { {}, "Tags" };
-    juce::Label    patLabel     { {}, "Pattern #" };
+    juce::Label    patLabel     { {}, "Pattern" };
 
     TagChipBar     tagBar;
     juce::Slider   patIdxSlider;
@@ -364,6 +364,7 @@ private:
     GridSub pendingGridSub    = GridSub::Sixteenth;
 
     int         getBarsFromCombo() const;
+    void        capturePendingShape();
     const DrumPattern* findFill (const DrumPattern& pat, juce::int64 seed) const;
     DrumPattern buildFillPatternForExport (juce::int64 seed) const;
 
