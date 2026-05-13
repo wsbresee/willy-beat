@@ -1123,7 +1123,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         k.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         k.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
         k.setRotaryParameters (kRotaryStart, kRotaryEnd, true);
-        k.setMouseDragSensitivity (250);
+        k.setMouseDragSensitivity (400);
     };
 
     for (auto* k : { &gateKnob, &humanizeKnob, &swingKnob, &feelKnob, &densityKnob })
@@ -1277,6 +1277,11 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     setupRotary (fillStartKnob);
     setupRotary (fillMidKnob);
     setupRotary (fillEndKnob);
+    // Fill range is only 0-16, so use a much higher drag distance to avoid
+    // the large per-step visual jumps feeling jerky and uncontrollable.
+    fillStartKnob.setMouseDragSensitivity (1600);
+    fillMidKnob  .setMouseDragSensitivity (1600);
+    fillEndKnob  .setMouseDragSensitivity (1600);
 
     fillStartKnob.setTooltip ("Fill at start  -  number of leading 16th notes drawn from a fill pattern (head of the fill). 0 = none, 16 = full bar.");
     fillMidKnob  .setTooltip ("Mid-pattern fill  -  number of 16th notes scattered through the middle of the export, drawn from fill content. Deterministic per seed.");
@@ -2093,10 +2098,10 @@ void WillyBeatAudioProcessorEditor::resized()
 
         miniRow.removeFromLeft (4);
 
-        juce::Label*  labels[] = { &gateLabel, &humanizeLabel, &feelLabel,
-                                   &swingLabel, &densityLabel };
-        juce::Slider* knobs[]  = { &gateKnob,  &humanizeKnob,  &feelKnob,
-                                   &swingKnob, &densityKnob };
+        juce::Label*  labels[] = { &gateLabel, &humanizeLabel, &densityLabel,
+                                   &swingLabel, &feelLabel };
+        juce::Slider* knobs[]  = { &gateKnob,  &humanizeKnob,  &densityKnob,
+                                   &swingKnob, &feelKnob };
         int colW = miniRow.getWidth() / 5;
         for (int i = 0; i < 5; ++i)
         {
@@ -2110,10 +2115,10 @@ void WillyBeatAudioProcessorEditor::resized()
     area.removeFromTop (4);
 
     // ── Two staggered rows ────────────────────────────────────────────────
-    // Row 1: [Duration] [Swing] [Density] [Start] [End]
-    // Row 2: [Time][Bars][Grid] [Dynamics] [Slop] [Mid]
+    // Row 1: [Duration] [Swing] [Slop] [Start] [End]
+    // Row 2: [Time][Bars][Grid] [Dynamics] [Density] [Mid]
     //   Each row-2 knob lands at the midpoint of two adjacent row-1 slots:
-    //   Dynamics ↔ Swing/Density  |  Slop ↔ Density/Start  |  Mid ↔ Start/End
+    //   Dynamics ↔ Swing/Slop  |  Density ↔ Slop/Start  |  Mid ↔ Start/End
     {
         constexpr int kLabH  = 12;
         constexpr int kKnobH = 56;
@@ -2138,7 +2143,7 @@ void WillyBeatAudioProcessorEditor::resized()
         };
         placeTop (gateLabel,      gateKnob,      0);  // Duration
         placeTop (swingLabel,     swingKnob,     1);  // Swing
-        placeTop (densityLabel,   densityKnob,   2);  // Density
+        placeTop (feelLabel,      feelKnob,      2);  // Slop
         placeTop (fillStartLabel, fillStartKnob,  3);  // Start
         placeTop (fillEndLabel,   fillEndKnob,    4);  // End
 
@@ -2149,9 +2154,9 @@ void WillyBeatAudioProcessorEditor::resized()
             lbl .setBounds (x, Y1,         kW, kLabH);
             knob.setBounds (x, Y1 + kLabH, kW, kKnobH);
         };
-        placeBot (humanizeLabel, humanizeKnob, 3);  // Dynamics — between Swing (1) + Density (2)
-        placeBot (feelLabel,     feelKnob,     5);  // Slop     — between Density (2) + Start (3)
-        placeBot (fillMidLabel,  fillMidKnob,  7);  // Mid      — between Start (3) + End (4)
+        placeBot (humanizeLabel,  humanizeKnob,  3);  // Dynamics — between Swing (1) + Slop (2)
+        placeBot (densityLabel,   densityKnob,   5);  // Density  — between Slop (2) + Start (3)
+        placeBot (fillMidLabel,   fillMidKnob,   7);  // Mid      — between Start (3) + End (4)
 
         // Row 2 dropdowns fill the empty left space (X0 to Dynamics start = X0 + 3*kW/2)
         {
