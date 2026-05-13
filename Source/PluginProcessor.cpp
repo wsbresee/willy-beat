@@ -200,9 +200,9 @@ void WillyBeatAudioProcessor::prepareToPlay (double sampleRate, int)
 {
     activeNotes.clear();
     absoluteSample = 0;
-    lastFiredStep  = -1;
-    currentStep    = 0;
-    wasPlaying     = false;
+    for (int t = 0; t < NUM_TRACKS; ++t) lastFiredAbsTick[t] = -1;
+    currentStep = 0;
+    wasPlaying  = false;
     stockDrums.prepare (sampleRate);
 }
 
@@ -239,8 +239,8 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
         {
             killAllNotes (midi, 0);
             stockDrums.allNotesOff();
-            currentStep   = 0;
-            lastFiredStep = -1;
+            currentStep = 0;
+            for (int t = 0; t < NUM_TRACKS; ++t) lastFiredAbsTick[t] = -1;
         }
         wasPlaying = false;
         absoluteSample += getBlockSize();
@@ -254,7 +254,7 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
     const int    blockSize   = getBlockSize();
     const double ppqPerSample = bpm / 60.0 / sr;
 
-    constexpr double stepPPQ = 0.25;   // one 16th note
+    constexpr double stepPPQ = 0.25;   // one 16th = 0.25 PPQ, used for slop/note-length defaults
     const double ppqStart    = ppqPosition;
     const double ppqEnd      = ppqStart + (double) blockSize * ppqPerSample;
 
@@ -268,14 +268,22 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
 
     // Density is applied in the editor's applyDensity pass before the
     // pattern reaches the library, so processBlock just plays whatever
-    // velocities are currently in activePattern.
+    // hits are currently in activePattern.
 
-    auto stepToPPQ = [&] (long step) -> double
+    // Pattern shape in tick / PPQ space.
+    const long   totalTicks  = activePattern->totalTicks();
+    if (totalTicks <= 0) { absoluteSample += blockSize; return; }
+    const double patternPPQ  = (double) totalTicks / (double) PPQN;
+
+    // 16th-grid swing: delay the second 16th of every 8th-note pair.
+    // Hits that don't land on a 16th boundary are not swung.
+    auto swungPPQOffset = [&] (int patTick) -> double
     {
-        return step * stepPPQ + ((step & 1L) ? swingDelay : 0.0);
+        if (swingDelay == 0.0) return 0.0;
+        constexpr int sixteenthTicks = PPQN / 4;  // 24
+        if (patTick % sixteenthTicks != 0) return 0.0;
+        return ((patTick / sixteenthTicks) & 1) ? swingDelay : 0.0;
     };
-
-    const int numSteps = activePattern->numSteps;
 
     // Drain note-offs
     for (auto it = activeNotes.begin(); it != activeNotes.end();)
@@ -290,53 +298,62 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
         else ++it;
     }
 
-    long candidateFirst = (long) std::floor (ppqStart / stepPPQ) - 1;
-    long candidateLast  = (long) std::ceil  (ppqEnd   / stepPPQ) + 1;
-
-    for (long globalStep = candidateFirst; globalStep <= candidateLast; ++globalStep)
+    // Update currentStep for the UI's playhead readout. The "step" here is
+    // a 16th-note column so that v1-style 16-step displays keep working;
+    // when we add variable subdivisions in the UI it'll be reinterpreted.
     {
-        double stepPPQPos = stepToPPQ (globalStep);
-        if (stepPPQPos <  ppqStart - 1e-9) continue;
-        if (stepPPQPos >= ppqEnd   - 1e-9) continue;
-        if (globalStep == lastFiredStep)   continue;
-        lastFiredStep = globalStep;
+        const double patPPQ = std::fmod (ppqStart, patternPPQ);
+        const double posPPQ = (patPPQ < 0.0) ? patPPQ + patternPPQ : patPPQ;
+        currentStep = (int) std::floor (posPPQ / stepPPQ) % juce::jmax (1, activePattern->numSteps);
+    }
 
-        int patStep = (int) (((globalStep % numSteps) + numSteps) % numSteps);
-        currentStep = patStep;
-
-        int baseSampleOffset = (int) std::round ((stepPPQPos - ppqStart) / ppqPerSample);
-        baseSampleOffset = juce::jlimit (0, blockSize - 1, baseSampleOffset);
-
-        for (int t = 0; t < NUM_TRACKS; ++t)
+    // For each hit in the pattern, find every cycle whose global PPQ
+    // falls inside [ppqStart, ppqEnd) and schedule the note.
+    for (int t = 0; t < NUM_TRACKS; ++t)
+    {
+        const int note = kTrackNotes[t];
+        for (const auto& hit : activePattern->hits[t])
         {
-            uint8_t stored = activePattern->velocities[t][patStep];
-            if (stored == 0) continue;
+            const double hitPPQInPattern = (double) hit.tick / (double) PPQN + swungPPQOffset (hit.tick);
 
-            uint8_t vel = stored;
-            if (humanize > 0)
+            // smallest cycle k with k*patternPPQ + hitPPQInPattern >= ppqStart
+            long cycle = (long) std::ceil ((ppqStart - hitPPQInPattern) / patternPPQ);
+
+            for (; ; ++cycle)
             {
-                int deviation = audioRng.nextInt (2 * humanize + 1) - humanize;
-                vel = (uint8_t) juce::jlimit (1, 127, (int) stored + deviation);
+                const double hitPPQ = cycle * patternPPQ + hitPPQInPattern;
+                if (hitPPQ <  ppqStart - 1e-9) continue;        // shouldn't happen with ceil()
+                if (hitPPQ >= ppqEnd   - 1e-9) break;
+
+                const long absTick = cycle * totalTicks + hit.tick;
+                if (absTick <= lastFiredAbsTick[t]) continue;   // already fired
+                lastFiredAbsTick[t] = absTick;
+
+                int baseSampleOffset = (int) std::round ((hitPPQ - ppqStart) / ppqPerSample);
+                baseSampleOffset = juce::jlimit (0, blockSize - 1, baseSampleOffset);
+
+                uint8_t vel = hit.velocity;
+                if (humanize > 0)
+                {
+                    int deviation = audioRng.nextInt (2 * humanize + 1) - humanize;
+                    vel = (uint8_t) juce::jlimit (1, 127, (int) hit.velocity + deviation);
+                }
+
+                int noteOffset = baseSampleOffset;
+                if (maxFeelSamp > 0.0)
+                {
+                    double r = (audioRng.nextDouble() + audioRng.nextDouble()) * 0.5 - 0.5;
+                    double velFactor = 1.0 - 0.4 * ((double) vel / 127.0);
+                    noteOffset = juce::jlimit (0, blockSize - 1,
+                        (int) std::round (baseSampleOffset + r * maxFeelSamp * velFactor));
+                }
+
+                midi.addEvent (juce::MidiMessage::noteOn (10, note, vel), noteOffset);
+                activeNotes.push_back ({ note, absoluteSample + noteOffset + (long) noteLenSamp });
+
+                if (internalOn)
+                    stockDrums.noteOn (note, (float) vel / 127.0f);
             }
-
-            int noteOffset = baseSampleOffset;
-            if (maxFeelSamp > 0.0)
-            {
-                double r = (audioRng.nextDouble() + audioRng.nextDouble()) * 0.5 - 0.5;
-                double velFactor = 1.0 - 0.4 * ((double) vel / 127.0);
-                noteOffset = juce::jlimit (0, blockSize - 1,
-                    (int) std::round (baseSampleOffset + r * maxFeelSamp * velFactor));
-            }
-
-            int note = kTrackNotes[t];
-            midi.addEvent (juce::MidiMessage::noteOn (10, note, vel), noteOffset);
-            activeNotes.push_back ({ note, absoluteSample + noteOffset + (long) noteLenSamp });
-
-            // Internal preview voice. Voices started inside this block render
-            // from their own phase=0, so timing offset within the block is
-            // approximate (good enough for scrub-style monitoring).
-            if (internalOn)
-                stockDrums.noteOn (note, (float) vel / 127.0f);
         }
     }
 
@@ -351,89 +368,114 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
 bool WillyBeatAudioProcessor::loadMidiFile (const juce::File& file)
 {
     juce::FileInputStream stream (file);
-    if (!stream.openedOk()) return false;
+    if (! stream.openedOk()) return false;
 
     juce::MidiFile midiFile;
-    if (!midiFile.readFrom (stream)) return false;
+    if (! midiFile.readFrom (stream)) return false;
 
-    midiFile.convertTimestampTicksToSeconds();
+    const int midiPPQ = midiFile.getTimeFormat();
+    if (midiPPQ <= 0) return false;          // SMPTE-format files unsupported
 
+    // Find the drum track. Prefer channel 10 (GM drums); fall back to the
+    // first track containing any noteOn so DAW drum patts that arrive on
+    // odd channels still import.
     const juce::MidiMessageSequence* drumTrack = nullptr;
+    bool drumChannelStrict = false;
     for (int t = 0; t < midiFile.getNumTracks(); ++t)
     {
         auto* track = midiFile.getTrack (t);
         for (int e = 0; e < track->getNumEvents(); ++e)
         {
-            if (track->getEventPointer(e)->message.isNoteOn() &&
-                track->getEventPointer(e)->message.getChannel() == 10)
-            {
-                drumTrack = track;
-                break;
-            }
+            const auto& msg = track->getEventPointer (e)->message;
+            if (msg.isNoteOn() && msg.getChannel() == 10)
+            { drumTrack = track; drumChannelStrict = true; break; }
         }
         if (drumTrack) break;
     }
-    if (!drumTrack) return false;
-
-    double bpm = 120.0;
-    for (int e = 0; e < drumTrack->getNumEvents(); ++e)
+    if (drumTrack == nullptr)
     {
-        auto msg = drumTrack->getEventPointer(e)->message;
-        if (msg.isTempoMetaEvent())
-            bpm = 60.0 / msg.getTempoSecondsPerQuarterNote();
-    }
-
-    const double secondsPerStep = (60.0 / bpm) / 4.0;
-
-    DrumPattern p;
-    p.name = file.getFileNameWithoutExtension();
-    p.type = PatType::Regular;
-
-    // Inherit the currently selected genre tags (or default to "Imported")
-    auto selTags = getSelectedGenreTags();
-    if (selTags.isEmpty())
-        p.genres.add ("Imported");
-    else
-        p.genres = selTags;
-
-    // Take only the first 4 bars worth of notes (anything later is ignored),
-    // then fold those bars onto the 1-bar display grid by mod-16. Quantize
-    // by rounding each onset to the nearest 16th-note step.
-    constexpr int kMaxBars = 4;
-    constexpr int kCutoffSteps = kMaxBars * MAX_STEPS;
-
-    for (int e = 0; e < drumTrack->getNumEvents(); ++e)
-    {
-        auto msg = drumTrack->getEventPointer(e)->message;
-        if (!msg.isNoteOn()) continue;
-
-        int rawStep = (int) std::round (msg.getTimeStamp() / secondsPerStep);
-        if (rawStep < 0 || rawStep >= kCutoffSteps) continue;
-        int step = rawStep % MAX_STEPS;
-        int note = msg.getNoteNumber();
-        uint8_t vel = (uint8_t) msg.getVelocity();
-
-        for (int t = 0; t < NUM_TRACKS; ++t)
+        for (int t = 0; t < midiFile.getNumTracks(); ++t)
         {
-            if (kTrackNotes[t] == note)
-            {
-                p.velocities[t][step] = std::max (p.velocities[t][step], vel);
-                break;
-            }
+            auto* track = midiFile.getTrack (t);
+            for (int e = 0; e < track->getNumEvents(); ++e)
+                if (track->getEventPointer (e)->message.isNoteOn())
+                { drumTrack = track; break; }
+            if (drumTrack) break;
         }
     }
+    if (drumTrack == nullptr) return false;
 
+    // Detect time signature from any track's meta events (commonly track 0).
+    int tsNum = 4, tsDen = 4;
+    for (int t = 0; t < midiFile.getNumTracks(); ++t)
+    {
+        const auto* tr = midiFile.getTrack (t);
+        for (int e = 0; e < tr->getNumEvents(); ++e)
+        {
+            const auto& msg = tr->getEventPointer (e)->message;
+            if (msg.isTimeSignatureMetaEvent())
+            { msg.getTimeSignatureInfo (tsNum, tsDen); goto tsFound; }
+        }
+    }
+    tsFound:
+
+    DrumPattern p;
+    p.name       = file.getFileNameWithoutExtension();
+    p.type       = PatType::Regular;
+    p.timeSigNum = juce::jlimit (1, 32, tsNum);
+    p.timeSigDen = (tsDen == 1 || tsDen == 2 || tsDen == 4 || tsDen == 8 || tsDen == 16) ? tsDen : 4;
+
+    auto selTags = getSelectedGenreTags();
+    p.genres = selTags.isEmpty() ? juce::StringArray { "Imported" } : selTags;
+
+    // Decide bar count: enough to hold the file's actual content, capped at 8.
+    constexpr int kMaxBars = 8;
+    const double midiTicksPerBar = (double) midiPPQ * 4.0 * (double) p.timeSigNum / (double) p.timeSigDen;
+    double lastNoteTick = 0.0;
+    for (int e = 0; e < drumTrack->getNumEvents(); ++e)
+    {
+        const auto& msg = drumTrack->getEventPointer (e)->message;
+        if (msg.isNoteOn()) lastNoteTick = juce::jmax (lastNoteTick, msg.getTimeStamp());
+    }
+    p.bars = juce::jlimit (1, kMaxBars, (int) std::ceil ((lastNoteTick + 1.0) / midiTicksPerBar));
+
+    // Scale MIDI file ticks → pattern ticks (PPQN=96).
+    const double tickScale = (double) PPQN / (double) midiPPQ;
+    const long   patternTotal = p.totalTicks();
+
+    for (int e = 0; e < drumTrack->getNumEvents(); ++e)
+    {
+        const auto& msg = drumTrack->getEventPointer (e)->message;
+        if (! msg.isNoteOn()) continue;
+        if (drumChannelStrict && msg.getChannel() != 10) continue;
+
+        const long patTick = (long) std::round (msg.getTimeStamp() * tickScale);
+        if (patTick < 0 || patTick >= patternTotal) continue;
+
+        const int     note = msg.getNoteNumber();
+        const uint8_t vel  = (uint8_t) msg.getVelocity();
+        if (vel == 0) continue;
+
+        for (int t = 0; t < NUM_TRACKS; ++t)
+            if (kTrackNotes[t] == note)
+            {
+                p.hits[t].push_back ({ (int) patTick, vel });
+                break;
+            }
+    }
+    for (int t = 0; t < NUM_TRACKS; ++t)
+        std::sort (p.hits[t].begin(), p.hits[t].end(),
+                   [] (const DrumHit& a, const DrumHit& b) { return a.tick < b.tick; });
+
+    p.syncLegacyFromHits();
     p.computeDensity();
 
-    apvts.removeParameterListener ("patIdx",  this);
-
+    apvts.removeParameterListener ("patIdx", this);
     library.savePattern (p, getPresetsDirectory());
     reloadLibrary();
     navigateToPattern (p);
     selectPattern();
-
-    apvts.addParameterListener ("patIdx",  this);
-
+    apvts.addParameterListener ("patIdx", this);
     return true;
 }
 
@@ -517,10 +559,13 @@ void WillyBeatAudioProcessor::autoSavePattern (DrumPattern& p)
 {
     auto dir = getPresetsDirectory();
     dir.createDirectory();
+    // Grid edits still mutate the legacy velocities[][] array. Push those
+    // edits into the tick-based hits[] before persistence — file writes,
+    // playback, and density rebalancing all read from hits[] now.
+    p.syncHitsFromLegacy();
     p.computeDensity();
     auto f = library.savePattern (p, dir);
     p.sourceFile = f;
-    // Keep the in-memory library copy in sync so activePattern pointer stays current
     library.updatePattern (p);
 }
 

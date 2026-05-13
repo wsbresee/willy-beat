@@ -214,6 +214,46 @@ juce::String TagChipBar::findFuzzyMatch (const juce::String& query) const
 // MIDI export helper
 //==============================================================================
 
+// Bake one pattern down to a list of {track, tick-within-step, vel} per
+// 16th-step window so the export loop can mix and match steps between
+// the main and fill patterns. For v2 patterns whose hits sit on 16th
+// boundaries this is lossless; off-grid hits (future triplets / 32nds)
+// keep their sub-step offset.
+struct ExportStepCells
+{
+    int                  numSteps = 0;
+    int                  stepTicks = 0;
+    std::vector<DrumHit> hitsByStep[NUM_TRACKS];   // tick stored as (step * stepTicks + offset)
+
+    void build (const DrumPattern& p, int sixteenthTicks)
+    {
+        stepTicks = sixteenthTicks;
+        numSteps  = juce::jmax (1, p.totalTicks() / sixteenthTicks);
+        for (int t = 0; t < NUM_TRACKS; ++t)
+        {
+            hitsByStep[t].clear();
+            for (const auto& h : p.hits[t])
+                hitsByStep[t].push_back (h);
+            std::sort (hitsByStep[t].begin(), hitsByStep[t].end(),
+                       [] (const DrumHit& a, const DrumHit& b) { return a.tick < b.tick; });
+        }
+    }
+
+    // Iterate hits in [stepIdx * stepTicks, (stepIdx + 1) * stepTicks).
+    template<class Fn>
+    void forEachHitInStep (int track, int stepIdx, Fn&& fn) const
+    {
+        const int lo = stepIdx * stepTicks;
+        const int hi = lo + stepTicks;
+        for (const auto& h : hitsByStep[track])
+        {
+            if (h.tick < lo) continue;
+            if (h.tick >= hi) break;
+            fn (h);
+        }
+    }
+};
+
 static juce::File writePatternToMidi (const DrumPattern& mainPat,
                                       const DrumPattern* fillPat,
                                       int          numBars,
@@ -225,52 +265,57 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
                                       float        swing,
                                       float        feel)
 {
-    const int    ticksPerStep = 120;
-    const int    stepsPerBar  = MAX_STEPS;
-    const double swingTicks   = swing   / 100.0 * ticksPerStep * 0.5;
-    const double maxFeelTicks = feel    / 100.0 * ticksPerStep * 0.08;
-    const double gateFrac     = 0.80;
+    // Internal MIDI file resolution: keep PPQN-style numbers (120 PPQN
+    // tradition for SMFs) but our pattern data is at PPQN=96. We render
+    // 16th-cell-aligned output, so use 120 ticks per 16th, scaling each
+    // hit's intra-cell offset accordingly.
+    constexpr int    MIDI_TICKS_PER_STEP = 120;
+    constexpr int    PATTERN_TICKS_PER_STEP = PPQN / 4; // 24
+    const double     swingTicks   = swing / 100.0 * MIDI_TICKS_PER_STEP * 0.5;
+    const double     maxFeelTicks = feel  / 100.0 * MIDI_TICKS_PER_STEP * 0.08;
+    const double     gateFrac     = 0.80;
+    const double     subStepScale = (double) MIDI_TICKS_PER_STEP / (double) PATTERN_TICKS_PER_STEP;
 
-    juce::int64 usedSeed = (seed < 0)
+    const juce::int64 usedSeed = (seed < 0)
         ? juce::Random::getSystemRandom().nextInt64()
         : seed;
 
     juce::MidiMessageSequence seq;
     seq.addEvent (juce::MidiMessage::tempoMetaEvent (500000), 0.0);
 
-    const int totalSteps = numBars * stepsPerBar;
+    ExportStepCells mainCells;
+    mainCells.build (mainPat, PATTERN_TICKS_PER_STEP);
 
-    // Cap fill regions so they don't overlap.  Start fill takes priority over
-    // end fill when they would conflict.
-    fillStart = juce::jlimit (0, totalSteps, fillStart);
-    fillEnd   = juce::jlimit (0, totalSteps - fillStart, fillEnd);
+    ExportStepCells fillCells;
+    if (fillPat != nullptr) fillCells.build (*fillPat, PATTERN_TICKS_PER_STEP);
 
-    const int startFillEnd = fillStart;                // [0, startFillEnd)  = start fill
-    const int endFillStart = totalSteps - fillEnd;     // [endFillStart, totalSteps)
+    const int patternSteps = mainCells.numSteps;
+    const int totalSteps   = numBars * patternSteps;
+    const int fillSteps    = (fillPat != nullptr) ? fillCells.numSteps : 0;
+
+    // Cap fill regions so they don't overlap and don't exceed the fill
+    // pattern's own length.
+    if (fillPat == nullptr) { fillStart = fillMid = fillEnd = 0; }
+    fillStart = juce::jlimit (0, juce::jmin (totalSteps, fillSteps), fillStart);
+    fillEnd   = juce::jlimit (0, juce::jmin (totalSteps - fillStart, fillSteps), fillEnd);
+
+    const int startFillEnd = fillStart;                  // [0, startFillEnd)
+    const int endFillStart = totalSteps - fillEnd;       // [endFillStart, totalSteps)
     const int middleStart  = startFillEnd;
     const int middleEnd    = endFillStart;
     const int middleSize   = juce::jmax (0, middleEnd - middleStart);
 
-    // Pick mid-fill positions deterministically from the seed.  These are
-    // scattered within [middleStart, middleEnd) and replaced with their
-    // matching position in the fill pattern.
-    std::vector<bool> midFillMask (totalSteps, false);
+    // Scatter mid-fill positions deterministically from the seed.
+    std::vector<bool> midFillMask ((size_t) totalSteps, false);
     if (fillPat != nullptr && fillMid > 0 && middleSize > 0)
     {
         const int n = juce::jmin (fillMid, middleSize);
         juce::Random pickerRng (usedSeed ^ (juce::int64) 0xdeadbeefcafe1234LL);
-
         std::vector<int> positions;
         positions.reserve ((size_t) middleSize);
-        for (int i = middleStart; i < middleEnd; ++i)
-            positions.push_back (i);
-
-        // Fisher-Yates shuffle (deterministic via pickerRng)
+        for (int i = middleStart; i < middleEnd; ++i) positions.push_back (i);
         for (int i = (int) positions.size() - 1; i > 0; --i)
-        {
-            int j = pickerRng.nextInt (i + 1);
-            std::swap (positions[(size_t) i], positions[(size_t) j]);
-        }
+            std::swap (positions[(size_t) i], positions[(size_t) pickerRng.nextInt (i + 1)]);
         for (int i = 0; i < n; ++i)
             midFillMask[(size_t) positions[(size_t) i]] = true;
     }
@@ -280,55 +325,55 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
         juce::int64 barSeed = usedSeed ^ ((juce::int64)(bar + 1) * (juce::int64)0x9e3779b97f4a7c15LL);
         juce::Random barRng (barSeed);
 
-        for (int col = 0; col < stepsPerBar; ++col)
+        for (int col = 0; col < patternSteps; ++col)
         {
-            const int  globalStep = bar * stepsPerBar + col;
+            const int globalStep = bar * patternSteps + col;
 
             const bool inStartFill = (fillPat != nullptr && globalStep <  startFillEnd);
             const bool inEndFill   = (fillPat != nullptr && globalStep >= endFillStart);
             const bool inMidFill   = midFillMask[(size_t) globalStep];
-            const bool useFill     = (inStartFill || inEndFill || inMidFill);
 
-            const DrumPattern& pat = useFill ? *fillPat : mainPat;
-
-            int patCol;
+            const ExportStepCells& src = (inStartFill || inEndFill || inMidFill) ? fillCells : mainCells;
+            int srcStep;
             if (inStartFill)
-                patCol = globalStep;                                         // head of fill
+                srcStep = globalStep;                                              // head of fill
             else if (inEndFill)
-                patCol = (stepsPerBar - fillEnd) + (globalStep - endFillStart); // tail of fill
+                srcStep = (fillSteps - fillEnd) + (globalStep - endFillStart);     // tail of fill
             else if (inMidFill)
-                patCol = globalStep % stepsPerBar;                            // matching position
+                srcStep = globalStep % fillSteps;                                  // matching position
             else
-                patCol = col;
+                srcStep = col;                                                     // main loop
+            srcStep = juce::jlimit (0, juce::jmax (1, src.numSteps) - 1, srcStep);
 
-            double stepTick = (double)(globalStep * ticksPerStep);
-            if (col % 2 == 1) stepTick += swingTicks;
+            const double stepBaseTick = (double) (globalStep * MIDI_TICKS_PER_STEP)
+                                      + ((col % 2 == 1) ? swingTicks : 0.0);
 
             for (int row = 0; row < NUM_TRACKS; ++row)
             {
-                uint8_t vel = pat.velocities[row][patCol];
-                if (vel == 0) continue;
-
-                if (humanize > 0.0f)
+                src.forEachHitInStep (row, srcStep, [&] (const DrumHit& h)
                 {
-                    int h   = (int) humanize;
-                    int dev = barRng.nextInt (2 * h + 1) - h;
-                    vel = (uint8_t) juce::jlimit (1, 127, (int) vel + dev);
-                }
+                    uint8_t vel = h.velocity;
+                    if (humanize > 0.0f)
+                    {
+                        int hh  = (int) humanize;
+                        int dev = barRng.nextInt (2 * hh + 1) - hh;
+                        vel = (uint8_t) juce::jlimit (1, 127, (int) vel + dev);
+                    }
 
-                double noteTick = stepTick;
-                if (maxFeelTicks > 0.0)
-                {
-                    double r = (barRng.nextDouble() + barRng.nextDouble()) * 0.5 - 0.5;
-                    double velFactor = 1.0 - 0.4 * ((double) vel / 127.0);
-                    noteTick += r * maxFeelTicks * velFactor;
-                }
+                    const int intraStep = h.tick - srcStep * PATTERN_TICKS_PER_STEP;
+                    double noteTick = stepBaseTick + intraStep * subStepScale;
+                    if (maxFeelTicks > 0.0)
+                    {
+                        double r = (barRng.nextDouble() + barRng.nextDouble()) * 0.5 - 0.5;
+                        double velFactor = 1.0 - 0.4 * ((double) vel / 127.0);
+                        noteTick += r * maxFeelTicks * velFactor;
+                    }
+                    double onTick  = juce::jmax (0.0, noteTick);
+                    double offTick = onTick + MIDI_TICKS_PER_STEP * gateFrac;
 
-                double onTick  = juce::jmax (0.0, noteTick);
-                double offTick = onTick + ticksPerStep * gateFrac;
-
-                seq.addEvent (juce::MidiMessage::noteOn  (10, kTrackNotes[row], vel), onTick);
-                seq.addEvent (juce::MidiMessage::noteOff (10, kTrackNotes[row], (uint8_t) 0), offTick);
+                    seq.addEvent (juce::MidiMessage::noteOn  (10, kTrackNotes[row], vel), onTick);
+                    seq.addEvent (juce::MidiMessage::noteOff (10, kTrackNotes[row], (uint8_t) 0), offTick);
+                });
             }
         }
     }
@@ -1155,6 +1200,7 @@ void WillyBeatAudioProcessorEditor::autoSaveCurrentEdit (int track, int step)
     // processBlock plays exactly what's on screen.
     applyDensityToEditingCopy();
     editingCopy.velocities[track][step] = fullPattern.velocities[track][step];
+    editingCopy.syncHitsFromLegacy();
     audioProcessor.getLibrary().updatePattern (editingCopy);
 }
 
@@ -1170,121 +1216,150 @@ static void applyDensity (DrumPattern& target,
                           const juce::StringArray& scopeTags,
                           bool restrictToSameType)
 {
+    // Copy hits[] and shape from src; everything else on target stays.
+    target.timeSigNum = src.timeSigNum;
+    target.timeSigDen = src.timeSigDen;
+    target.bars       = src.bars;
     for (int t = 0; t < NUM_TRACKS; ++t)
-        for (int s = 0; s < MAX_STEPS; ++s)
-            target.velocities[t][s] = src.velocities[t][s];
+        target.hits[t] = src.hits[t];
+
+    const int beatTicks = target.ticksPerBeat();
+    const int barTicks  = target.timeSigNum * beatTicks;
+    const int halfBeat  = juce::jmax (1, beatTicks / 2);
+    const int quartBeat = juce::jmax (1, beatTicks / 4);
+
+    auto tierBonus = [&] (int tick) -> int
+    {
+        if (barTicks  > 0 && tick % barTicks  == 0) return 80;  // bar downbeat
+        if (beatTicks > 0 && tick % beatTicks == 0) return 40;  // beat
+        if (tick % halfBeat  == 0) return 10;                   // 8th
+        if (tick % quartBeat == 0) return 5;                    // 16th
+        return 0;                                               // triplet / off-grid
+    };
 
     if (density < 1.0f)
     {
-        // Importance-based hit removal: score every active hit, sort the
-        // least-important to the front, then silence the first N where N
-        // = (1 - density) * totalHits. Score combines velocity with a
-        // beat-position tier so ghost notes and 16th offbeats fall away
-        // first while downbeat / backbeat hits survive.
-        struct Hit { int track, step; int importance; };
-        std::vector<Hit> hits;
-        hits.reserve (NUM_TRACKS * MAX_STEPS);
-
-        auto tierBonus = [] (int step) -> int
-        {
-            if (step % 16 == 0) return 80; // bar downbeat
-            if (step %  4 == 0) return 40; // quarter beats (incl. backbeats)
-            if (step %  2 == 0) return 10; // 8th-note positions
-            return 0;                      // 16th-note offbeats
-        };
-
+        // Importance-based hit removal in tick space.
+        struct Scored { int track; size_t idx; int importance; };
+        std::vector<Scored> scored;
         for (int t = 0; t < NUM_TRACKS; ++t)
-            for (int s = 0; s < MAX_STEPS; ++s)
-                if (auto v = target.velocities[t][s])
-                    hits.push_back ({ t, s, (int) v * 2 + tierBonus (s) });
+            for (size_t i = 0; i < target.hits[t].size(); ++i)
+                scored.push_back ({ t, i,
+                    (int) target.hits[t][i].velocity * 2 + tierBonus (target.hits[t][i].tick) });
 
-        std::sort (hits.begin(), hits.end(),
-                   [] (const Hit& a, const Hit& b)
+        std::sort (scored.begin(), scored.end(),
+                   [] (const Scored& a, const Scored& b)
                    {
                        if (a.importance != b.importance) return a.importance < b.importance;
                        if (a.track      != b.track)      return a.track      < b.track;
-                       return a.step < b.step;
+                       return a.idx < b.idx;
                    });
 
-        const int numHits     = (int) hits.size();
+        const int numHits     = (int) scored.size();
         const int numToRemove = numHits - (int) std::round (density * (float) numHits);
+
+        // Mark survivors per track, then rebuild each track's hits list.
+        std::vector<bool> keepFlags[NUM_TRACKS];
+        for (int t = 0; t < NUM_TRACKS; ++t)
+            keepFlags[t].assign (target.hits[t].size(), true);
         for (int i = 0; i < numToRemove && i < numHits; ++i)
-            target.velocities[hits[i].track][hits[i].step] = 0;
+            keepFlags[scored[i].track][scored[i].idx] = false;
+
+        for (int t = 0; t < NUM_TRACKS; ++t)
+        {
+            std::vector<DrumHit> kept;
+            kept.reserve (target.hits[t].size());
+            for (size_t i = 0; i < target.hits[t].size(); ++i)
+                if (keepFlags[t][i]) kept.push_back (target.hits[t][i]);
+            target.hits[t] = std::move (kept);
+        }
     }
     else
     {
         const float excess = density - 1.0f;
 
         // Source pool: patterns matching any scope tag (or all patterns if
-        // no scope is set), excluding `src` itself.
+        // no scope is set), excluding src itself and requiring shape match.
         auto matches = scopeTags.isEmpty()
                           ? std::vector<const DrumPattern*>{}
                           : library.getByTags (scopeTags);
 
+        auto shapeMatch = [&] (const DrumPattern& p) {
+            return p.timeSigNum == src.timeSigNum
+                && p.timeSigDen == src.timeSigDen
+                && p.bars       == src.bars;
+        };
+
         std::vector<const DrumPattern*> sources;
+        auto consider = [&] (const DrumPattern& p) {
+            if (&p == &src) return;
+            if (p.sourceFile == src.sourceFile && src.sourceFile != juce::File()) return;
+            if (! shapeMatch (p)) return;
+            if (restrictToSameType && p.type != src.type) return;
+            sources.push_back (&p);
+        };
+
         if (scopeTags.isEmpty())
-        {
-            for (const auto& p : library.all())
-                if (p.sourceFile != src.sourceFile)
-                    if (! restrictToSameType || p.type == src.type)
-                        sources.push_back (&p);
-        }
+            for (const auto& p : library.all()) consider (p);
         else
-        {
-            for (auto* cp : matches)
-                if (cp->sourceFile != src.sourceFile)
-                    if (! restrictToSameType || cp->type == src.type)
-                        sources.push_back (cp);
-        }
-
+            for (auto* cp : matches) consider (*cp);
         if (sources.empty())
-            for (const auto& p : library.all())
-                if (p.sourceFile != src.sourceFile)
-                    if (! restrictToSameType || p.type == src.type)
-                        sources.push_back (&p);
+            for (const auto& p : library.all()) consider (p);
+        if (sources.empty()) { target.recomputeDensity(); return; }
 
-        if (sources.empty())
-        {
-            target.computeDensity();
-            return;
-        }
-
-        struct Slot { int track, step, popularity; uint8_t vel; };
-        std::vector<Slot> slots;
-        slots.reserve (NUM_TRACKS * MAX_STEPS);
-
+        // Build target's hit-tick sets per track for fast "is this empty?"
+        // lookups.
+        std::set<int> targetTicks[NUM_TRACKS];
         for (int t = 0; t < NUM_TRACKS; ++t)
-            for (int s = 0; s < MAX_STEPS; ++s)
-            {
-                if (src.velocities[t][s] != 0) continue;
+            for (const auto& h : target.hits[t])
+                targetTicks[t].insert (h.tick);
 
-                int pop = 0, velSum = 0;
-                for (auto* sp : sources)
+        // Slot = (track, tick) that target lacks. Score by popularity
+        // across sources; tiebreak by velocity tier so a bar-downbeat slot
+        // beats an offbeat.
+        struct Slot { int track; int tick; int popularity; int velSum; };
+        std::map<std::pair<int,int>, Slot> table;
+        for (auto* sp : sources)
+            for (int t = 0; t < NUM_TRACKS; ++t)
+                for (const auto& h : sp->hits[t])
                 {
-                    uint8_t v = sp->velocities[t][s];
-                    if (v > 0) { ++pop; velSum += v; }
+                    if (targetTicks[t].count (h.tick)) continue;
+                    auto& slot = table[{ t, h.tick }];
+                    slot.track = t; slot.tick = h.tick;
+                    slot.popularity += 1;
+                    slot.velSum     += h.velocity;
                 }
-                if (pop > 0)
-                {
-                    uint8_t avgVel = (uint8_t) (velSum / pop);
-                    slots.push_back ({ t, s, pop, avgVel });
-                }
-            }
+
+        std::vector<Slot> slots;
+        slots.reserve (table.size());
+        for (auto& kv : table) slots.push_back (kv.second);
 
         std::sort (slots.begin(), slots.end(),
-                   [] (const Slot& a, const Slot& b)
+                   [&] (const Slot& a, const Slot& b)
                    {
                        if (a.popularity != b.popularity) return a.popularity > b.popularity;
-                       if (a.track      != b.track)      return a.track      < b.track;
-                       return a.step < b.step;
+                       const int ta = tierBonus (a.tick);
+                       const int tb = tierBonus (b.tick);
+                       if (ta != tb) return ta > tb;
+                       if (a.track != b.track) return a.track < b.track;
+                       return a.tick < b.tick;
                    });
 
-        int numToAdd = (int) std::round (excess * (float) slots.size());
+        const int numToAdd = (int) std::round (excess * (float) slots.size());
         for (int i = 0; i < numToAdd && i < (int) slots.size(); ++i)
-            target.velocities[slots[i].track][slots[i].step] = slots[i].vel;
+        {
+            const auto& s = slots[(size_t) i];
+            const uint8_t v = (uint8_t) juce::jlimit (1, 127, s.velSum / juce::jmax (1, s.popularity));
+            target.hits[s.track].push_back ({ s.tick, v });
+        }
+
+        for (int t = 0; t < NUM_TRACKS; ++t)
+            std::sort (target.hits[t].begin(), target.hits[t].end(),
+                       [] (const DrumHit& a, const DrumHit& b) { return a.tick < b.tick; });
     }
 
-    target.computeDensity();
+    target.syncLegacyFromHits();
+    target.recomputeDensity();
 }
 
 void WillyBeatAudioProcessorEditor::applyDensityToEditingCopy()

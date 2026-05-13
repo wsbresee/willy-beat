@@ -843,23 +843,38 @@ DrumPattern PatternLibrary::makeComposite (const juce::StringArray& tags,
     if (sources.empty()) return DrumPattern{};
 
     juce::Random rng (seed);
-    DrumPattern result = *sources[0];
 
-    // Independently pick a random source pattern for each track row.
+    // Shape comes from the first source. Only mix in sources whose shape
+    // matches so we don't combine 4/4 with 6/8 or 1-bar with 2-bar
+    // patterns - the resulting groove makes no sense.
+    DrumPattern result;
+    result.timeSigNum = sources[0]->timeSigNum;
+    result.timeSigDen = sources[0]->timeSigDen;
+    result.bars       = sources[0]->bars;
+
+    std::vector<const DrumPattern*> compat;
+    compat.reserve (sources.size());
+    for (auto* p : sources)
+        if (p->timeSigNum == result.timeSigNum
+            && p->timeSigDen == result.timeSigDen
+            && p->bars       == result.bars)
+            compat.push_back (p);
+    if (compat.empty()) compat.push_back (sources[0]);
+
+    // Independently pick a random source pattern for each track and copy
+    // its hit list over.
     for (int t = 0; t < NUM_TRACKS; ++t)
     {
-        auto* src = sources[(size_t) rng.nextInt ((int) sources.size())];
-        for (int s = 0; s < MAX_STEPS; ++s)
-            result.velocities[t][s] = src->velocities[t][s];
+        auto* src = compat[(size_t) rng.nextInt ((int) compat.size())];
+        result.hits[t] = src->hits[t];
     }
 
-    // Keep the user's exact tag selection on the result so the chip bar stays
-    // unchanged after Generate (no fallback "Generated" tag injected).
     result.genres      = tags;
     result.type        = type;
     result.isComposite = true;
     result.name        = "Generated";   // caller stamps a unique name before saving
     result.sourceFile  = juce::File();
-    result.computeDensity();
+    result.syncLegacyFromHits();
+    result.recomputeDensity();
     return result;
 }

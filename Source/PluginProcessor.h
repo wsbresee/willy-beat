@@ -93,8 +93,8 @@ private:
     const DrumPattern* activePattern = nullptr;
 
     std::atomic<int> currentStep { 0 };
-    long lastFiredStep = -1;
-    bool wasPlaying    = false;
+    long lastFiredAbsTick[NUM_TRACKS] = {};   // per-track last-fired absolute tick (re-fire guard)
+    bool wasPlaying = false;
 
     struct ActiveNote { int note; long offAtSample; };
     std::vector<ActiveNote> activeNotes;
