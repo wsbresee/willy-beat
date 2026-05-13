@@ -354,8 +354,7 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
                                       juce::int64  seed,
                                       float        humanize,
                                       float        swing,
-                                      float        feel,
-                                      bool         swing8th)
+                                      float        feel)
 {
     // Internal MIDI file resolution: keep PPQN-style numbers (120 PPQN
     // tradition for SMFs) but our pattern data is at PPQN=96. We render
@@ -363,10 +362,11 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
     // hit's intra-cell offset accordingly.
     constexpr int    MIDI_TICKS_PER_STEP = 120;
     constexpr int    PATTERN_TICKS_PER_STEP = PPQN / 4; // 24
-    // 16th swing: delay every odd-indexed 16th. 8th swing: delay the
-    // "and" of each quarter (every 4th cell starting at index 2).
-    const int        swingPeriodCells  = swing8th ? 4 : 2;
-    const int        swingTriggerCol   = swing8th ? 2 : 1;
+    // Swing period follows the pattern's grid subdivision (in 16th-step units).
+    // 8th grid → swing the "and" of each beat (every 4th 16th starting at 2).
+    // All other grids → swing every odd 16th.
+    const int        swingPeriodCells  = (mainPat.gridSub == GridSub::Eighth) ? 4 : 2;
+    const int        swingTriggerCol   = (mainPat.gridSub == GridSub::Eighth) ? 2 : 1;
     const double     swingUnitMidiTks  = (double) MIDI_TICKS_PER_STEP * (double) swingPeriodCells / 2.0;
     const double     swingTicks        = swing / 100.0 * swingUnitMidiTks * 0.5;
     const double     maxFeelTicks = feel  / 100.0 * MIDI_TICKS_PER_STEP * 0.08;
@@ -1130,18 +1130,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     gateKnob    .setTooltip ("Duration  -  note length as a percentage of the step duration. Lower = staccato, higher = legato.");
     humanizeKnob.setTooltip ("Dynamics  -  random velocity variation per hit, in MIDI velocity units. Higher = more loudness contrast between hits.");
-    swingKnob   .setTooltip ("Swing  -  delays the off-beat notes for a shuffle/jazz feel. ~67% lands on triplets. Click the label below to toggle between 16th-note swing and 8th-note swing.");
-
-    swingLabel.setTooltip ("Click to toggle swing target between 16th and 8th notes.");
-    swingLabel.onClick = [this]() {
-        auto* param = audioProcessor.apvts.getParameter ("swing8th");
-        if (param == nullptr) return;
-        const bool cur = param->getValue() > 0.5f;
-        param->beginChangeGesture();
-        param->setValueNotifyingHost (cur ? 0.0f : 1.0f);
-        param->endChangeGesture();
-        swingLabel.setText (cur ? "Swing 16" : "Swing 8", juce::dontSendNotification);
-    };
+    swingKnob   .setTooltip ("Swing  -  delays the off-beat notes for a shuffle/jazz feel. Granularity follows the active grid (8th, 16th, 32nd). ~67% = triplet feel.");
     feelKnob    .setTooltip ("Slop  -  random per-note timing offset, bell-curved. Louder hits stay closer to the grid. Higher = looser feel.");
     densityKnob .setTooltip ("Density  -  0-100% removes hits one-by-one in importance order (low-velocity 16th-offbeat hits first; downbeats and loud backbeats last). 100-200% adds extra hits at empty slots, drawn from same-tag patterns (most-shared slots first).");
 
@@ -1153,14 +1142,9 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     };
     for (juce::Label* lbl : { (juce::Label*) &genreLabel, (juce::Label*) &patLabel,
                               (juce::Label*) &gateLabel, (juce::Label*) &humanizeLabel,
-                              (juce::Label*) &feelLabel, (juce::Label*) &densityLabel })
+                              (juce::Label*) &swingLabel, (juce::Label*) &feelLabel,
+                              (juce::Label*) &densityLabel })
         labelStyle (lbl);
-
-    // swingLabel is a clickable toggle — styled to look like a button.
-    swingLabel.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
-    swingLabel.setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textPrimary);
-    swingLabel.setJustificationType (juce::Justification::centred);
-    swingLabel.setMouseCursor (juce::MouseCursor::PointingHandCursor);
 
     // ── Generate button (the primary action) ──────────────────────────────
     genBtn.onClick = [this] { audioProcessor.generateComposite(); refreshTagSelector(); };
@@ -1302,7 +1286,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         };
         wire (gateLabel,      gateKnob);
         wire (humanizeLabel,  humanizeKnob);
-        wire (swingLabel,     swingKnob);
+        wire (swingLabel, swingKnob);
         wire (feelLabel,      feelKnob);
         wire (densityLabel,   densityKnob);
         wire (fillStartLabel, fillStartKnob);
@@ -1336,11 +1320,10 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         float humanize = audioProcessor.apvts.getRawParameterValue ("dynamics")->load();
         float swing    = audioProcessor.apvts.getRawParameterValue ("swing")->load();
         float feel     = audioProcessor.apvts.getRawParameterValue ("slop")->load();
-        bool  swing8th = audioProcessor.apvts.getRawParameterValue ("swing8th")->load() > 0.5f;
 
         return writePatternToMidi (editingCopy, fillPtr, numBars,
                                    fillStart, fillMid, fillEnd,
-                                   seed, humanize, swing, feel, swing8th);
+                                   seed, humanize, swing, feel);
     };
     dragStrip.setTooltip ("Drag this strip into your DAW's MIDI track to drop the current pattern. Honours bar count, fills, density, and re-rolls humanize/swing/feel placement on every drag.");
 
@@ -1387,7 +1370,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     addAndMakeVisible (patLabel);       addAndMakeVisible (patIdxSlider);
     addAndMakeVisible (gateLabel);      addAndMakeVisible (gateKnob);
     addAndMakeVisible (humanizeLabel);  addAndMakeVisible (humanizeKnob);
-    addAndMakeVisible (swingLabel);     addAndMakeVisible (swingKnob);
+    addAndMakeVisible (swingLabel);       addAndMakeVisible (swingKnob);
     addAndMakeVisible (feelLabel);      addAndMakeVisible (feelKnob);
     addAndMakeVisible (densityLabel);   addAndMakeVisible (densityKnob);
     addAndMakeVisible (genBtn);
@@ -1404,7 +1387,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // Poll for active-pattern changes at 10 Hz
     startTimerHz (10);
 
-    setSize (760, 620);
+    setSize (760, 644);
 }
 
 WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
@@ -1436,14 +1419,6 @@ void WillyBeatAudioProcessorEditor::timerCallback()
         }
         for (auto* k : toRemove)
             labelFlashEnd.remove (k);
-    }
-
-    // Keep swing label in sync with the swing8th param (skip while flashing a value).
-    if (! labelFlashEnd.contains (&swingLabel))
-    {
-        const bool swing8 = audioProcessor.apvts.getRawParameterValue ("swing8th")->load() > 0.5f;
-        const juce::String want = swing8 ? "Swing 8" : "Swing 16";
-        if (swingLabel.getText() != want) swingLabel.setText (want, juce::dontSendNotification);
     }
 
     // Auto-sync the editing pattern's time signature to the DAW when the
@@ -2048,11 +2023,11 @@ void WillyBeatAudioProcessorEditor::resized()
     //   Dynamics ↔ Swing/Density  |  Slop ↔ Density/Start  |  Mid ↔ Start/End
     {
         constexpr int kLabH  = 12;
-        constexpr int kKnobH = 44;
-        constexpr int kRowH  = kLabH + kKnobH;    // 56
+        constexpr int kKnobH = 56;
+        constexpr int kRowH  = kLabH + kKnobH;    // 68
         constexpr int kGapR  = 4;
-        constexpr int kBotY  = kRowH + kGapR;     // 60
-        constexpr int kSecH  = 2 * kRowH + kGapR; // 116
+        constexpr int kBotY  = kRowH + kGapR;     // 72
+        constexpr int kSecH  = 2 * kRowH + kGapR; // 140
 
         auto rowB = area.removeFromTop (kSecH);
         const int Y0 = rowB.getY();
@@ -2069,10 +2044,8 @@ void WillyBeatAudioProcessorEditor::resized()
             knob.setBounds (x, Y0 + kLabH, w, kKnobH);
         };
         placeTop (gateLabel,      gateKnob,      0);  // Duration
-        placeTop (swingLabel,     swingKnob,      1);  // Swing
-        // Swing label is a pill toggle — constrain its width so it doesn't fill the slot
-        swingLabel.setBounds (swingLabel.getBounds().withSizeKeepingCentre (72, kLabH));
-        placeTop (densityLabel,   densityKnob,    2);  // Density
+        placeTop (swingLabel,     swingKnob,     1);  // Swing
+        placeTop (densityLabel,   densityKnob,   2);  // Density
         placeTop (fillStartLabel, fillStartKnob,  3);  // Start
         placeTop (fillEndLabel,   fillEndKnob,    4);  // End
 
@@ -2117,11 +2090,7 @@ juce::String WillyBeatAudioProcessorEditor::knobLabelRestingText (juce::Label* l
 {
     if (lbl == &gateLabel)      return "Duration";
     if (lbl == &humanizeLabel)  return "Dynamics";
-    if (lbl == &swingLabel)
-    {
-        const bool s8 = audioProcessor.apvts.getRawParameterValue ("swing8th")->load() > 0.5f;
-        return s8 ? "Swing 8" : "Swing 16";
-    }
+    if (lbl == &swingLabel)     return "Swing";
     if (lbl == &feelLabel)      return "Slop";
     if (lbl == &densityLabel)   return "Density";
     if (lbl == &fillStartLabel) return "Start";
@@ -2166,5 +2135,5 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     fillMidLabel  .setText (compactMode ? "Fill Mid"   : "Mid",   juce::dontSendNotification);
     fillEndLabel  .setText (compactMode ? "Fill End"   : "End",   juce::dontSendNotification);
 
-    setSize (760, compactMode ? 184 : 620);
+    setSize (760, compactMode ? 184 : 644);
 }

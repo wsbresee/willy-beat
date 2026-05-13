@@ -275,7 +275,7 @@ private:
     // ── Knob row ─────────────────────────────────────────────────────────
     juce::Label  gateLabel      { {}, "Duration" };
     juce::Label  humanizeLabel  { {}, "Dynamics" };
-    ClickableLabel swingLabel   { {}, "Swing 16" };
+    juce::Label    swingLabel        { {}, "Swing" };
     juce::Label  feelLabel      { {}, "Slop" };
     juce::Label  densityLabel   { {}, "Density" };
 
