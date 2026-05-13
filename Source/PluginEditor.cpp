@@ -856,6 +856,15 @@ void PatternGrid::mouseMove  (const juce::MouseEvent& e) { updateBadgeAt (e.x, e
 void PatternGrid::mouseWheelMove (const juce::MouseEvent& e,
                                   const juce::MouseWheelDetails& w)
 {
+    // Horizontal-dominant wheel (trackpad two-finger swipe, horizontal
+    // scroll wheel) pans the viewport sideways. Forward to parent so
+    // GridViewport can scroll the cells.
+    if (std::abs (w.deltaX) > std::abs (w.deltaY))
+    {
+        Component::mouseWheelMove (e, w);
+        return;
+    }
+
     if (editTarget == nullptr) return;
     const Layout L = computeLayout (*editTarget);
     int row = -1, col = -1;
