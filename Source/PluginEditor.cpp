@@ -1147,7 +1147,29 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         labelStyle (lbl);
 
     // ── Generate button (the primary action) ──────────────────────────────
-    genBtn.onClick = [this] { audioProcessor.generateComposite(); refreshTagSelector(); };
+    genBtn.onClick = [this]
+    {
+        // Capture the UI shape before generating so timerCallback can apply
+        // it to the new pattern instead of letting syncShapeCombos reset it.
+        pendingGenerate = true;
+        pendingBars     = getBarsFromCombo();
+        pendingGridSub  = (GridSub) juce::jlimit (0, (int) GridSub::NUM_GRID_SUBS - 1,
+                                                   gridBox.getSelectedId() - 1);
+        const int tsId = timeSigBox.getSelectedId();
+        if (tsId >= 1 && tsId <= kNumTimeSigChoices)
+        {
+            auto [n, d]   = kTimeSigChoices[(size_t) tsId - 1];
+            pendingTsNum  = n;
+            pendingTsDen  = d;
+        }
+        else if (! parseTimeSigText (timeSigBox.getText(), pendingTsNum, pendingTsDen))
+        {
+            pendingTsNum = 4;
+            pendingTsDen = 4;
+        }
+        audioProcessor.generateComposite();
+        refreshTagSelector();
+    };
     genBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::accent);
     genBtn.setColour (juce::TextButton::textColourOffId, juce::Colours::white);
     genBtn.setTooltip ("Generate a brand-new pattern from the selected genre tags. Each click produces a different mix.");
@@ -1299,6 +1321,43 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         wire (fillEndLabel,   fillEndKnob);
     }
 
+    // ── Double-click-to-type: enter a numeric value directly into a knob label ──
+    {
+        auto wireEdit = [&] (KnobLabel& lbl, juce::Slider& sl)
+        {
+            lbl.setEditable (false, true, true);   // double-click opens editor; Escape/blur discards
+            lbl.onEditorShow = [this, &lbl, &sl]
+            {
+                labelFlashEnd.remove (&lbl);       // stop the flash timer touching this label
+                if (auto* ed = lbl.getCurrentTextEditor())
+                {
+                    ed->setText (sl.getTextFromValue (sl.getValue()), false);
+                    ed->selectAll();
+                }
+            };
+            lbl.onTextChange = [this, &lbl, &sl]
+            {
+                const juce::String t = lbl.getText().trim();
+                auto restore = [&] { lbl.setText (knobLabelRestingText (&lbl), juce::dontSendNotification); };
+                if (t.isEmpty() || ! t.containsAnyOf ("0123456789"))
+                    { restore(); return; }
+                const double v = juce::jlimit (sl.getMinimum(), sl.getMaximum(), t.getDoubleValue());
+                if (juce::approximatelyEqual (sl.getValue(), v))
+                    restore();                     // no change → no onValueChange, restore manually
+                else
+                    sl.setValue (v, juce::sendNotificationSync);  // onValueChange starts flash
+            };
+        };
+        wireEdit (gateLabel,      gateKnob);
+        wireEdit (humanizeLabel,  humanizeKnob);
+        wireEdit (swingLabel,     swingKnob);
+        wireEdit (feelLabel,      feelKnob);
+        wireEdit (densityLabel,   densityKnob);
+        wireEdit (fillStartLabel, fillStartKnob);
+        wireEdit (fillMidLabel,   fillMidKnob);
+        wireEdit (fillEndLabel,   fillEndKnob);
+    }
+
     // ── Drag strip — exports current editingCopy ──────────────────────────
     dragStrip.onDrag = [this]() -> juce::File
     {
@@ -1418,8 +1477,9 @@ void WillyBeatAudioProcessorEditor::timerCallback()
         {
             if (now >= it.getValue())
             {
-                it.getKey()->setText (knobLabelRestingText (it.getKey()),
-                                      juce::dontSendNotification);
+                if (! it.getKey()->isBeingEdited())
+                    it.getKey()->setText (knobLabelRestingText (it.getKey()),
+                                          juce::dontSendNotification);
                 toRemove.add (it.getKey());
             }
         }
@@ -1453,6 +1513,24 @@ void WillyBeatAudioProcessorEditor::timerCallback()
             fullPattern = pat->sourceFile.existsAsFile()
                               ? PatternLibrary::loadFromFile (pat->sourceFile)
                               : *pat;
+
+            // After Generate, override the pattern's shape with whatever
+            // the user had selected in the UI combos before clicking.
+            if (pendingGenerate)
+            {
+                pendingGenerate = false;
+                const int ot1 = fullPattern.totalTicks();
+                fullPattern.timeSigNum = pendingTsNum;
+                fullPattern.timeSigDen = pendingTsDen;
+                reshapePatternHits (fullPattern, ot1);
+                const int ot2 = fullPattern.totalTicks();
+                fullPattern.bars = pendingBars;
+                reshapePatternHits (fullPattern, ot2);
+                fullPattern.gridSub = pendingGridSub;
+                fullPattern.syncLegacyFromHits();
+                audioProcessor.autoSavePattern (fullPattern);
+            }
+
             editingCopy = fullPattern;
             applyDensityToEditingCopy();
             audioProcessor.getLibrary().updatePattern (editingCopy);

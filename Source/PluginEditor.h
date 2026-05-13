@@ -85,6 +85,16 @@ public:
                          const juce::MouseWheelDetails& wheel) override;
 };
 
+// Label that supports double-click-to-edit without changing the cursor on hover,
+// so the appearance is identical to a plain label when not being edited.
+class KnobLabel : public juce::Label
+{
+public:
+    using juce::Label::Label;
+    void mouseEnter (const juce::MouseEvent&) override {}
+    void mouseExit  (const juce::MouseEvent&) override {}
+};
+
 // Minimal click-aware Label used for the "Swing 16 / Swing 8" toggle.
 class ClickableLabel : public juce::Label
 {
@@ -273,11 +283,11 @@ private:
     std::unique_ptr<BA> soundAttach;
 
     // ── Knob row ─────────────────────────────────────────────────────────
-    juce::Label  gateLabel      { {}, "Duration" };
-    juce::Label  humanizeLabel  { {}, "Dynamics" };
-    juce::Label    swingLabel        { {}, "Swing" };
-    juce::Label  feelLabel      { {}, "Slop" };
-    juce::Label  densityLabel   { {}, "Density" };
+    KnobLabel  gateLabel      { {}, "Duration" };
+    KnobLabel  humanizeLabel  { {}, "Dynamics" };
+    KnobLabel  swingLabel     { {}, "Swing" };
+    KnobLabel  feelLabel      { {}, "Slop" };
+    KnobLabel  densityLabel   { {}, "Density" };
 
     juce::Slider gateKnob;
     juce::Slider humanizeKnob;
@@ -303,15 +313,15 @@ private:
 
     juce::Label      humanizeSectionLabel { {}, "Humanize" };
     juce::Label      fillSectionLabel     { {}, "Fill" };
-    juce::Label      fillStartLabel  { {}, "Start" };
+    KnobLabel        fillStartLabel  { {}, "Start" };
     juce::Slider     fillStartKnob;
     std::unique_ptr<SA> fillStartAttach;
 
-    juce::Label      fillMidLabel    { {}, "Mid" };
+    KnobLabel        fillMidLabel    { {}, "Mid" };
     juce::Slider     fillMidKnob;
     std::unique_ptr<SA> fillMidAttach;
 
-    juce::Label      fillEndLabel    { {}, "End" };
+    KnobLabel        fillEndLabel    { {}, "End" };
     juce::Slider     fillEndKnob;
     std::unique_ptr<SA> fillEndAttach;
 
@@ -343,6 +353,14 @@ private:
     // Used to mirror DAW time-sig changes into the active pattern.
     int lastHostTsNum = 0;
     int lastHostTsDen = 0;
+
+    // Set by genBtn.onClick to apply the current UI time-sig/bars/grid to
+    // the newly-generated pattern instead of letting syncShapeCombos reset them.
+    bool    pendingGenerate   = false;
+    int     pendingTsNum      = 4;
+    int     pendingTsDen      = 4;
+    int     pendingBars       = 1;
+    GridSub pendingGridSub    = GridSub::Sixteenth;
 
     int         getBarsFromCombo() const;
     const DrumPattern* findFill (const DrumPattern& pat, juce::int64 seed) const;
