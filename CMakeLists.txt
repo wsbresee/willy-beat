@@ -58,5 +58,36 @@ target_link_libraries(WillyBeat
 
 if(APPLE)
     find_library(NATURAL_LANGUAGE_FRAMEWORK NaturalLanguage)
+    find_library(FOUNDATION_FRAMEWORK       Foundation)
     target_link_libraries(WillyBeat PRIVATE ${NATURAL_LANGUAGE_FRAMEWORK})
+
+    # ── BakeTagEmbeddings: pre-compute NLEmbedding vectors for every tag in
+    # Presets/ so the plugin doesn't have to call the framework at startup.
+    # Critical for Cubase's sandboxed VST3 host, which kills plugins that
+    # block the main thread during init.
+    add_executable(BakeTagEmbeddings Tools/BakeTagEmbeddings.mm)
+    set_target_properties(BakeTagEmbeddings PROPERTIES CXX_STANDARD 17)
+    target_link_libraries(BakeTagEmbeddings PRIVATE
+        ${NATURAL_LANGUAGE_FRAMEWORK}
+        ${FOUNDATION_FRAMEWORK})
+
+    set(BAKED_DIR "${CMAKE_BINARY_DIR}/baked")
+    set(BAKED_BIN "${BAKED_DIR}/BakedEmbeddings.bin")
+    set(PRESETS_DIR "${CMAKE_SOURCE_DIR}/Presets")
+
+    file(GLOB BAKE_PRESET_SOURCES "${PRESETS_DIR}/*.beat")
+    add_custom_command(
+        OUTPUT  "${BAKED_BIN}"
+        COMMAND "$<TARGET_FILE:BakeTagEmbeddings>" "${PRESETS_DIR}" "${BAKED_BIN}"
+        DEPENDS BakeTagEmbeddings ${BAKE_PRESET_SOURCES}
+        COMMENT "BakeTagEmbeddings: precomputing NLEmbedding vectors"
+        VERBATIM)
+
+    juce_add_binary_data(WillyBeatBakedData
+        HEADER_NAME BinaryData.h
+        NAMESPACE   BinaryData
+        SOURCES     "${BAKED_BIN}")
+
+    target_link_libraries(WillyBeat PRIVATE WillyBeatBakedData)
+    target_compile_definitions(WillyBeat PRIVATE JUCE_INCLUDED_BAKED_EMBEDDINGS=1)
 endif()

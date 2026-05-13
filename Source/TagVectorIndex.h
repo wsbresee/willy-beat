@@ -2,12 +2,16 @@
 #include <JuceHeader.h>
 
 // Semantic tag matcher backed by Apple's NaturalLanguage framework. Embeds
-// each known tag once via NLEmbedding's sentence model, then finds the best
-// match for an arbitrary user query by cosine similarity in the same space.
+// each known tag via NLEmbedding's sentence model and matches arbitrary
+// user queries by cosine similarity.
 //
-// macOS-only. Build on Windows would need a different embedder (ONNX
-// MiniLM, etc.); the editor uses isAvailable() to skip vector search when
-// no embedder is present.
+// Thread model: setKnownTags() returns immediately and builds the index
+// on a background thread, sharing work across instances via a process-wide
+// embedding cache. Search calls are safe to invoke before the build
+// finishes; entries that haven't been embedded yet are skipped.
+//
+// macOS-only. Build on Windows would need a different embedder; the
+// editor uses isAvailable() to skip vector search when none is present.
 class TagVectorIndex
 {
 public:
@@ -15,23 +19,21 @@ public:
     ~TagVectorIndex();
 
     bool isAvailable() const;
+    bool isReady()     const;
 
-    // Precompute embeddings for the full tag vocabulary. Cheap — sub-ms
-    // per tag — so safe to call on every library refresh.
+    // Queue a vocabulary build on a background thread. Cheap to call -
+    // most embeddings are served from a process-wide cache. A previously
+    // running build is joined before the new one starts.
     void setKnownTags (const juce::StringArray& tags);
 
     // Return the tag whose embedding is closest to the query, or an empty
     // string when no tag clears the similarity threshold (or when the
-    // embedder is unavailable). Restricts results to `excluded`-free tags
-    // so already-selected chips don't get re-suggested.
+    // embedder is unavailable). `excluded` tags are skipped.
     juce::String findBestMatch (const juce::String& query,
                                 const juce::StringArray& excluded) const;
 
-    // Return up to `maxResults` tags that are nearest (by cosine) to the
-    // union of `seeds`'s embeddings. Used to expand a small user-chosen
-    // tag set into a broader source pool for pattern generation. Seeds
-    // themselves are included first; the rest are filled in by descending
-    // similarity. Returns empty when the embedder is unavailable.
+    // Return up to `maxResults` tags nearest to the union of `seeds`'s
+    // embeddings. Seeds come first; the rest fill by descending similarity.
     juce::StringArray findNearestN (const juce::StringArray& seeds,
                                     int maxResults) const;
 
