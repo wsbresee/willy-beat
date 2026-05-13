@@ -27,6 +27,8 @@ juce_add_plugin(WillyBeat
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD     TRUE
     PRODUCT_NAME                "WillyBeat"
+    ICON_BIG                    "${CMAKE_SOURCE_DIR}/Resources/logo.png"
+    ICON_SMALL                  "${CMAKE_SOURCE_DIR}/Resources/logo.png"
 )
 
 juce_generate_juce_header(WillyBeat)
@@ -99,7 +101,8 @@ if(APPLE)
         HEADER_NAME BinaryData.h
         NAMESPACE   BinaryData
         SOURCES     "${BAKED_BIN}"
-                    "${PRESET_BUNDLE}")
+                    "${PRESET_BUNDLE}"
+                    "${CMAKE_SOURCE_DIR}/Resources/logo.png")
 
     target_link_libraries(WillyBeat PRIVATE WillyBeatBakedData)
     target_compile_definitions(WillyBeat PRIVATE

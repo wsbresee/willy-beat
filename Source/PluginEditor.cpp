@@ -1800,6 +1800,18 @@ void WillyBeatAudioProcessorEditor::paint (juce::Graphics& g)
 
     // Title bar
     auto titleArea = getLocalBounds().removeFromTop (30);
+
+    // Brand logo — top-left
+    {
+        constexpr int logoSize = 24;
+        constexpr int logoMargin = 3;
+        auto logo = juce::ImageCache::getFromMemory (BinaryData::logo_png, BinaryData::logo_pngSize);
+        if (logo.isValid())
+            g.drawImageWithin (logo,
+                               logoMargin, logoMargin, logoSize, logoSize,
+                               juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize);
+    }
+
     g.setColour (WillyBeatLookAndFeel::accent);
     g.setFont (juce::Font (juce::FontOptions{}
                               .withHeight (16.0f)
