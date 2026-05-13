@@ -573,10 +573,10 @@ void WillyBeatAudioProcessor::autoSavePattern (DrumPattern& p)
 {
     auto dir = getPresetsDirectory();
     dir.createDirectory();
-    // Grid edits still mutate the legacy velocities[][] array. Push those
-    // edits into the tick-based hits[] before persistence — file writes,
-    // playback, and density rebalancing all read from hits[] now.
-    p.syncHitsFromLegacy();
+    // hits[] is the authoritative state; project the latest edits onto
+    // the legacy velocities[][] array so anything still reading the
+    // 16-cell grid stays in step.
+    p.syncLegacyFromHits();
     p.computeDensity();
     auto f = library.savePattern (p, dir);
     p.sourceFile = f;
