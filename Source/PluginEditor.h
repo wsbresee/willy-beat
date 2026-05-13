@@ -247,7 +247,7 @@ private:
     WillyBeatAudioProcessor& audioProcessor;
 
     WillyBeatLookAndFeel lookAndFeel;
-    juce::TooltipWindow  tooltipWindow { this, 700 };
+    juce::TooltipWindow  tooltipWindow { this, 1800 };
 
     DragStrip       dragStrip;
     PatternGrid     grid;
@@ -301,7 +301,8 @@ private:
     juce::Label      gridLabel    { {}, "Grid" };
     juce::ComboBox   gridBox;
 
-    juce::Label      fillSectionLabel { {}, "Fill" };
+    juce::Label      humanizeSectionLabel { {}, "Humanize" };
+    juce::Label      fillSectionLabel     { {}, "Fill" };
     juce::Label      fillStartLabel  { {}, "Start" };
     juce::Slider     fillStartKnob;
     std::unique_ptr<SA> fillStartAttach;

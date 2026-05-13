@@ -1268,9 +1268,14 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     fillLabelStyle (fillMidLabel);
     fillLabelStyle (fillEndLabel);
 
-    fillSectionLabel.setFont (juce::Font (juce::FontOptions{}.withHeight (13.0f)));
-    fillSectionLabel.setJustificationType (juce::Justification::centred);
-    fillSectionLabel.setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textPrimary);
+    auto sectionLabelStyle = [] (juce::Label& l)
+    {
+        l.setFont (juce::Font (juce::FontOptions{}.withHeight (13.0f)));
+        l.setJustificationType (juce::Justification::centred);
+        l.setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textPrimary);
+    };
+    sectionLabelStyle (humanizeSectionLabel);
+    sectionLabelStyle (fillSectionLabel);
 
     // ── Flash-on-dial: show the live value while a knob is being turned ───
     // onValueChange fires on the message thread via SliderAttachment.
@@ -1379,6 +1384,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     addAndMakeVisible (timeSigLabel);    addAndMakeVisible (timeSigBox);
     addAndMakeVisible (barsLabel);       addAndMakeVisible (barsBox);
     addAndMakeVisible (gridLabel);       addAndMakeVisible (gridBox);
+    addAndMakeVisible (humanizeSectionLabel);
     addAndMakeVisible (fillSectionLabel);
     addAndMakeVisible (fillStartLabel);  addAndMakeVisible (fillStartKnob);
     addAndMakeVisible (fillMidLabel);    addAndMakeVisible (fillMidKnob);
@@ -1387,7 +1393,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // Poll for active-pattern changes at 10 Hz
     startTimerHz (10);
 
-    setSize (760, 644);
+    setSize (760, 640);
 }
 
 WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
@@ -1944,7 +1950,7 @@ void WillyBeatAudioProcessorEditor::resized()
     // Buttons are vertically centred on the hairline (y=27 = logoMargin + logoSize/2).
     {
         constexpr int lineY = 3 + 48 / 2; // 27 — must match paint()
-        auto titleRow    = area.removeFromTop (56);
+        auto titleRow    = area.removeFromTop (52);
         auto collapseBox = titleRow.removeFromRight (28);
         collapseBtn.setBounds (collapseBox.withSizeKeepingCentre (24, 22).withY (lineY - 11));
         titleRow.removeFromRight (4);
@@ -2074,7 +2080,18 @@ void WillyBeatAudioProcessorEditor::resized()
             placeCombo (gridLabel,    gridBox,    88);
         }
 
-        fillSectionLabel.setBounds ({});
+        // Section headers floated in the circle-to-circle gap of the top knob row.
+        // Knob circles are 56×56 px, centered within each kW-wide slot; the gap
+        // between adjacent circles is ~92 px. Labels are 84 px wide, centered at
+        // the column boundary — fits comfortably inside the gap on both sides.
+        {
+            constexpr int secW    = 84;
+            constexpr int secH    = 14;
+            constexpr int liftPx  = 10;
+            const int cy = Y0 + kLabH + kKnobH / 2 - liftPx;
+            humanizeSectionLabel.setBounds (X0 + 2*kW - secW/2, cy - secH/2, secW, secH);
+            fillSectionLabel    .setBounds (X0 + 4*kW - secW/2, cy - secH/2, secW, secH);
+        }
     }
 
     area.removeFromTop (4);
@@ -2121,7 +2138,7 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
         &timeSigLabel, &timeSigBox,
         &barsLabel,    &barsBox,
         &gridLabel,    &gridBox,
-        &fillSectionLabel
+        &humanizeSectionLabel, &fillSectionLabel
     };
     for (auto* c : hideInCompact)
         c->setVisible (show);
@@ -2135,5 +2152,5 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     fillMidLabel  .setText (compactMode ? "Fill Mid"   : "Mid",   juce::dontSendNotification);
     fillEndLabel  .setText (compactMode ? "Fill End"   : "End",   juce::dontSendNotification);
 
-    setSize (760, compactMode ? 184 : 644);
+    setSize (760, compactMode ? 184 : 640);
 }
