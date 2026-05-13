@@ -73,6 +73,18 @@ public:
     void paint (juce::Graphics& g) override;
 };
 
+// ─── GridViewport ────────────────────────────────────────────────────────
+// Same as juce::Viewport but ignores vertical-only wheel events so the
+// grid's own mouseWheelMove (velocity adjustment) doesn't fight the
+// viewport's scroll behaviour. Horizontal wheel deltas (trackpad
+// two-finger swipe) still scroll the viewport.
+class GridViewport : public juce::Viewport
+{
+public:
+    void mouseWheelMove (const juce::MouseEvent& e,
+                         const juce::MouseWheelDetails& wheel) override;
+};
+
 // Minimal click-aware Label used for the "Swing 16 / Swing 8" toggle.
 class ClickableLabel : public juce::Label
 {
@@ -220,7 +232,7 @@ private:
     DragStrip       dragStrip;
     PatternGrid     grid;
     TrackLabels     trackLabels;
-    juce::Viewport  gridViewport;
+    GridViewport    gridViewport;
     MiniPatternView miniGrid;
 
     // ── Pattern selector row ─────────────────────────────────────────────

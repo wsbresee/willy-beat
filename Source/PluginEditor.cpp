@@ -1,5 +1,16 @@
 #include "PluginEditor.h"
 
+// ─── GridViewport ────────────────────────────────────────────────────────
+void GridViewport::mouseWheelMove (const juce::MouseEvent& e,
+                                   const juce::MouseWheelDetails& wheel)
+{
+    // Vertical wheel events are reserved for the inner grid's velocity
+    // adjustment - don't let the viewport eat them. Horizontal wheels
+    // (trackpad two-finger swipe) still scroll the cells.
+    if (std::abs (wheel.deltaX) >= std::abs (wheel.deltaY))
+        juce::Viewport::mouseWheelMove (e, wheel);
+}
+
 // ─── TrackLabels — fixed-column track names beside the scrollable grid ──
 void TrackLabels::paint (juce::Graphics& g)
 {
@@ -1113,7 +1124,8 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     };
 
     barsBox.onChange = [this]() {
-        const int newBars = juce::jlimit (1, 8, barsBox.getSelectedId());
+        // Combo IDs are 1..4; map to actual bar counts (1, 2, 4, 8).
+        const int newBars = getBarsFromCombo();
         if (fullPattern.bars == newBars) return;
         fullPattern.bars = newBars;
         const int newTotal = fullPattern.totalTicks();
