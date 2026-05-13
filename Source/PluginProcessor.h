@@ -43,6 +43,11 @@ public:
     std::atomic<int>&  getCurrentStep()   { return currentStep; }
     std::atomic<int>&  getCurrentTick()   { return currentTick; }   // tick within the active pattern
 
+    // Most recent time signature reported by the host. (0, 0) when the
+    // host hasn't surfaced one (e.g., the standalone build).
+    std::atomic<int>&  getHostTimeSigNum() { return hostTsNum; }
+    std::atomic<int>&  getHostTimeSigDen() { return hostTsDen; }
+
     juce::File getPresetsDirectory() const;
 
     // Import a MIDI file and store it as a user preset
@@ -95,6 +100,8 @@ private:
 
     std::atomic<int> currentStep { 0 };
     std::atomic<int> currentTick { 0 };
+    std::atomic<int> hostTsNum   { 0 };
+    std::atomic<int> hostTsDen   { 0 };
     long lastFiredAbsTick[NUM_TRACKS] = {};   // per-track last-fired absolute tick (re-fire guard)
     bool wasPlaying = false;
 

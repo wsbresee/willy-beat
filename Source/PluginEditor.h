@@ -313,6 +313,11 @@ private:
 
     juce::StringArray lastKnownTags;
 
+    // Last host-reported time signature we've applied to the pattern.
+    // Used to mirror DAW time-sig changes into the active pattern.
+    int lastHostTsNum = 0;
+    int lastHostTsDen = 0;
+
     int         getBarsFromCombo() const;
     const DrumPattern* findFill (const DrumPattern& pat, juce::int64 seed) const;
     DrumPattern buildFillPatternForExport (juce::int64 seed) const;

@@ -237,6 +237,15 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
     if (!posOpt.hasValue()) return;
     auto& pos = *posOpt;
 
+    // Surface the host's reported time signature (if any) so the editor
+    // can mirror it into the active pattern. Updated every block; the
+    // editor reacts only when it actually changes.
+    if (auto ts = pos.getTimeSignature())
+    {
+        hostTsNum = ts->numerator;
+        hostTsDen = ts->denominator;
+    }
+
     if (!pos.getIsPlaying())
     {
         if (wasPlaying)

@@ -1336,6 +1336,31 @@ void WillyBeatAudioProcessorEditor::timerCallback()
     const juce::String want = swing8 ? "Swing 8" : "Swing 16";
     if (swingLabel.getText() != want) swingLabel.setText (want, juce::dontSendNotification);
 
+    // Auto-sync the editing pattern's time signature to the DAW when the
+    // host reports one. We only react when the host's value CHANGES so a
+    // manual combo pick survives until the DAW transitions to a new
+    // signature. Standalone hosts return (0, 0) and are ignored.
+    const int hostNum = audioProcessor.getHostTimeSigNum().load();
+    const int hostDen = audioProcessor.getHostTimeSigDen().load();
+    if (hostNum > 0 && hostDen > 0
+        && (hostNum != lastHostTsNum || hostDen != lastHostTsDen))
+    {
+        lastHostTsNum = hostNum;
+        lastHostTsDen = hostDen;
+        for (int i = 0; i < kNumTimeSigChoices; ++i)
+        {
+            auto [n, d] = kTimeSigChoices[i];
+            if (n == hostNum && d == hostDen)
+            {
+                // setSelectedId fires onChange which calls the reshape
+                // path. The onChange handler no-ops if the pattern is
+                // already in this time sig, so no waste on a no-op match.
+                timeSigBox.setSelectedId (i + 1, juce::sendNotificationSync);
+                break;
+            }
+        }
+    }
+
     auto* pat = audioProcessor.getActivePattern();
 
     // Pattern switched — reload pristine fullPattern from disk (the library
