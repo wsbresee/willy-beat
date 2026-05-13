@@ -1118,15 +1118,15 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     constexpr float kRotaryStart =  -juce::MathConstants<float>::pi * 5.0f / 6.0f;
     constexpr float kRotaryEnd   =   juce::MathConstants<float>::pi * 5.0f / 6.0f;
 
-    auto setupRotary = [] (juce::Slider& k, int textBoxW, int textBoxH)
+    auto setupRotary = [] (juce::Slider& k)
     {
         k.setSliderStyle (juce::Slider::Rotary);
-        k.setTextBoxStyle (juce::Slider::TextBoxBelow, false, textBoxW, textBoxH);
+        k.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
         k.setRotaryParameters (kRotaryStart, kRotaryEnd, true);
     };
 
     for (auto* k : { &gateKnob, &humanizeKnob, &swingKnob, &feelKnob, &densityKnob })
-        setupRotary (*k, 48, 18);
+        setupRotary (*k);
 
     gateKnob    .setTooltip ("Duration  -  note length as a percentage of the step duration. Lower = staccato, higher = legato.");
     humanizeKnob.setTooltip ("Dynamics  -  random velocity variation per hit, in MIDI velocity units. Higher = more loudness contrast between hits.");
@@ -1267,9 +1267,9 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     fillEndAttach   = std::make_unique<SA> (p.apvts, "fillSteps", fillEndKnob);
 
     // Same helper as the macro row — direction & style identical.
-    setupRotary (fillStartKnob, 32, 14);
-    setupRotary (fillMidKnob,   32, 14);
-    setupRotary (fillEndKnob,   32, 14);
+    setupRotary (fillStartKnob);
+    setupRotary (fillMidKnob);
+    setupRotary (fillEndKnob);
 
     fillStartKnob.setTooltip ("Fill at start  -  number of leading 16th notes drawn from a fill pattern (head of the fill). 0 = none, 16 = full bar.");
     fillMidKnob  .setTooltip ("Mid-pattern fill  -  number of 16th notes scattered through the middle of the export, drawn from fill content. Deterministic per seed.");
@@ -1404,7 +1404,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // Poll for active-pattern changes at 10 Hz
     startTimerHz (10);
 
-    setSize (760, 652);
+    setSize (760, 620);
 }
 
 WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
@@ -2048,11 +2048,11 @@ void WillyBeatAudioProcessorEditor::resized()
     //   Dynamics ↔ Swing/Density  |  Slop ↔ Density/Start  |  Mid ↔ Start/End
     {
         constexpr int kLabH  = 12;
-        constexpr int kKnobH = 60;
-        constexpr int kRowH  = kLabH + kKnobH;    // 72
+        constexpr int kKnobH = 44;
+        constexpr int kRowH  = kLabH + kKnobH;    // 56
         constexpr int kGapR  = 4;
-        constexpr int kBotY  = kRowH + kGapR;     // 76
-        constexpr int kSecH  = 2 * kRowH + kGapR; // 148
+        constexpr int kBotY  = kRowH + kGapR;     // 60
+        constexpr int kSecH  = 2 * kRowH + kGapR; // 116
 
         auto rowB = area.removeFromTop (kSecH);
         const int Y0 = rowB.getY();
@@ -2166,5 +2166,5 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     fillMidLabel  .setText (compactMode ? "Fill Mid"   : "Mid",   juce::dontSendNotification);
     fillEndLabel  .setText (compactMode ? "Fill End"   : "End",   juce::dontSendNotification);
 
-    setSize (760, compactMode ? 184 : 652);
+    setSize (760, compactMode ? 184 : 620);
 }
