@@ -1404,7 +1404,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // Poll for active-pattern changes at 10 Hz
     startTimerHz (10);
 
-    setSize (760, 678);
+    setSize (760, 652);
 }
 
 WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
@@ -2047,12 +2047,12 @@ void WillyBeatAudioProcessorEditor::resized()
     //   Each row-2 knob lands at the midpoint of two adjacent row-1 slots:
     //   Dynamics ↔ Swing/Density  |  Slop ↔ Density/Start  |  Mid ↔ Start/End
     {
-        constexpr int kLabH  = 14;
-        constexpr int kKnobH = 70;
-        constexpr int kRowH  = kLabH + kKnobH;    // 84
-        constexpr int kGapR  = 6;
-        constexpr int kBotY  = kRowH + kGapR;     // 90
-        constexpr int kSecH  = 2 * kRowH + kGapR; // 174
+        constexpr int kLabH  = 12;
+        constexpr int kKnobH = 60;
+        constexpr int kRowH  = kLabH + kKnobH;    // 72
+        constexpr int kGapR  = 4;
+        constexpr int kBotY  = kRowH + kGapR;     // 76
+        constexpr int kSecH  = 2 * kRowH + kGapR; // 148
 
         auto rowB = area.removeFromTop (kSecH);
         const int Y0 = rowB.getY();
@@ -2166,5 +2166,5 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     fillMidLabel  .setText (compactMode ? "Fill Mid"   : "Mid",   juce::dontSendNotification);
     fillEndLabel  .setText (compactMode ? "Fill End"   : "End",   juce::dontSendNotification);
 
-    setSize (760, compactMode ? 184 : 678);
+    setSize (760, compactMode ? 184 : 652);
 }
