@@ -480,6 +480,7 @@ bool PatternLibrary::patternToFile (const DrumPattern& p, const juce::File& f)
     text << "type:    " << kPatTypeNames[(int) p.type] << "\n";
     text << "timesig: " << p.timeSigNum << "/" << p.timeSigDen << "\n";
     text << "bars:    " << p.bars << "\n";
+    text << "grid:    " << kGridSubFileKeys[(int) p.gridSub] << "\n";
     text << "density: " << juce::String (p.density, 4) << "\n";
     if (p.isComposite)
         text << "composite: true\n";
@@ -574,6 +575,13 @@ DrumPattern PatternLibrary::patternFromFile (const juce::File& f)
             else if (key == "bars")
             {
                 p.bars = juce::jmax (1, val.getIntValue());
+            }
+            else if (key == "grid")
+            {
+                const auto v = val.trim();
+                for (int i = 0; i < (int) GridSub::NUM_GRID_SUBS; ++i)
+                    if (v == kGridSubFileKeys[i])
+                    { p.gridSub = (GridSub) i; break; }
             }
             else
             {

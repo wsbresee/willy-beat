@@ -1,5 +1,11 @@
 #include "PluginEditor.h"
 
+// Common time signatures the editor exposes. Indexed by combo ID - 1.
+static const std::pair<int,int> kTimeSigChoices[] = {
+    {4,4}, {3,4}, {2,4}, {5,4}, {6,8}, {7,8}, {12,8}
+};
+static constexpr int kNumTimeSigChoices = sizeof (kTimeSigChoices) / sizeof (kTimeSigChoices[0]);
+
 //==============================================================================
 // TagChipBar — multi-select fuzzy tag picker
 //==============================================================================
@@ -473,29 +479,29 @@ void MiniPatternView::paint (juce::Graphics& g)
     }
 
     auto inner = bounds.reduced (3.0f);
-    const float cellW = inner.getWidth()  / (float) MAX_STEPS;
+    const int totalTicks = juce::jmax (1, pat->totalTicks());
+    const float pixPerTick = inner.getWidth() / (float) totalTicks;
     const float cellH = inner.getHeight() / (float) NUM_TRACKS;
 
-    // Play cursor
-    const int playStep = proc.getCurrentStep().load();
-    if (playStep >= 0 && playStep < MAX_STEPS)
+    // Play cursor (1 px wide at PPQN=96).
+    const int playTick = proc.getCurrentTick().load();
+    if (playTick >= 0 && playTick < totalTicks)
     {
-        float cx = inner.getX() + (float) playStep * cellW;
+        float cx = inner.getX() + (float) playTick * pixPerTick;
         g.setColour (WillyBeatLookAndFeel::accent.withAlpha (0.18f));
-        g.fillRect (cx, inner.getY(), cellW, inner.getHeight());
+        g.fillRect (cx, inner.getY(), juce::jmax (1.0f, pixPerTick * (float) PPQN / 4.0f), inner.getHeight());
     }
 
-    // Cells — only draw active hits, padding kept implicit by inner reduction.
+    // Render hits as small dots at their exact tick positions.
+    const float dotW = juce::jmax (1.5f, pixPerTick * (float) PPQN / 4.0f - 1.0f);
     for (int t = 0; t < NUM_TRACKS; ++t)
     {
-        for (int s = 0; s < MAX_STEPS; ++s)
+        const float y = inner.getY() + (float) t * cellH;
+        for (const auto& h : pat->hits[t])
         {
-            auto vel = pat->velocities[t][s];
-            if (vel == 0) continue;
-            float x = inner.getX() + (float) s * cellW;
-            float y = inner.getY() + (float) t * cellH;
-            g.setColour (PatternGrid::velColour (vel));
-            g.fillRect (x + 0.5f, y + 0.5f, cellW - 1.0f, cellH - 1.0f);
+            const float x = inner.getX() + (float) h.tick * pixPerTick;
+            g.setColour (PatternGrid::velColour (h.velocity));
+            g.fillRect (x + 0.5f, y + 0.5f, dotW, cellH - 1.0f);
         }
     }
 
@@ -527,88 +533,148 @@ juce::Colour PatternGrid::velColour (uint8_t vel)
     return              juce::Colour (0xffc08aff);      // accent
 }
 
+// Layout cache derived from the active pattern's shape + grid subdivision.
+struct PatternGrid::Layout
+{
+    int   numCells     = 16;
+    int   cellTicks    = 24;
+    int   cellsPerBeat = 4;
+    int   cellsPerBar  = 16;
+    bool  isTriplet    = false;
+    float cellW        = 0.0f;
+    float cellH        = 0.0f;
+    int   gridX        = 0;
+};
+
+PatternGrid::Layout PatternGrid::computeLayout (const DrumPattern& pat) const
+{
+    Layout L;
+    L.cellTicks    = juce::jmax (1, gridSubCellTicks (pat.gridSub));
+    L.numCells     = juce::jmax (1, pat.totalTicks() / L.cellTicks);
+    L.cellsPerBeat = juce::jmax (1, pat.ticksPerBeat() / L.cellTicks);
+    L.cellsPerBar  = juce::jmax (1, pat.timeSigNum * L.cellsPerBeat);
+    L.isTriplet    = gridSubIsTriplet (pat.gridSub);
+    L.gridX        = kLabelW;
+    const auto bounds = getLocalBounds();
+    L.cellW        = (float) (bounds.getWidth() - L.gridX) / (float) L.numCells;
+    L.cellH        = (float) bounds.getHeight() / (float) NUM_TRACKS;
+    return L;
+}
+
+bool PatternGrid::cellAt (int x, int y, int& outRow, int& outCell, const Layout& L) const
+{
+    if (x < L.gridX) return false;
+    outCell = (int) ((float) (x - L.gridX) / L.cellW);
+    outRow  = (int) ((float) y / L.cellH);
+    return outCell >= 0 && outCell < L.numCells && outRow >= 0 && outRow < NUM_TRACKS;
+}
+
+// Look up the highest-velocity hit (if any) inside a cell's tick window.
+static const DrumHit* hitInCell (const DrumPattern& p, int track, int cellIdx, int cellTicks)
+{
+    const int lo = cellIdx * cellTicks;
+    const int hi = lo + cellTicks;
+    const DrumHit* best = nullptr;
+    for (const auto& h : p.hits[track])
+    {
+        if (h.tick < lo) continue;
+        if (h.tick >= hi) break;
+        if (best == nullptr || h.velocity > best->velocity) best = &h;
+    }
+    return best;
+}
+
 void PatternGrid::paint (juce::Graphics& g)
 {
     const auto* displayPat = (editTarget != nullptr) ? editTarget
                                                      : proc.getActivePattern();
-
     const auto bounds = getLocalBounds();
     g.fillAll (WillyBeatLookAndFeel::bgRecess);
 
-    const int   gridX = kLabelW;
-    const int   gridW = bounds.getWidth() - gridX;
-    const float cellW = (float) gridW / MAX_STEPS;
-    const float cellH = (float) bounds.getHeight() / NUM_TRACKS;
+    if (displayPat == nullptr) return;
 
-    // Play cursor — always show regardless of edit state
-    const int playStep = proc.getCurrentStep().load();
-    if (playStep >= 0 && playStep < MAX_STEPS)
+    const Layout L = computeLayout (*displayPat);
+
+    // Play cursor — sized to one cell.
+    const int   playTick = proc.getCurrentTick().load();
+    const int   playCell = (L.cellTicks > 0) ? (playTick / L.cellTicks) : -1;
+    if (playCell >= 0 && playCell < L.numCells)
     {
-        float cx = (float) gridX + (float) playStep * cellW;
+        const float cx = (float) L.gridX + (float) playCell * L.cellW;
         g.setColour (WillyBeatLookAndFeel::accent.withAlpha (0.16f));
-        g.fillRect (cx, 0.0f, cellW, (float) bounds.getHeight());
+        g.fillRect (cx, 0.0f, L.cellW, (float) bounds.getHeight());
     }
 
-    // Beat-marker vertical lines every 4 16ths
+    // Beat dividers: thinner inside-beat lines, thicker bar dividers.
     g.setColour (WillyBeatLookAndFeel::border);
-    for (int col = 0; col <= MAX_STEPS; col += 4)
-        g.drawVerticalLine ((int) ((float) gridX + (float) col * cellW),
-                            0.0f, (float) bounds.getHeight());
+    for (int col = 0; col <= L.numCells; ++col)
+    {
+        const bool isBarLine  = (L.cellsPerBar  > 0 && col % L.cellsPerBar  == 0);
+        const bool isBeatLine = (L.cellsPerBeat > 0 && col % L.cellsPerBeat == 0);
+        if (! isBeatLine) continue;
+        const float x = (float) L.gridX + (float) col * L.cellW;
+        g.setColour (WillyBeatLookAndFeel::border.withAlpha (isBarLine ? 1.0f : 0.55f));
+        g.drawVerticalLine ((int) x, 0.0f, (float) bounds.getHeight());
+    }
 
+    // Triplet shading: dim every other triplet group so the grouping is
+    // visually unmistakable.
+    if (L.isTriplet)
+    {
+        const int groupCells = juce::jmax (1, L.cellsPerBeat);  // 3 for both triplet grids
+        g.setColour (WillyBeatLookAndFeel::accent.withAlpha (0.05f));
+        for (int col = 0; col < L.numCells; col += groupCells * 2)
+        {
+            const float x = (float) L.gridX + (float) col * L.cellW;
+            g.fillRect (x, 0.0f, L.cellW * (float) groupCells, (float) bounds.getHeight());
+        }
+    }
+
+    // Cells.
     for (int row = 0; row < NUM_TRACKS; ++row)
     {
-        float cy = (float) row * cellH;
-        for (int col = 0; col < MAX_STEPS; ++col)
+        const float cy = (float) row * L.cellH;
+        for (int col = 0; col < L.numCells; ++col)
         {
-            float cx = (float) gridX + (float) col * cellW;
-            uint8_t vel = (displayPat != nullptr) ? displayPat->velocities[row][col] : 0;
-
+            const auto* h = hitInCell (*displayPat, row, col, L.cellTicks);
+            const uint8_t vel = (h != nullptr) ? h->velocity : 0;
             juce::Colour fill = velColour (vel);
-            if (col == playStep)
-                fill = fill.brighter (0.3f);
-
+            if (col == playCell) fill = fill.brighter (0.3f);
+            const float cx = (float) L.gridX + (float) col * L.cellW;
             g.setColour (fill);
-            g.fillRect (cx + 1.0f, cy + 1.0f, cellW - 2.0f, cellH - 2.0f);
+            g.fillRect (cx + 1.0f, cy + 1.0f, L.cellW - 2.0f, L.cellH - 2.0f);
         }
     }
 
     g.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
     for (int row = 0; row < NUM_TRACKS; ++row)
     {
-        float cy = (float) row * cellH;
         g.setColour (WillyBeatLookAndFeel::textSecondary);
         g.drawText (kTrackNames[row],
-                    0, (int) cy, kLabelW - 6, (int) cellH,
+                    0, (int) ((float) row * L.cellH), kLabelW - 6, (int) L.cellH,
                     juce::Justification::centredRight, true);
     }
 
     g.setColour (WillyBeatLookAndFeel::border);
     for (int row = 0; row <= NUM_TRACKS; ++row)
-        g.drawHorizontalLine ((int) ((float) row * cellH),
-                              (float) gridX, (float) bounds.getWidth());
+        g.drawHorizontalLine ((int) ((float) row * L.cellH),
+                              (float) L.gridX, (float) bounds.getWidth());
 
-    // Velocity badge: animated fade in/out (~120 ms each way), driven by
-    // badgeAlpha that the timer eases toward badgeTarget. Empty cells
-    // never reach a non-zero target so they stay invisible.
-    if (badgeRow >= 0 && badgeCol >= 0 && badgeVel > 0 && badgeAlpha > 0.001f)
+    // Velocity badge.
+    if (badgeRow >= 0 && badgeCol >= 0 && badgeVel > 0 && badgeAlpha > 0.001f
+        && badgeCol < L.numCells)
     {
         const float alpha = badgeAlpha;
-        // Draw the velocity number directly on the cell itself. A faint
-        // dark scrim keeps the digit readable on lighter cell colors.
-        juce::Rectangle<float> cell ((float) gridX + (float) badgeCol * cellW,
-                                      (float) badgeRow * cellH,
-                                      cellW, cellH);
-
+        juce::Rectangle<float> cell ((float) L.gridX + (float) badgeCol * L.cellW,
+                                      (float) badgeRow * L.cellH,
+                                      L.cellW, L.cellH);
         g.setColour (juce::Colours::black.withAlpha (alpha * 0.40f));
         g.fillRect (cell);
 
-        const float fontH = juce::jlimit (10.0f, 14.0f, cellH - 4.0f);
+        const float fontH = juce::jlimit (9.0f, 14.0f, L.cellH - 4.0f);
         g.setColour (juce::Colours::white.withAlpha (alpha));
-        g.setFont (juce::Font (juce::FontOptions{}
-                                   .withHeight (fontH)
-                                   .withStyle ("Bold")));
-        g.drawText (juce::String (badgeVel), cell,
-                    juce::Justification::centred, false);
+        g.setFont (juce::Font (juce::FontOptions{}.withHeight (fontH).withStyle ("Bold")));
+        g.drawText (juce::String (badgeVel), cell, juce::Justification::centred, false);
     }
 }
 
@@ -618,59 +684,69 @@ void PatternGrid::setEditTarget (DrumPattern* target)
     repaint();
 }
 
+// Replace whatever hits sit inside [cellStart, cellStart+cellTicks) on
+// `track` with a single hit at cellStart with `vel` (or remove them all
+// if vel == 0). Keeps hits[] sorted.
+static void setHitAtCell (DrumPattern& p, int track, int cellIdx, int cellTicks, uint8_t vel)
+{
+    const int lo = cellIdx * cellTicks;
+    const int hi = lo + cellTicks;
+    auto& hits = p.hits[track];
+    hits.erase (std::remove_if (hits.begin(), hits.end(),
+                                [lo, hi] (const DrumHit& h) { return h.tick >= lo && h.tick < hi; }),
+                hits.end());
+    if (vel > 0)
+    {
+        auto it = std::lower_bound (hits.begin(), hits.end(), lo,
+                                    [] (const DrumHit& a, int t) { return a.tick < t; });
+        hits.insert (it, DrumHit { lo, vel });
+    }
+    p.syncLegacyFromHits();
+}
+
 void PatternGrid::mouseDown (const juce::MouseEvent& e)
 {
     if (editTarget == nullptr) return;
-    if (e.x < kLabelW) return;
+    const Layout L = computeLayout (*editTarget);
+    int row = -1, col = -1;
+    if (! cellAt (e.x, e.y, row, col, L)) return;
 
-    const auto bounds = getLocalBounds();
-    const float cellW = (float) (bounds.getWidth() - kLabelW) / MAX_STEPS;
-    const float cellH = (float) bounds.getHeight() / NUM_TRACKS;
-
-    int col = (int) ((float) (e.x - kLabelW) / cellW);
-    int row = (int) ((float) e.y / cellH);
-    if (col < 0 || col >= MAX_STEPS || row < 0 || row >= NUM_TRACKS) return;
-
-    auto& vel = editTarget->velocities[row][col];
+    const auto* h = hitInCell (*editTarget, row, col, L.cellTicks);
+    const uint8_t curVel = (h != nullptr) ? h->velocity : 0;
 
     if (e.mods.isRightButtonDown())
     {
-        // Right-click clears the cell immediately and skips any further
-        // handling - signal that by leaving dragRow at -1.
-        vel = 0;
+        setHitAtCell (*editTarget, row, col, L.cellTicks, 0);
         dragRow = dragCol = -1;
         dragMoved = false;
         dragStartVel = 0;
 
-        badgeRow    = row;
-        badgeCol    = col;
-        badgeVel    = 0;
-        badgeTarget = 0.0f;
+        badgeRow = row; badgeCol = col;
+        badgeVel = 0; badgeTarget = 0.0f;
         pendingBadge.valid = false;
 
         repaint();
-        if (onCellChanged) onCellChanged (row, col);
+        if (onHitChanged) onHitChanged (row, col * L.cellTicks);
         return;
     }
 
-    // Left-click toggles the cell: empty cells get a max-velocity accent,
-    // filled cells are cleared. A subsequent drag then tunes the new
-    // velocity by y-delta starting from whatever we just placed.
-    vel = (vel == 0) ? (uint8_t) 120 : (uint8_t) 0;
+    // Left-click toggles. Empty cell → max-velocity accent; filled → clear.
+    const uint8_t newVel = (curVel == 0) ? (uint8_t) 120 : (uint8_t) 0;
+    setHitAtCell (*editTarget, row, col, L.cellTicks, newVel);
 
     dragRow      = row;
     dragCol      = col;
     dragMoved    = false;
-    dragStartVel = vel;
+    dragStartVel = newVel;
 
     badgeRow    = row;
     badgeCol    = col;
-    badgeVel    = (int) vel;
-    badgeTarget = (vel > 0) ? 1.0f : 0.0f;
+    badgeVel    = (int) newVel;
+    badgeTarget = (newVel > 0) ? 1.0f : 0.0f;
     pendingBadge.valid = false;
 
     repaint();
-    if (onCellChanged) onCellChanged (row, col);
+    if (onHitChanged) onHitChanged (row, col * L.cellTicks);
 }
 
 void PatternGrid::mouseDrag (const juce::MouseEvent& e)
@@ -678,26 +754,25 @@ void PatternGrid::mouseDrag (const juce::MouseEvent& e)
     if (editTarget == nullptr || dragRow < 0) return;
     if (e.mods.isRightButtonDown())            return;
 
-    // Vertical drag: up = louder, down = quieter. Two velocity units per
-    // pixel so the full range covers ~64 px of vertical travel.
-    const int dy        = e.getDistanceFromDragStartY();
-    const int newVel    = juce::jlimit (0, 127, dragStartVel - dy * 2);
-    auto&     vel       = editTarget->velocities[dragRow][dragCol];
+    const Layout L = computeLayout (*editTarget);
 
-    if ((int) vel == newVel) return;
+    const int dy     = e.getDistanceFromDragStartY();
+    const int newVel = juce::jlimit (0, 127, dragStartVel - dy * 2);
 
-    vel         = (uint8_t) newVel;
-    dragMoved   = true;
+    const auto* h = hitInCell (*editTarget, dragRow, dragCol, L.cellTicks);
+    const int curVel = (h != nullptr) ? (int) h->velocity : 0;
+    if (curVel == newVel) return;
 
-    // Keep the velocity badge mirroring the drag so the number tracks the
-    // colour change live, not just on release.
+    setHitAtCell (*editTarget, dragRow, dragCol, L.cellTicks, (uint8_t) newVel);
+    dragMoved = true;
+
     badgeRow    = dragRow;
     badgeCol    = dragCol;
     badgeVel    = newVel;
     badgeTarget = (newVel > 0) ? 1.0f : 0.0f;
 
     repaint();
-    if (onCellChanged) onCellChanged (dragRow, dragCol);
+    if (onHitChanged) onHitChanged (dragRow, dragCol * L.cellTicks);
 }
 
 void PatternGrid::mouseUp (const juce::MouseEvent&)
@@ -717,28 +792,14 @@ void PatternGrid::updateBadgeAt (int x, int y)
         if (badgeTarget != 0.0f) badgeTarget = 0.0f;
     };
 
-    if (editTarget == nullptr || x < kLabelW)
-    {
-        fadeOutOnly();
-        return;
-    }
+    if (editTarget == nullptr) { fadeOutOnly(); return; }
+    const Layout L = computeLayout (*editTarget);
+    int row = -1, col = -1;
+    if (! cellAt (x, y, row, col, L)) { fadeOutOnly(); return; }
 
-    const auto bounds = getLocalBounds();
-    const float cellW = (float) (bounds.getWidth() - kLabelW) / MAX_STEPS;
-    const float cellH = (float) bounds.getHeight() / NUM_TRACKS;
+    const auto* h = hitInCell (*editTarget, row, col, L.cellTicks);
+    const int newVel = (h != nullptr) ? (int) h->velocity : 0;
 
-    int col = (int) ((float) (x - kLabelW) / cellW);
-    int row = (int) ((float) y / cellH);
-    if (col < 0 || col >= MAX_STEPS || row < 0 || row >= NUM_TRACKS)
-    {
-        fadeOutOnly();
-        return;
-    }
-
-    const int newVel = (int) editTarget->velocities[row][col];
-
-    // Same cell as before: update velocity in place (covers drag/scroll
-    // while hovering) and let the badge target follow.
     if (row == badgeRow && col == badgeCol)
     {
         badgeVel    = newVel;
@@ -749,15 +810,7 @@ void PatternGrid::updateBadgeAt (int x, int y)
     }
 
     scrollAccum = 0.0f;
-
-    // Different cell: fade the current badge out, then swap the new cell
-    // in once alpha hits 0 (handled by the timer). Empty cells skip the
-    // swap step - we just fade out.
-    if (newVel <= 0)
-    {
-        fadeOutOnly();
-        return;
-    }
+    if (newVel <= 0) { fadeOutOnly(); return; }
 
     pendingBadge = { row, col, newVel, true };
     badgeTarget  = 0.0f;
@@ -770,41 +823,33 @@ void PatternGrid::mouseMove  (const juce::MouseEvent& e) { updateBadgeAt (e.x, e
 void PatternGrid::mouseWheelMove (const juce::MouseEvent& e,
                                   const juce::MouseWheelDetails& w)
 {
-    if (editTarget == nullptr || e.x < kLabelW) return;
+    if (editTarget == nullptr) return;
+    const Layout L = computeLayout (*editTarget);
+    int row = -1, col = -1;
+    if (! cellAt (e.x, e.y, row, col, L)) return;
 
-    const auto bounds = getLocalBounds();
-    const float cellW = (float) (bounds.getWidth() - kLabelW) / MAX_STEPS;
-    const float cellH = (float) bounds.getHeight() / NUM_TRACKS;
+    if (row != badgeRow || col != badgeCol) scrollAccum = 0.0f;
 
-    int col = (int) ((float) (e.x - kLabelW) / cellW);
-    int row = (int) ((float) e.y / cellH);
-    if (col < 0 || col >= MAX_STEPS || row < 0 || row >= NUM_TRACKS) return;
-
-    // Reset the partial-step accumulator whenever the cursor jumps to a
-    // different cell so steps don't carry over across cells.
-    if (row != badgeRow || col != badgeCol)
-        scrollAccum = 0.0f;
-
-    // ~64 velocity units per "click" of the wheel. Trackpad deltas are
-    // continuous, so we keep the fractional remainder in scrollAccum.
     const float gain = w.isReversed ? -1.0f : 1.0f;
     scrollAccum += w.deltaY * gain * 64.0f;
     const int delta = (int) scrollAccum;
     scrollAccum -= (float) delta;
     if (delta == 0) return;
 
-    auto& vel = editTarget->velocities[row][col];
-    const int newVel = juce::jlimit (0, 127, (int) vel + delta);
-    if (newVel == (int) vel) return;
+    const auto* h = hitInCell (*editTarget, row, col, L.cellTicks);
+    const int curVel = (h != nullptr) ? (int) h->velocity : 0;
+    const int newVel = juce::jlimit (0, 127, curVel + delta);
+    if (newVel == curVel) return;
 
-    vel        = (uint8_t) newVel;
+    setHitAtCell (*editTarget, row, col, L.cellTicks, (uint8_t) newVel);
+
     badgeRow   = row;
     badgeCol   = col;
     badgeVel   = newVel;
     badgeTarget = (newVel > 0) ? 1.0f : 0.0f;
 
     repaint();
-    if (onCellChanged) onCellChanged (row, col);
+    if (onHitChanged) onHitChanged (row, col * L.cellTicks);
 }
 
 void PatternGrid::timerCallback()
@@ -984,22 +1029,82 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     soundBtn.setTooltip ("Internal drum-sound preview. When on, WillyBeat plays simple synthesized drums through its audio output as the DAW transport rolls. Default off so the plugin defers to a downstream sampler.");
     soundAttach = std::make_unique<BA> (p.apvts, "internalSound", soundBtn);
 
-    // ── Export / drag controls ────────────────────────────────────────────
-    exportBarsBox.addItem ("1 bar",   1);
-    exportBarsBox.addItem ("2 bars",  2);
-    exportBarsBox.addItem ("4 bars",  3);
-    exportBarsBox.addItem ("8 bars",  4);
-    exportBarsBox.addItem ("16 bars", 5);
-    exportBarsBox.setSelectedId (3);
+    // ── Pattern-shape combos ──────────────────────────────────────────────
+    for (int i = 0; i < kNumTimeSigChoices; ++i)
+    {
+        auto [n, d] = kTimeSigChoices[i];
+        timeSigBox.addItem (juce::String (n) + "/" + juce::String (d), i + 1);
+    }
+    timeSigBox.setSelectedId (1);
 
-    auto exportLabelStyle = [] (juce::Label* lbl)
+    barsBox.addItem ("1 bar",  1);
+    barsBox.addItem ("2 bars", 2);
+    barsBox.addItem ("4 bars", 3);
+    barsBox.addItem ("8 bars", 4);
+    barsBox.setSelectedId (1);
+
+    for (int i = 0; i < (int) GridSub::NUM_GRID_SUBS; ++i)
+        gridBox.addItem (kGridSubNames[i], i + 1);
+    gridBox.setSelectedId ((int) GridSub::Sixteenth + 1);
+
+    auto shapeLabelStyle = [] (juce::Label* lbl)
     {
         lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
-        lbl->setJustificationType (juce::Justification::centredRight);
+        lbl->setJustificationType (juce::Justification::centred);
     };
-    exportLabelStyle (&barsLabel);
+    shapeLabelStyle (&timeSigLabel);
+    shapeLabelStyle (&barsLabel);
+    shapeLabelStyle (&gridLabel);
 
-    exportBarsBox.setTooltip ("Number of bars to render when dragging the pattern to the DAW.");
+    timeSigBox.setTooltip ("Time signature for the editing pattern.");
+    barsBox   .setTooltip ("Pattern length in bars. Drag-to-DAW exports this length.");
+    gridBox   .setTooltip ("Editor grid subdivision. Hits on this grid snap to its cells; off-grid hits keep their exact tick.");
+
+    timeSigBox.onChange = [this]() {
+        const int sel = juce::jlimit (1, kNumTimeSigChoices, timeSigBox.getSelectedId());
+        auto [n, d] = kTimeSigChoices[(size_t) sel - 1];
+        if (fullPattern.timeSigNum == n && fullPattern.timeSigDen == d) return;
+        fullPattern.timeSigNum = n; fullPattern.timeSigDen = d;
+        // Drop hits that fall outside the new pattern bounds.
+        const int newTotal = fullPattern.totalTicks();
+        for (int t = 0; t < NUM_TRACKS; ++t)
+            fullPattern.hits[t].erase (
+                std::remove_if (fullPattern.hits[t].begin(), fullPattern.hits[t].end(),
+                                [&] (const DrumHit& h) { return h.tick >= newTotal; }),
+                fullPattern.hits[t].end());
+        fullPattern.syncLegacyFromHits();
+        audioProcessor.autoSavePattern (fullPattern);
+        editingCopy.timeSigNum = n; editingCopy.timeSigDen = d;
+        applyDensityToEditingCopy();
+        grid.repaint(); miniGrid.repaint();
+    };
+
+    barsBox.onChange = [this]() {
+        const int newBars = juce::jlimit (1, 8, barsBox.getSelectedId());
+        if (fullPattern.bars == newBars) return;
+        fullPattern.bars = newBars;
+        const int newTotal = fullPattern.totalTicks();
+        for (int t = 0; t < NUM_TRACKS; ++t)
+            fullPattern.hits[t].erase (
+                std::remove_if (fullPattern.hits[t].begin(), fullPattern.hits[t].end(),
+                                [&] (const DrumHit& h) { return h.tick >= newTotal; }),
+                fullPattern.hits[t].end());
+        fullPattern.syncLegacyFromHits();
+        audioProcessor.autoSavePattern (fullPattern);
+        editingCopy.bars = newBars;
+        applyDensityToEditingCopy();
+        grid.repaint(); miniGrid.repaint();
+    };
+
+    gridBox.onChange = [this]() {
+        const int sel = juce::jlimit (1, (int) GridSub::NUM_GRID_SUBS, gridBox.getSelectedId());
+        const GridSub g = (GridSub) (sel - 1);
+        if (fullPattern.gridSub == g) return;
+        fullPattern.gridSub = g;
+        audioProcessor.autoSavePattern (fullPattern);
+        editingCopy.gridSub = g;
+        grid.repaint(); miniGrid.repaint();
+    };
 
     // ── Fill rotaries (Start / Mid / End) ─────────────────────────────────
     fillStartAttach = std::make_unique<SA> (p.apvts, "fillStart", fillStartKnob);
@@ -1062,7 +1167,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     dragStrip.setTooltip ("Drag this strip into your DAW's MIDI track to drop the current pattern. Honours bar count, fills, density, and re-rolls humanize/swing/feel placement on every drag.");
 
     // ── Grid — always in edit mode ────────────────────────────────────────
-    grid.onCellChanged = [this] (int t, int s) { autoSaveCurrentEdit (t, s); };
+    grid.onHitChanged = [this] (int t, int tick) { autoSaveCurrentEditAtTick (t, tick); };
 
     // ── Initialise full + filtered patterns from the active pattern ───────
     // Tags are intentionally NOT pulled from the initial pattern here: a
@@ -1106,7 +1211,9 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     addAndMakeVisible (genBtn);
     addAndMakeVisible (collapseBtn);
     addAndMakeVisible (soundBtn);
-    addAndMakeVisible (barsLabel);       addAndMakeVisible (exportBarsBox);
+    addAndMakeVisible (timeSigLabel);    addAndMakeVisible (timeSigBox);
+    addAndMakeVisible (barsLabel);       addAndMakeVisible (barsBox);
+    addAndMakeVisible (gridLabel);       addAndMakeVisible (gridBox);
     addAndMakeVisible (fillSectionLabel);
     addAndMakeVisible (fillStartLabel);  addAndMakeVisible (fillStartKnob);
     addAndMakeVisible (fillMidLabel);    addAndMakeVisible (fillMidKnob);
@@ -1122,7 +1229,7 @@ WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
 {
     stopTimer();
     grid.setEditTarget (nullptr);
-    grid.onCellChanged = nullptr;
+    grid.onHitChanged = nullptr;
     setLookAndFeel (nullptr);
 }
 
@@ -1147,13 +1254,11 @@ void WillyBeatAudioProcessorEditor::timerCallback()
             editingCopy = fullPattern;
             applyDensityToEditingCopy();
             audioProcessor.getLibrary().updatePattern (editingCopy);
-            // Pattern changed (patIdx moved, Generate fired, etc.) — pull the
-            // chip bar over to the new pattern's tags and broadcast them as
-            // the active scope.
             tagBar.setSelectedTags (editingCopy.genres);
             lastKnownTags = editingCopy.genres;
             audioProcessor.setSelectedGenreTags (editingCopy.genres);
-            grid.repaint();
+            syncShapeCombos();
+            grid.repaint(); miniGrid.repaint();
         }
     }
 
@@ -1178,29 +1283,43 @@ void WillyBeatAudioProcessorEditor::timerCallback()
 
 //==============================================================================
 
-void WillyBeatAudioProcessorEditor::autoSaveCurrentEdit (int track, int step)
+void WillyBeatAudioProcessorEditor::autoSaveCurrentEditAtTick (int track, int tick)
 {
-    // A direct cell edit becomes the canonical value in fullPattern.  Only
-    // this cell is synced — other density-hidden cells in fullPattern stay
-    // intact so they can reappear when density is turned back up.
-    if (track >= 0 && track < NUM_TRACKS && step >= 0 && step < MAX_STEPS)
-        fullPattern.velocities[track][step] = editingCopy.velocities[track][step];
+    // The grid widget mutated editingCopy.hits[track] at tick. Mirror that
+    // single change onto fullPattern so density-hidden hits stay intact
+    // and the unfiltered source-of-truth survives a density round-trip.
+    if (track >= 0 && track < NUM_TRACKS)
+    {
+        const int cellTicks = juce::jmax (1, gridSubCellTicks (editingCopy.gridSub));
+        const int lo = tick;
+        const int hi = lo + cellTicks;
+
+        // Remove any existing hits in the cell window of fullPattern.
+        auto& fullHits = fullPattern.hits[track];
+        fullHits.erase (std::remove_if (fullHits.begin(), fullHits.end(),
+                                        [lo, hi] (const DrumHit& h) { return h.tick >= lo && h.tick < hi; }),
+                        fullHits.end());
+
+        // Copy the new hit (if any) from editingCopy.
+        for (const auto& h : editingCopy.hits[track])
+            if (h.tick >= lo && h.tick < hi)
+            {
+                auto it = std::lower_bound (fullHits.begin(), fullHits.end(), h.tick,
+                                            [] (const DrumHit& a, int t) { return a.tick < t; });
+                fullHits.insert (it, h);
+                break;
+            }
+    }
 
     if (editingCopy.name.isEmpty()) editingCopy.name = "Custom Pattern";
-    fullPattern.name       = editingCopy.name;
-    fullPattern.genres     = editingCopy.genres;
-    fullPattern.type       = editingCopy.type;
+    fullPattern.name   = editingCopy.name;
+    fullPattern.genres = editingCopy.genres;
+    fullPattern.type   = editingCopy.type;
 
-    // Persist the unfiltered fullPattern so density changes stay reversible.
     audioProcessor.autoSavePattern (fullPattern);
     editingCopy.sourceFile = fullPattern.sourceFile;
 
-    // Re-derive editingCopy in case the edit fell into the augmented region,
-    // then push the live (filtered/augmented) version into the library so
-    // processBlock plays exactly what's on screen.
     applyDensityToEditingCopy();
-    editingCopy.velocities[track][step] = fullPattern.velocities[track][step];
-    editingCopy.syncHitsFromLegacy();
     audioProcessor.getLibrary().updatePattern (editingCopy);
 }
 
@@ -1391,6 +1510,30 @@ DrumPattern WillyBeatAudioProcessorEditor::buildFillPatternForExport (juce::int6
     return result;
 }
 
+void WillyBeatAudioProcessorEditor::syncShapeCombos()
+{
+    int tsIdx = 1;
+    for (int i = 0; i < kNumTimeSigChoices; ++i)
+    {
+        auto [n, d] = kTimeSigChoices[i];
+        if (n == fullPattern.timeSigNum && d == fullPattern.timeSigDen) { tsIdx = i + 1; break; }
+    }
+    int barsIdx;
+    switch (fullPattern.bars)
+    {
+        case 1:  barsIdx = 1; break;
+        case 2:  barsIdx = 2; break;
+        case 4:  barsIdx = 3; break;
+        case 8:  barsIdx = 4; break;
+        default: barsIdx = 1; break;
+    }
+    const int gridIdx = juce::jlimit (1, (int) GridSub::NUM_GRID_SUBS, (int) fullPattern.gridSub + 1);
+
+    timeSigBox.setSelectedId (tsIdx,    juce::dontSendNotification);
+    barsBox   .setSelectedId (barsIdx,  juce::dontSendNotification);
+    gridBox   .setSelectedId (gridIdx,  juce::dontSendNotification);
+}
+
 void WillyBeatAudioProcessorEditor::refreshTagSelector()
 {
     auto allTags = audioProcessor.getLibrary().getGenres();
@@ -1405,14 +1548,13 @@ void WillyBeatAudioProcessorEditor::refreshTagSelector()
 
 int WillyBeatAudioProcessorEditor::getBarsFromCombo() const
 {
-    switch (exportBarsBox.getSelectedId())
+    switch (barsBox.getSelectedId())
     {
         case 1: return 1;
         case 2: return 2;
         case 3: return 4;
         case 4: return 8;
-        case 5: return 16;
-        default: return 4;
+        default: return 1;
     }
 }
 
@@ -1669,9 +1811,20 @@ void WillyBeatAudioProcessorEditor::resized()
             return r.withHeight (20).withY (exportRow.getY() + yOff + 1);
         };
 
-        barsLabel    .setBounds (centredLabel (exportRow.removeFromLeft (34)));
-        exportBarsBox.setBounds (centred      (exportRow.removeFromLeft (72)));
-        exportRow.removeFromLeft (12);
+        // Pattern-shape combos: Time Sig (50px), Bars (60px), Grid (88px).
+        // Each has a small label above and the combo below, with the combo
+        // centred vertically alongside the fill rotaries to the right.
+        auto layoutCombo = [&] (juce::Label& lbl, juce::ComboBox& box, int width)
+        {
+            auto col = exportRow.removeFromLeft (width);
+            lbl.setBounds (col.removeFromTop (16));
+            box.setBounds (centred (col));
+            exportRow.removeFromLeft (6);
+        };
+        layoutCombo (timeSigLabel, timeSigBox, 50);
+        layoutCombo (barsLabel,    barsBox,    60);
+        layoutCombo (gridLabel,    gridBox,    88);
+        exportRow.removeFromLeft (6);
 
         // Three fill rotaries grouped under a single "Fill" section header.
         // Sub-labels per knob just read "Start" / "Mid" / "End".
@@ -1707,7 +1860,9 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     const bool show = ! compactMode;
     juce::Component* hideInCompact[] = {
         &grid,
-        &barsLabel, &exportBarsBox,
+        &timeSigLabel, &timeSigBox,
+        &barsLabel,    &barsBox,
+        &gridLabel,    &gridBox,
         &fillSectionLabel
     };
     for (auto* c : hideInCompact)

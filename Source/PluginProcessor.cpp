@@ -298,13 +298,13 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
         else ++it;
     }
 
-    // Update currentStep for the UI's playhead readout. The "step" here is
-    // a 16th-note column so that v1-style 16-step displays keep working;
-    // when we add variable subdivisions in the UI it'll be reinterpreted.
+    // Update the playhead readouts (currentStep for legacy displays,
+    // currentTick for the variable-grid editor).
     {
         const double patPPQ = std::fmod (ppqStart, patternPPQ);
         const double posPPQ = (patPPQ < 0.0) ? patPPQ + patternPPQ : patPPQ;
         currentStep = (int) std::floor (posPPQ / stepPPQ) % juce::jmax (1, activePattern->numSteps);
+        currentTick = (int) std::floor (posPPQ * (double) PPQN);
     }
 
     // For each hit in the pattern, find every cycle whose global PPQ

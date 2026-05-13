@@ -98,11 +98,14 @@ public:
 
     void setEditTarget (DrumPattern* target);
 
-    // Fired after a cell edit; passes the track and step that changed.
-    std::function<void(int track, int step)> onCellChanged;
+    // Fired after a cell edit; passes the track and tick that changed.
+    std::function<void(int track, int tick)> onHitChanged;
 
 private:
-    void updateBadgeAt (int x, int y);
+    struct Layout;
+    Layout computeLayout (const DrumPattern& pat) const;
+    bool   cellAt (int x, int y, int& outRow, int& outCell, const Layout& L) const;
+    void   updateBadgeAt (int x, int y);
 
     WillyBeatAudioProcessor& proc;
     DrumPattern*             editTarget = nullptr;
@@ -227,9 +230,15 @@ private:
     std::unique_ptr<SA>  feelAttach;
     std::unique_ptr<SA>  densityAttach;
 
-    // ── Export / drag controls ───────────────────────────────────────────
-    juce::Label      barsLabel       { {}, "Bars:" };
-    juce::ComboBox   exportBarsBox;
+    // ── Pattern shape + export controls ─────────────────────────────────
+    juce::Label      timeSigLabel { {}, "Time" };
+    juce::ComboBox   timeSigBox;
+
+    juce::Label      barsLabel    { {}, "Bars" };
+    juce::ComboBox   barsBox;
+
+    juce::Label      gridLabel    { {}, "Grid" };
+    juce::ComboBox   gridBox;
 
     juce::Label      fillSectionLabel { {}, "Fill" };
     juce::Label      fillStartLabel  { {}, "Start" };
@@ -251,9 +260,10 @@ private:
     const DrumPattern*      lastKnownPattern = nullptr;
     float                   lastDensity      = -1.0f;
 
-    void autoSaveCurrentEdit (int track, int step);
+    void autoSaveCurrentEditAtTick (int track, int tick);
     void applyDensityToEditingCopy();
     void refreshTagSelector();
+    void syncShapeCombos();
     void toggleCompactMode();
 
     bool compactMode = false;

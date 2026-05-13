@@ -63,6 +63,38 @@ static const char* kTrackFileKeys[NUM_TRACKS] = {
 // triplets (16t), and 32nds (12t) all land on integer ticks. Quarter = 96.
 constexpr int PPQN = 96;
 
+// Grid subdivisions the editor can render.
+enum class GridSub
+{
+    Eighth         = 0,   // 2 cells / quarter, 48 ticks/cell
+    EighthTriplet  = 1,   // 3 cells / quarter, 32 ticks/cell
+    Sixteenth      = 2,   // 4 cells / quarter, 24 ticks/cell  (v1 default)
+    SixteenthTriplet = 3, // 6 cells / quarter, 16 ticks/cell
+    ThirtySecond   = 4,   // 8 cells / quarter, 12 ticks/cell
+    NUM_GRID_SUBS
+};
+
+static const char* kGridSubNames[] = { "8th", "8th Triplet", "16th", "16th Triplet", "32nd" };
+static const char* kGridSubFileKeys[] = { "8th", "8tr", "16th", "16tr", "32nd" };
+
+inline int gridSubCellTicks (GridSub g)
+{
+    switch (g)
+    {
+        case GridSub::Eighth:           return PPQN / 2;
+        case GridSub::EighthTriplet:    return PPQN / 3;
+        case GridSub::Sixteenth:        return PPQN / 4;
+        case GridSub::SixteenthTriplet: return PPQN / 6;
+        case GridSub::ThirtySecond:     return PPQN / 8;
+        default:                        return PPQN / 4;
+    }
+}
+
+inline bool gridSubIsTriplet (GridSub g)
+{
+    return g == GridSub::EighthTriplet || g == GridSub::SixteenthTriplet;
+}
+
 // Legacy step count — kept for any code still operating on a 16-step grid
 // during the v1 → v2 transition.
 constexpr int MAX_STEPS = 16;
@@ -96,7 +128,12 @@ struct DrumPattern
     // ── Pattern shape ────────────────────────────────────────────────────
     int timeSigNum = 4;   // numerator (4 for 4/4, 6 for 6/8, ...)
     int timeSigDen = 4;   // denominator: must be a power of 2 (1, 2, 4, 8, 16)
-    int bars       = 1;   // pattern length in bars (0.5 stored as bars=1 and a future half-bar flag if we add it)
+    int bars       = 1;   // pattern length in bars (1..8)
+
+    // Editor view: which grid subdivision is the natural display for this
+    // pattern. Not data-bearing - hits[] always stores raw ticks - but
+    // remembered so the editor opens patterns on their authored grid.
+    GridSub gridSub = GridSub::Sixteenth;
 
     // Per-track hit lists, sorted by tick. Tick units are PPQN at the
     // pattern's resolution.

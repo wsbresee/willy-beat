@@ -41,6 +41,7 @@ public:
     PatternLibrary&    getLibrary()       { return library; }
     const DrumPattern* getActivePattern() const { return activePattern; }
     std::atomic<int>&  getCurrentStep()   { return currentStep; }
+    std::atomic<int>&  getCurrentTick()   { return currentTick; }   // tick within the active pattern
 
     juce::File getPresetsDirectory() const;
 
@@ -93,6 +94,7 @@ private:
     const DrumPattern* activePattern = nullptr;
 
     std::atomic<int> currentStep { 0 };
+    std::atomic<int> currentTick { 0 };
     long lastFiredAbsTick[NUM_TRACKS] = {};   // per-track last-fired absolute tick (re-fire guard)
     bool wasPlaying = false;
 
