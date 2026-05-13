@@ -446,7 +446,12 @@ bool WillyBeatAudioProcessor::loadMidiFile (const juce::File& file)
         const auto& msg = drumTrack->getEventPointer (e)->message;
         if (msg.isNoteOn()) lastNoteTick = juce::jmax (lastNoteTick, msg.getTimeStamp());
     }
-    p.bars = juce::jlimit (1, kMaxBars, (int) std::ceil ((lastNoteTick + 1.0) / midiTicksPerBar));
+    // Round up to one of the bar counts the editor's combo can represent
+    // (1/2/4/8). An imported 3-bar clip becomes 4 bars with the last bar
+    // empty, never losing content. Capped at kMaxBars.
+    const int rawBars = juce::jlimit (1, kMaxBars,
+                                      (int) std::ceil ((lastNoteTick + 1.0) / midiTicksPerBar));
+    p.bars = (rawBars <= 1) ? 1 : (rawBars <= 2) ? 2 : (rawBars <= 4) ? 4 : 8;
 
     // Scale MIDI file ticks → pattern ticks (PPQN=96).
     const double tickScale = (double) PPQN / (double) midiPPQ;

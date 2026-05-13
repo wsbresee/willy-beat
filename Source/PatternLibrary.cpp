@@ -859,6 +859,7 @@ DrumPattern PatternLibrary::makeComposite (const juce::StringArray& tags,
     result.timeSigNum = sources[0]->timeSigNum;
     result.timeSigDen = sources[0]->timeSigDen;
     result.bars       = sources[0]->bars;
+    result.gridSub    = sources[0]->gridSub;
 
     std::vector<const DrumPattern*> compat;
     compat.reserve (sources.size());

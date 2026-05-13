@@ -160,9 +160,13 @@ struct DrumPattern
         int active = 0;
         for (int t = 0; t < NUM_TRACKS; ++t)
             active += (int) hits[t].size();
-        const int sixteenthsInPattern = totalTicks() / 24;   // 24 t = 16th note
+        const int sixteenthsInPattern = totalTicks() / 24;
         const int total = NUM_TRACKS * juce::jmax (1, sixteenthsInPattern);
-        density = (total > 0) ? (float) active / (float) total : 0.0f;
+        // Cap at 1.0: a fine-subdivision pattern can hold more hits than
+        // the 16th-cell denominator suggests; the density signal we want
+        // is just "more or less full".
+        const float raw = (total > 0) ? (float) active / (float) total : 0.0f;
+        density = juce::jlimit (0.0f, 1.0f, raw);
     }
 
     // ── Backward-compat sync helpers ─────────────────────────────────────

@@ -324,9 +324,12 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
     ExportStepCells fillCells;
     if (fillPat != nullptr) fillCells.build (*fillPat, PATTERN_TICKS_PER_STEP);
 
-    const int patternSteps = mainCells.numSteps;
-    const int totalSteps   = numBars * patternSteps;
+    const int patternSteps = mainCells.numSteps;             // total cells in the pattern
+    const int cellsPerBar  = juce::jmax (1, patternSteps / juce::jmax (1, mainPat.bars));
+    const int barCount     = juce::jmax (1, mainPat.bars);
+    const int totalSteps   = patternSteps;                   // export one copy of the pattern
     const int fillSteps    = (fillPat != nullptr) ? fillCells.numSteps : 0;
+    (void) numBars; // kept in signature for caller symmetry; pattern.bars drives export length
 
     // Cap fill regions so they don't overlap and don't exceed the fill
     // pattern's own length.
@@ -355,14 +358,14 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
             midFillMask[(size_t) positions[(size_t) i]] = true;
     }
 
-    for (int bar = 0; bar < numBars; ++bar)
+    for (int bar = 0; bar < barCount; ++bar)
     {
         juce::int64 barSeed = usedSeed ^ ((juce::int64)(bar + 1) * (juce::int64)0x9e3779b97f4a7c15LL);
         juce::Random barRng (barSeed);
 
-        for (int col = 0; col < patternSteps; ++col)
+        for (int col = 0; col < cellsPerBar; ++col)
         {
-            const int globalStep = bar * patternSteps + col;
+            const int globalStep = bar * cellsPerBar + col;
 
             const bool inStartFill = (fillPat != nullptr && globalStep <  startFillEnd);
             const bool inEndFill   = (fillPat != nullptr && globalStep >= endFillStart);
@@ -1119,6 +1122,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         audioProcessor.autoSavePattern (fullPattern);
         editingCopy.timeSigNum = n; editingCopy.timeSigDen = d;
         applyDensityToEditingCopy();
+        audioProcessor.getLibrary().updatePattern (editingCopy);
         updateGridLayout();
         grid.repaint(); miniGrid.repaint();
     };
@@ -1138,6 +1142,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         audioProcessor.autoSavePattern (fullPattern);
         editingCopy.bars = newBars;
         applyDensityToEditingCopy();
+        audioProcessor.getLibrary().updatePattern (editingCopy);
         updateGridLayout();
         grid.repaint(); miniGrid.repaint();
     };
@@ -1398,6 +1403,7 @@ static void applyDensity (DrumPattern& target,
     target.timeSigNum = src.timeSigNum;
     target.timeSigDen = src.timeSigDen;
     target.bars       = src.bars;
+    target.gridSub    = src.gridSub;
     for (int t = 0; t < NUM_TRACKS; ++t)
         target.hits[t] = src.hits[t];
 
