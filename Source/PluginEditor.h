@@ -306,6 +306,7 @@ private:
     void refreshTagSelector();
     void syncShapeCombos();
     void updateGridLayout();
+    void applyTimeSig (int newNum, int newDen);
     void toggleCompactMode();
 
     bool compactMode = false;

@@ -23,11 +23,73 @@ void TrackLabels::paint (juce::Graphics& g)
                     juce::Justification::centredRight, true);
 }
 
-// Common time signatures the editor exposes. Indexed by combo ID - 1.
+// Common time signatures the editor exposes via the combo dropdown.
+// The combo is also editable - users can type arbitrary "N/D" values
+// (numerator 1..32, denominator a power of two 1/2/4/8/16/32) and the
+// pattern reshapes through the same applyTimeSig path. Indexed by ID - 1.
 static const std::pair<int,int> kTimeSigChoices[] = {
-    {4,4}, {3,4}, {2,4}, {5,4}, {6,8}, {7,8}, {12,8}
+    // 4-based
+    {4,4}, {3,4}, {2,4}, {5,4}, {6,4}, {7,4},
+    // 2-based (cut time and similar)
+    {2,2}, {3,2},
+    // 8-based (compound and irregular)
+    {3,8}, {5,8}, {6,8}, {7,8}, {9,8}, {11,8}, {12,8},
+    // 16-based (fast meters, math rock)
+    {5,16}, {7,16}, {11,16}, {13,16}, {15,16},
 };
 static constexpr int kNumTimeSigChoices = sizeof (kTimeSigChoices) / sizeof (kTimeSigChoices[0]);
+
+// Power-of-2 denominators we accept. Any of these keeps PPQN=96 cells
+// landing on integer ticks.
+static bool isSupportedTimeSigDen (int d)
+{
+    return d == 1 || d == 2 || d == 4 || d == 8 || d == 16 || d == 32;
+}
+
+// Parse a "N/D" string. Returns false if anything's wrong.
+static bool parseTimeSigText (const juce::String& text, int& outNum, int& outDen)
+{
+    const auto t = text.trim();
+    const int slash = t.indexOfChar ('/');
+    if (slash <= 0) return false;
+    const int n = t.substring (0, slash).getIntValue();
+    const int d = t.substring (slash + 1).getIntValue();
+    if (n < 1 || n > 32)         return false;
+    if (! isSupportedTimeSigDen (d)) return false;
+    outNum = n; outDen = d;
+    return true;
+}
+
+// Tile-or-clip a pattern's hits[] to fit a new total tick length. Shared
+// between the time-sig and bars onChange handlers.
+static void reshapePatternHits (DrumPattern& p, int oldTotal)
+{
+    const int newTotal = p.totalTicks();
+    if (oldTotal <= 0 || newTotal <= 0 || newTotal == oldTotal) return;
+
+    if (newTotal < oldTotal)
+    {
+        for (int t = 0; t < NUM_TRACKS; ++t)
+            p.hits[t].erase (std::remove_if (p.hits[t].begin(), p.hits[t].end(),
+                                             [newTotal] (const DrumHit& h) { return h.tick >= newTotal; }),
+                             p.hits[t].end());
+    }
+    else
+    {
+        for (int t = 0; t < NUM_TRACKS; ++t)
+        {
+            std::vector<DrumHit> originals = p.hits[t];
+            for (int offset = oldTotal; offset < newTotal; offset += oldTotal)
+                for (const auto& h : originals)
+                {
+                    const int newTick = h.tick + offset;
+                    if (newTick < newTotal) p.hits[t].push_back ({ newTick, h.velocity });
+                }
+            std::sort (p.hits[t].begin(), p.hits[t].end(),
+                       [] (const DrumHit& a, const DrumHit& b) { return a.tick < b.tick; });
+        }
+    }
+}
 
 //==============================================================================
 // TagChipBar — multi-select fuzzy tag picker
@@ -1115,63 +1177,33 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     barsBox   .setTooltip ("Pattern length in bars. Drag-to-DAW exports this length.");
     gridBox   .setTooltip ("Editor grid subdivision. Hits on this grid snap to its cells; off-grid hits keep their exact tick.");
 
-    // Reshape helper: when the pattern's bar count or time signature
-    // changes, hits that fall beyond the new bounds get clipped. When the
-    // new pattern is longer than the old, the original content is tiled
-    // forward to fill the extension so a 1-bar groove extended to 4 bars
-    // plays as 4 copies, and a 4/4 pattern stretched to 5/4 carries its
-    // downbeat content into the extra beat.
-    auto reshapePattern = [] (DrumPattern& p, int oldTotal)
-    {
-        const int newTotal = p.totalTicks();
-        if (oldTotal <= 0 || newTotal <= 0 || newTotal == oldTotal) return;
+    // Editable so users can type arbitrary "N/D" signatures (math-rock
+    // 11/16, 9/8, 2/2 cut time, etc.) beyond the dropdown presets.
+    timeSigBox.setEditableText (true);
 
-        if (newTotal < oldTotal)
+    timeSigBox.onChange = [this]() {
+        int newNum = -1, newDen = -1;
+        const int sel = timeSigBox.getSelectedId();
+        if (sel >= 1 && sel <= kNumTimeSigChoices)
         {
-            for (int t = 0; t < NUM_TRACKS; ++t)
-                p.hits[t].erase (std::remove_if (p.hits[t].begin(), p.hits[t].end(),
-                                                 [newTotal] (const DrumHit& h) { return h.tick >= newTotal; }),
-                                 p.hits[t].end());
+            auto [n, d] = kTimeSigChoices[(size_t) sel - 1];
+            newNum = n; newDen = d;
         }
-        else
+        else if (! parseTimeSigText (timeSigBox.getText(), newNum, newDen))
         {
-            for (int t = 0; t < NUM_TRACKS; ++t)
-            {
-                std::vector<DrumHit> originals = p.hits[t];
-                for (int offset = oldTotal; offset < newTotal; offset += oldTotal)
-                    for (const auto& h : originals)
-                    {
-                        const int newTick = h.tick + offset;
-                        if (newTick < newTotal) p.hits[t].push_back ({ newTick, h.velocity });
-                    }
-                std::sort (p.hits[t].begin(), p.hits[t].end(),
-                           [] (const DrumHit& a, const DrumHit& b) { return a.tick < b.tick; });
-            }
+            // Invalid typed text - revert combo to the pattern's current sig.
+            syncShapeCombos();
+            return;
         }
+        applyTimeSig (newNum, newDen);
     };
 
-    timeSigBox.onChange = [this, reshapePattern]() {
-        const int sel = juce::jlimit (1, kNumTimeSigChoices, timeSigBox.getSelectedId());
-        auto [n, d] = kTimeSigChoices[(size_t) sel - 1];
-        if (fullPattern.timeSigNum == n && fullPattern.timeSigDen == d) return;
-        const int oldTotal = fullPattern.totalTicks();
-        fullPattern.timeSigNum = n; fullPattern.timeSigDen = d;
-        reshapePattern (fullPattern, oldTotal);
-        fullPattern.syncLegacyFromHits();
-        audioProcessor.autoSavePattern (fullPattern);
-        editingCopy.timeSigNum = n; editingCopy.timeSigDen = d;
-        applyDensityToEditingCopy();
-        audioProcessor.getLibrary().updatePattern (editingCopy);
-        updateGridLayout();
-        grid.repaint(); miniGrid.repaint();
-    };
-
-    barsBox.onChange = [this, reshapePattern]() {
+    barsBox.onChange = [this]() {
         const int newBars = getBarsFromCombo();
         if (fullPattern.bars == newBars) return;
         const int oldTotal = fullPattern.totalTicks();
         fullPattern.bars = newBars;
-        reshapePattern (fullPattern, oldTotal);
+        reshapePatternHits (fullPattern, oldTotal);
         fullPattern.syncLegacyFromHits();
         audioProcessor.autoSavePattern (fullPattern);
         editingCopy.bars = newBars;
@@ -1342,23 +1374,12 @@ void WillyBeatAudioProcessorEditor::timerCallback()
     // signature. Standalone hosts return (0, 0) and are ignored.
     const int hostNum = audioProcessor.getHostTimeSigNum().load();
     const int hostDen = audioProcessor.getHostTimeSigDen().load();
-    if (hostNum > 0 && hostDen > 0
+    if (hostNum > 0 && isSupportedTimeSigDen (hostDen)
         && (hostNum != lastHostTsNum || hostDen != lastHostTsDen))
     {
         lastHostTsNum = hostNum;
         lastHostTsDen = hostDen;
-        for (int i = 0; i < kNumTimeSigChoices; ++i)
-        {
-            auto [n, d] = kTimeSigChoices[i];
-            if (n == hostNum && d == hostDen)
-            {
-                // setSelectedId fires onChange which calls the reshape
-                // path. The onChange handler no-ops if the pattern is
-                // already in this time sig, so no waste on a no-op match.
-                timeSigBox.setSelectedId (i + 1, juce::sendNotificationSync);
-                break;
-            }
-        }
+        applyTimeSig (hostNum, hostDen);   // works for both preset and custom sigs
     }
 
     auto* pat = audioProcessor.getActivePattern();
@@ -1636,7 +1657,7 @@ DrumPattern WillyBeatAudioProcessorEditor::buildFillPatternForExport (juce::int6
 
 void WillyBeatAudioProcessorEditor::syncShapeCombos()
 {
-    int tsIdx = 1;
+    int tsIdx = 0;
     for (int i = 0; i < kNumTimeSigChoices; ++i)
     {
         auto [n, d] = kTimeSigChoices[i];
@@ -1653,9 +1674,38 @@ void WillyBeatAudioProcessorEditor::syncShapeCombos()
     }
     const int gridIdx = juce::jlimit (1, (int) GridSub::NUM_GRID_SUBS, (int) fullPattern.gridSub + 1);
 
-    timeSigBox.setSelectedId (tsIdx,    juce::dontSendNotification);
-    barsBox   .setSelectedId (barsIdx,  juce::dontSendNotification);
-    gridBox   .setSelectedId (gridIdx,  juce::dontSendNotification);
+    if (tsIdx > 0)
+        timeSigBox.setSelectedId (tsIdx, juce::dontSendNotification);
+    else
+        timeSigBox.setText (juce::String (fullPattern.timeSigNum) + "/" + juce::String (fullPattern.timeSigDen),
+                            juce::dontSendNotification);
+
+    barsBox.setSelectedId (barsIdx,  juce::dontSendNotification);
+    gridBox.setSelectedId (gridIdx,  juce::dontSendNotification);
+}
+
+void WillyBeatAudioProcessorEditor::applyTimeSig (int newNum, int newDen)
+{
+    if (newNum < 1 || newNum > 32 || ! isSupportedTimeSigDen (newDen)) return;
+    if (fullPattern.timeSigNum == newNum && fullPattern.timeSigDen == newDen) return;
+
+    const int oldTotal = fullPattern.totalTicks();
+    fullPattern.timeSigNum = newNum;
+    fullPattern.timeSigDen = newDen;
+    reshapePatternHits (fullPattern, oldTotal);
+    fullPattern.syncLegacyFromHits();
+    audioProcessor.autoSavePattern (fullPattern);
+
+    editingCopy.timeSigNum = newNum;
+    editingCopy.timeSigDen = newDen;
+    applyDensityToEditingCopy();
+    audioProcessor.getLibrary().updatePattern (editingCopy);
+
+    // Update the combo display to match what we just applied.
+    syncShapeCombos();
+    updateGridLayout();
+    grid.repaint();
+    miniGrid.repaint();
 }
 
 void WillyBeatAudioProcessorEditor::refreshTagSelector()
