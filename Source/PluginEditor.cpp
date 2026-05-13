@@ -700,24 +700,57 @@ void PatternGrid::paint (juce::Graphics& g)
         g.fillRect (cx, 0.0f, L.cellW, (float) bounds.getHeight());
     }
 
-    // Beat dividers: thinner inside-beat lines, thicker bar dividers.
-    g.setColour (WillyBeatLookAndFeel::border);
-    for (int col = 0; col <= L.numCells; ++col)
+    // Beat-group shading so beats are countable at a glance: every other
+    // beat is dimmed. Beat 1 of every bar is tinted with the accent so the
+    // downbeat is unmistakable across any time signature.
     {
-        const bool isBarLine  = (L.cellsPerBar  > 0 && col % L.cellsPerBar  == 0);
-        const bool isBeatLine = (L.cellsPerBeat > 0 && col % L.cellsPerBeat == 0);
-        if (! isBeatLine) continue;
-        const float x = (float) L.gridX + (float) col * L.cellW;
-        g.setColour (WillyBeatLookAndFeel::border.withAlpha (isBarLine ? 1.0f : 0.55f));
-        g.drawVerticalLine ((int) x, 0.0f, (float) bounds.getHeight());
+        const int beatCells = juce::jmax (1, L.cellsPerBeat);
+        const int beatsPerBar = juce::jmax (1, L.cellsPerBar / beatCells);
+        for (int beatIdx = 0; beatIdx * beatCells < L.numCells; ++beatIdx)
+        {
+            const int col = beatIdx * beatCells;
+            const int colInBar = beatIdx % beatsPerBar;
+            const float x = (float) L.gridX + (float) col * L.cellW;
+            const float w = L.cellW * (float) juce::jmin (beatCells, L.numCells - col);
+            if (colInBar == 0)
+            {
+                g.setColour (WillyBeatLookAndFeel::borderBright.withAlpha (0.28f));
+                g.fillRect (x, 0.0f, w, (float) bounds.getHeight());
+            }
+            else if (beatIdx % 2 == 1)
+            {
+                g.setColour (juce::Colours::black.withAlpha (0.10f));
+                g.fillRect (x, 0.0f, w, (float) bounds.getHeight());
+            }
+        }
     }
 
-    // Triplet shading: dim every other triplet group so the grouping is
-    // visually unmistakable.
+    // Beat dividers: thin inside-beat lines, bolder 2-px bar dividers so
+    // bars stand out even at the edges of the grid.
+    for (int col = 0; col <= L.numCells; ++col)
+    {
+        const bool isBeatLine = (L.cellsPerBeat > 0 && col % L.cellsPerBeat == 0);
+        if (! isBeatLine) continue;
+        const bool isBarLine = (L.cellsPerBar > 0 && col % L.cellsPerBar == 0);
+        const float x = (float) L.gridX + (float) col * L.cellW;
+        if (isBarLine)
+        {
+            g.setColour (WillyBeatLookAndFeel::borderBright);
+            g.fillRect (x - 1.0f, 0.0f, 2.0f, (float) bounds.getHeight());
+        }
+        else
+        {
+            g.setColour (WillyBeatLookAndFeel::border.withAlpha (0.55f));
+            g.drawVerticalLine ((int) x, 0.0f, (float) bounds.getHeight());
+        }
+    }
+
+    // Triplet sub-grouping: dim every other triplet group inside a beat so
+    // the 3-against-2 grouping is unmistakable on top of the beat shading.
     if (L.isTriplet)
     {
-        const int groupCells = juce::jmax (1, L.cellsPerBeat);  // 3 for both triplet grids
-        g.setColour (WillyBeatLookAndFeel::accent.withAlpha (0.05f));
+        const int groupCells = juce::jmax (1, L.cellsPerBeat);
+        g.setColour (juce::Colours::black.withAlpha (0.06f));
         for (int col = 0; col < L.numCells; col += groupCells * 2)
         {
             const float x = (float) L.gridX + (float) col * L.cellW;
