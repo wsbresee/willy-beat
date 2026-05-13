@@ -1404,16 +1404,44 @@ void WillyBeatAudioProcessorEditor::paint (juce::Graphics& g)
     }
 }
 
+// Cubase exports dragged MIDI parts as temp files with varying extensions
+// (sometimes .mid, sometimes nothing, sometimes a UUID name). We accept
+// any file the host hands us, then sniff its first four bytes for the
+// Standard MIDI File magic ("MThd") before treating it as MIDI.
+
+static bool looksLikeStandardMidi (const juce::File& f)
+{
+    if (! f.existsAsFile()) return false;
+    juce::FileInputStream in (f);
+    if (! in.openedOk()) return false;
+    char hdr[4] = {};
+    if (in.read (hdr, 4) != 4) return false;
+    return hdr[0] == 'M' && hdr[1] == 'T' && hdr[2] == 'h' && hdr[3] == 'd';
+}
+
+static void logDragEvent (const juce::String& label, const juce::StringArray& files)
+{
+    auto logFile = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                       .getChildFile ("WillyBeat/drag.log");
+    logFile.getParentDirectory().createDirectory();
+    juce::String line;
+    line << juce::Time::getCurrentTime().toString (true, true, true, true)
+         << "  " << label << "  files=" << files.size();
+    for (auto& f : files) line << "\n    " << f;
+    line << "\n";
+    logFile.appendText (line);
+}
+
 bool WillyBeatAudioProcessorEditor::isInterestedInFileDrag (const juce::StringArray& files)
 {
-    for (auto& f : files)
-        if (f.endsWithIgnoreCase (".mid") || f.endsWithIgnoreCase (".midi"))
-            return true;
-    return false;
+    // Be permissive at this stage — we'll validate the SMF header at drop
+    // time. Returning true here also enables the visual hover feedback.
+    return ! files.isEmpty();
 }
 
 void WillyBeatAudioProcessorEditor::fileDragEnter (const juce::StringArray& files, int, int)
 {
+    logDragEvent ("enter", files);
     if (isInterestedInFileDrag (files))
     {
         midiDragHovered = true;
@@ -1421,31 +1449,32 @@ void WillyBeatAudioProcessorEditor::fileDragEnter (const juce::StringArray& file
     }
 }
 
-void WillyBeatAudioProcessorEditor::fileDragExit (const juce::StringArray&)
+void WillyBeatAudioProcessorEditor::fileDragExit (const juce::StringArray& files)
 {
+    logDragEvent ("exit", files);
     midiDragHovered = false;
     repaint();
 }
 
 void WillyBeatAudioProcessorEditor::filesDropped (const juce::StringArray& files, int, int)
 {
+    logDragEvent ("drop", files);
     midiDragHovered = false;
     repaint();
 
-    // Import the first MIDI file in the drop. The processor's loadMidiFile
-    // handles parsing, quantizing onsets to 16ths, capping at the first 4
-    // bars, saving the .beat preset, and navigating to the new pattern.
+    // Import the first file that has either a MIDI extension or an SMF
+    // magic header. The processor's loadMidiFile handles parsing,
+    // quantizing, 4-bar cap, save, and navigation.
     for (auto& path : files)
     {
-        if (! (path.endsWithIgnoreCase (".mid") || path.endsWithIgnoreCase (".midi")))
-            continue;
-
         juce::File f { path };
-        if (f.existsAsFile())
-        {
-            audioProcessor.loadMidiFile (f);
-            break;
-        }
+        const bool extLooksRight = path.endsWithIgnoreCase (".mid")
+                                || path.endsWithIgnoreCase (".midi");
+        if (! extLooksRight && ! looksLikeStandardMidi (f)) continue;
+        if (! f.existsAsFile()) continue;
+
+        audioProcessor.loadMidiFile (f);
+        break;
     }
 }
 

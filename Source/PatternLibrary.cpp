@@ -608,6 +608,15 @@ void PatternLibrary::loadFromDirectory (const juce::File& dir)
         if (p.name.isNotEmpty())
             patterns.push_back (std::move (p));
     }
+
+    // The blank "Empty" pattern is the desired plugin-load default. Pin it
+    // to slot 0 regardless of mtime so it survives anything that touches
+    // the file (enrichment scripts, manual edits, install copies).
+    auto emptyIdx = std::find_if (patterns.begin(), patterns.end(),
+                                  [] (const DrumPattern& p)
+                                  { return p.name.equalsIgnoreCase ("Empty"); });
+    if (emptyIdx != patterns.end() && emptyIdx != patterns.begin())
+        std::rotate (patterns.begin(), emptyIdx, emptyIdx + 1);
 }
 
 juce::File PatternLibrary::savePattern (const DrumPattern& p, const juce::File& dir)
