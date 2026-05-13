@@ -1115,18 +1115,48 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     barsBox   .setTooltip ("Pattern length in bars. Drag-to-DAW exports this length.");
     gridBox   .setTooltip ("Editor grid subdivision. Hits on this grid snap to its cells; off-grid hits keep their exact tick.");
 
-    timeSigBox.onChange = [this]() {
+    // Reshape helper: when the pattern's bar count or time signature
+    // changes, hits that fall beyond the new bounds get clipped. When the
+    // new pattern is longer than the old, the original content is tiled
+    // forward to fill the extension so a 1-bar groove extended to 4 bars
+    // plays as 4 copies, and a 4/4 pattern stretched to 5/4 carries its
+    // downbeat content into the extra beat.
+    auto reshapePattern = [] (DrumPattern& p, int oldTotal)
+    {
+        const int newTotal = p.totalTicks();
+        if (oldTotal <= 0 || newTotal <= 0 || newTotal == oldTotal) return;
+
+        if (newTotal < oldTotal)
+        {
+            for (int t = 0; t < NUM_TRACKS; ++t)
+                p.hits[t].erase (std::remove_if (p.hits[t].begin(), p.hits[t].end(),
+                                                 [newTotal] (const DrumHit& h) { return h.tick >= newTotal; }),
+                                 p.hits[t].end());
+        }
+        else
+        {
+            for (int t = 0; t < NUM_TRACKS; ++t)
+            {
+                std::vector<DrumHit> originals = p.hits[t];
+                for (int offset = oldTotal; offset < newTotal; offset += oldTotal)
+                    for (const auto& h : originals)
+                    {
+                        const int newTick = h.tick + offset;
+                        if (newTick < newTotal) p.hits[t].push_back ({ newTick, h.velocity });
+                    }
+                std::sort (p.hits[t].begin(), p.hits[t].end(),
+                           [] (const DrumHit& a, const DrumHit& b) { return a.tick < b.tick; });
+            }
+        }
+    };
+
+    timeSigBox.onChange = [this, reshapePattern]() {
         const int sel = juce::jlimit (1, kNumTimeSigChoices, timeSigBox.getSelectedId());
         auto [n, d] = kTimeSigChoices[(size_t) sel - 1];
         if (fullPattern.timeSigNum == n && fullPattern.timeSigDen == d) return;
+        const int oldTotal = fullPattern.totalTicks();
         fullPattern.timeSigNum = n; fullPattern.timeSigDen = d;
-        // Drop hits that fall outside the new pattern bounds.
-        const int newTotal = fullPattern.totalTicks();
-        for (int t = 0; t < NUM_TRACKS; ++t)
-            fullPattern.hits[t].erase (
-                std::remove_if (fullPattern.hits[t].begin(), fullPattern.hits[t].end(),
-                                [&] (const DrumHit& h) { return h.tick >= newTotal; }),
-                fullPattern.hits[t].end());
+        reshapePattern (fullPattern, oldTotal);
         fullPattern.syncLegacyFromHits();
         audioProcessor.autoSavePattern (fullPattern);
         editingCopy.timeSigNum = n; editingCopy.timeSigDen = d;
@@ -1136,17 +1166,12 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         grid.repaint(); miniGrid.repaint();
     };
 
-    barsBox.onChange = [this]() {
-        // Combo IDs are 1..4; map to actual bar counts (1, 2, 4, 8).
+    barsBox.onChange = [this, reshapePattern]() {
         const int newBars = getBarsFromCombo();
         if (fullPattern.bars == newBars) return;
+        const int oldTotal = fullPattern.totalTicks();
         fullPattern.bars = newBars;
-        const int newTotal = fullPattern.totalTicks();
-        for (int t = 0; t < NUM_TRACKS; ++t)
-            fullPattern.hits[t].erase (
-                std::remove_if (fullPattern.hits[t].begin(), fullPattern.hits[t].end(),
-                                [&] (const DrumHit& h) { return h.tick >= newTotal; }),
-                fullPattern.hits[t].end());
+        reshapePattern (fullPattern, oldTotal);
         fullPattern.syncLegacyFromHits();
         audioProcessor.autoSavePattern (fullPattern);
         editingCopy.bars = newBars;
