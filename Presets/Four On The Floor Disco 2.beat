@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Four On The Floor Disco
+genres:  Disco, Funk, Groove, Soul, 70s, Retro, Dance, Four On The Floor, Uptempo, Feel Good, Party, Club, Mainstream, Bouncy, Live Drums
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0375
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     312=25, 336=100
+snare   
+hihat_c  288=25
+hihat_o  192=25
+ride    
+crash    216=25
+tom_h    144=25
+tom_m   
+tom_l   
+rim     

@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Quirky Crossover Pop Groove
+genres:  Pop, Alternative Hip-Hop, Funk, Soul, 2000s, Bouncy, Feel Good, Quirky, Danceable, Mainstream, Crossover, Handclaps, Retro, Mid-tempo, Catchy
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0312
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     288=55
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h    240=80
+tom_m   
+tom_l   
+rim      96=25, 192=100, 312=55

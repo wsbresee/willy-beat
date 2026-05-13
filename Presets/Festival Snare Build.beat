@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Festival Snare Build
+genres:  Electronic, EDM, Synth, Digital, Dance, Mainstream, Festival, Build-Up, Drop, Snare Roll, Big Room, Anthemic, Energetic, Tension, 2010s
+type:    Big Fill
+timesig: 4/4
+bars:    1
+density: 0.1125
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120
+snare    24=25, 48=55, 72=25, 96=55, 120=80, 144=55, 168=80, 192=100, 216=100, 240=100, 264=80, 288=120, 312=120, 336=120, 360=120
+hihat_c 
+hihat_o 
+ride    
+crash    0=120, 360=120
+tom_h   
+tom_m   
+tom_l   
+rim     

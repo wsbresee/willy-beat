@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Funky Strut Groove
+genres:  Funk, Soul, Disco, 70s, Groovy, Pocket, Strut, Dance, Party, Mid-tempo, Live Drums, Smooth, Retro, R&B, Feel Good
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0625
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     336=25, 360=25
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h    264=55, 288=25, 312=25
+tom_m   
+tom_l   
+rim      0=25, 24=25, 168=25, 216=25, 312=25

@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Driving Surf Instrumental
+genres:  Rock, Surf, Instrumental, 60s, Retro, Driving, High Energy, Tom Roll, Twangy, Reverb, Garage, Beach, Mid-tempo, Live Drums, Energetic
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0750
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120
+snare    192=100
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h    0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+tom_m   
+tom_l   
+rim      96=100, 288=100

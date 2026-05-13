@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Anthemic Stadium Rap
+genres:  Hip-Hop, Rap, 2010s, Anthemic, Triumphant, Cinematic, Maximalist, Epic, Stadium, Mainstream, Sample-based, Mid-tempo, Heavy, Driving
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0563
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     288=25
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim      24=55, 72=25, 120=25, 168=25, 216=55, 264=120, 312=25, 360=25

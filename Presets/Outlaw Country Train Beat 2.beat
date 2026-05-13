@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Outlaw Country Train Beat
+genres:  Country, Americana, Roots, Acoustic, Train Beat, Boom Chicka Boom, Outlaw Country, Western, Folk Rock, Storytelling, 60s, Mid-tempo, Driving, Sparse, Live Drums
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0625
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare    24=25, 48=25, 120=25, 144=25, 168=25, 336=25
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim      0=25, 72=25, 264=25, 360=25

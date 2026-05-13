@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Cerebral IDM Braindance
+genres:  Electronic, IDM, Braindance, Ambient Techno, Experimental, Glitch, Cerebral, Melancholic, Ethereal, Downtempo, 90s, Synth, Digital, Underground
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0875
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare   
+hihat_c  48=55, 120=100, 144=80, 216=80, 240=55, 312=80, 336=80
+hihat_o  0=100, 168=80, 288=100, 360=55
+ride    
+crash    72=55, 240=55, 336=25
+tom_h   
+tom_m   
+tom_l   
+rim     

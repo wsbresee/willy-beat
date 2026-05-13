@@ -1,17 +1,20 @@
-# WillyBeat Preset
+# WillyBeat Preset v2
+version: 2
 name:    K-Pop Build Fill
-genres: K-Pop, Pop, Korean, Modern, Dance, Mainstream, Catchy, Vocal, Buildup, Drop, Energetic, Festival, Idol Pop, BLACKPINK, BTS, Hype, Anthemic, Stadium
+genres:  K-Pop, Pop, Korean, Modern, Dance, Mainstream, Catchy, Buildup, Drop, Energetic, Festival, Hype, Anthemic, Stadium, Electronic
 type:    Big Fill
+timesig: 4/4
+bars:    1
 density: 0.1562
 
-# velocity codes:  . off   g ghost(25)   s soft(55)   m medium(80)   h hard(100)   a accent(120)
-kick    a.a...a.a.....a.
-snare   ....h.h.....hhhh
-hihat_c m.m.m.m.m.m.....
-hihat_o ..............m.
-ride    ................
-crash   a...............
-tom_h   ........h.......
-tom_m   ..........h.h...
-tom_l   ............h.hh
-rim     ................
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 48=120, 144=120, 192=120, 336=120
+snare    96=100, 144=100, 288=100, 312=100, 336=100, 360=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80
+hihat_o  336=80
+ride    
+crash    0=120
+tom_h    192=100
+tom_m    240=100, 288=100
+tom_l    288=100, 336=100, 360=100
+rim     

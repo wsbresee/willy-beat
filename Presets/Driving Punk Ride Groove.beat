@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Driving Punk Ride Groove
+genres:  Punk, Rock, Fast, Raw, Aggressive, Driving, Energetic, Anthem, Garage Rock, Post-Punk, New Wave, UK, 70s, Live Drums, Band
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0875
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare   
+hihat_c 
+hihat_o 
+ride     0=55, 24=55, 48=80, 72=80, 96=55, 120=55, 192=55, 216=55, 240=55, 264=55, 288=55, 312=55, 336=55, 360=55
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

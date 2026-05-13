@@ -473,32 +473,34 @@ juce::File PatternLibrary::patternFile (const juce::File& dir, const DrumPattern
 bool PatternLibrary::patternToFile (const DrumPattern& p, const juce::File& f)
 {
     juce::String text;
-    text << "# WillyBeat Preset\n";
+    text << "# WillyBeat Preset v2\n";
+    text << "version: 2\n";
     text << "name:    " << p.name << "\n";
     text << "genres:  " << p.genres.joinIntoString (", ") << "\n";
     text << "type:    " << kPatTypeNames[(int) p.type] << "\n";
+    text << "timesig: " << p.timeSigNum << "/" << p.timeSigDen << "\n";
+    text << "bars:    " << p.bars << "\n";
     text << "density: " << juce::String (p.density, 4) << "\n";
     if (p.isComposite)
         text << "composite: true\n";
     text << "\n";
-    text << "# velocity codes:  . off   g ghost(25)   s soft(55)   m medium(80)   h hard(100)   a accent(120)\n";
+    text << "# Hits per track as \"tick=velocity\" pairs. PPQN = 96.\n";
 
     for (int t = 0; t < NUM_TRACKS; ++t)
     {
-        juce::String row;
-        for (int s = 0; s < MAX_STEPS; ++s)
-        {
-            uint8_t v = p.velocities[t][s];
-            if      (v == 0)    row += '.';
-            else if (v <= 30)   row += 'g';
-            else if (v <= 65)   row += 's';
-            else if (v <= 90)   row += 'm';
-            else if (v <= 110)  row += 'h';
-            else                row += 'a';
-        }
         juce::String key (kTrackFileKeys[t]);
         while (key.length() < 8) key += ' ';
-        text << key << row << "\n";
+        text << key;
+        if (! p.hits[t].empty())
+        {
+            text << " ";
+            for (size_t i = 0; i < p.hits[t].size(); ++i)
+            {
+                if (i > 0) text << ", ";
+                text << p.hits[t][i].tick << "=" << (int) p.hits[t][i].velocity;
+            }
+        }
+        text << "\n";
     }
 
     return f.replaceWithText (text);
@@ -512,6 +514,8 @@ DrumPattern PatternLibrary::patternFromFile (const juce::File& f)
     juce::StringArray lines;
     lines.addLines (f.loadFileAsString());
 
+    bool sawV2Marker = false;
+
     for (const auto& rawLine : lines)
     {
         auto line = rawLine.trim();
@@ -523,7 +527,11 @@ DrumPattern PatternLibrary::patternFromFile (const juce::File& f)
             auto key = line.upToFirstOccurrenceOf (":", false, false).trim().toLowerCase();
             auto val = line.fromFirstOccurrenceOf (":", false, false).trim();
 
-            if (key == "name")
+            if (key == "version")
+            {
+                sawV2Marker = (val.getIntValue() >= 2);
+            }
+            else if (key == "name")
             {
                 p.name = val;
             }
@@ -536,7 +544,7 @@ DrumPattern PatternLibrary::patternFromFile (const juce::File& f)
                     if (tag.trim().isNotEmpty())
                         p.genres.add (tag.trim());
             }
-            else if (key == "genre")   // legacy single-genre key
+            else if (key == "genre")
             {
                 if (p.genres.isEmpty() && val.trim().isNotEmpty())
                     p.genres.add (val.trim());
@@ -554,26 +562,94 @@ DrumPattern PatternLibrary::patternFromFile (const juce::File& f)
                 auto v = val.toLowerCase();
                 p.isComposite = (v == "true" || v == "1" || v == "yes");
             }
+            else if (key == "timesig")
+            {
+                const int slash = val.indexOfChar ('/');
+                if (slash > 0)
+                {
+                    p.timeSigNum = val.substring (0, slash).getIntValue();
+                    p.timeSigDen = val.substring (slash + 1).getIntValue();
+                }
+            }
+            else if (key == "bars")
+            {
+                p.bars = juce::jmax (1, val.getIntValue());
+            }
+            else
+            {
+                // Could be a v2 track line "kick: 0=120, 192=80" — fall
+                // through to the track-line handling below.
+                const int trackId = trackFromKey (key);
+                if (trackId >= 0)
+                {
+                    juce::StringArray pairs;
+                    pairs.addTokens (val, ",", "");
+                    for (auto& pair : pairs)
+                    {
+                        auto t = pair.trim();
+                        const int eq = t.indexOfChar ('=');
+                        if (eq <= 0) continue;
+                        const int tick = t.substring (0, eq).getIntValue();
+                        const int vel  = t.substring (eq + 1).getIntValue();
+                        if (vel > 0 && vel <= 127)
+                            p.hits[trackId].push_back ({ tick, (uint8_t) vel });
+                    }
+                }
+            }
         }
         else
         {
-            // "trackkey  pattern..."
+            // Space-separated track line. v2 form: "kick  0=100, 96=80, ..."
+            //                          v1 form: "kick  h.......h.......".
             int spaceIdx = line.indexOfAnyOf (" \t");
             if (spaceIdx < 1) continue;
 
-            auto trackKey   = line.substring (0, spaceIdx).trim();
-            auto patternStr = line.substring (spaceIdx).trim();
+            auto trackKey  = line.substring (0, spaceIdx).trim();
+            auto remainder = line.substring (spaceIdx).trim();
 
-            int track = trackFromKey (trackKey);
-            if (track >= 0 && patternStr.isNotEmpty())
-                p.setRow (track, patternStr.toRawUTF8());
+            const int trackId = trackFromKey (trackKey);
+            if (trackId < 0 || remainder.isEmpty()) continue;
+
+            if (remainder.containsChar ('='))
+            {
+                // v2: tick=velocity pairs
+                juce::StringArray pairs;
+                pairs.addTokens (remainder, ",", "");
+                for (auto& pair : pairs)
+                {
+                    auto t = pair.trim();
+                    const int eq = t.indexOfChar ('=');
+                    if (eq <= 0) continue;
+                    const int tick = t.substring (0, eq).getIntValue();
+                    const int vel  = t.substring (eq + 1).getIntValue();
+                    if (vel > 0 && vel <= 127)
+                        p.hits[trackId].push_back ({ tick, (uint8_t) vel });
+                }
+            }
+            else
+            {
+                // v1: letter-coded grid row
+                p.setRow (trackId, remainder.toRawUTF8());
+            }
         }
     }
 
     if (p.name.isEmpty())
         p.name = f.getFileNameWithoutExtension();
 
-    // Recompute density from actual velocities (overrides stored value)
+    // For v1 files (no version marker, hits[] empty), promote the legacy
+    // 16-step grid into the tick representation.
+    if (! sawV2Marker)
+    {
+        bool anyHits = false;
+        for (int t = 0; t < NUM_TRACKS && ! anyHits; ++t)
+            anyHits = ! p.hits[t].empty();
+        if (! anyHits) p.syncHitsFromLegacy();
+    }
+
+    // Always keep the legacy shim in sync so existing 16-step consumers
+    // keep working through the transition.
+    p.syncLegacyFromHits();
     p.computeDensity();
     return p;
 }
@@ -609,14 +685,19 @@ void PatternLibrary::loadFromDirectory (const juce::File& dir)
             patterns.push_back (std::move (p));
     }
 
-    // The blank "Empty" pattern is the desired plugin-load default. Pin it
-    // to slot 0 regardless of mtime so it survives anything that touches
-    // the file (enrichment scripts, manual edits, install copies).
-    auto emptyIdx = std::find_if (patterns.begin(), patterns.end(),
-                                  [] (const DrumPattern& p)
-                                  { return p.name.equalsIgnoreCase ("Empty"); });
-    if (emptyIdx != patterns.end() && emptyIdx != patterns.begin())
-        std::rotate (patterns.begin(), emptyIdx, emptyIdx + 1);
+    // Pin the blank pattern (zero hits across all tracks) to slot 0 so the
+    // plugin reliably opens to an empty grid regardless of file name or
+    // mtime. Identified by content rather than name so a rename pass
+    // (e.g. v1→v2 migration) doesn't break it.
+    auto isBlank = [] (const DrumPattern& p)
+    {
+        for (int t = 0; t < NUM_TRACKS; ++t)
+            if (! p.hits[t].empty()) return false;
+        return true;
+    };
+    auto blank = std::find_if (patterns.begin(), patterns.end(), isBlank);
+    if (blank != patterns.end() && blank != patterns.begin())
+        std::rotate (patterns.begin(), blank, blank + 1);
 }
 
 juce::File PatternLibrary::savePattern (const DrumPattern& p, const juce::File& dir)

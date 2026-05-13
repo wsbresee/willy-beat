@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Hazy Vaporwave Drift
+genres:  Vaporwave, Future Funk, Electronic, Synth, 80s, Chill, Dreamy, Lo-Fi, Nostalgic, Bedroom Pop, Mid-tempo, Hazy, Sparse, Retro
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.1313
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare    72=25, 144=55
+hihat_c 
+hihat_o 
+ride     0=25, 48=25, 72=25, 120=25, 144=25, 216=25, 240=25, 264=25, 288=25, 312=25, 336=25
+crash   
+tom_h    0=55, 24=55, 48=25, 96=55, 216=55, 312=55, 336=55, 360=55
+tom_m   
+tom_l   
+rim     

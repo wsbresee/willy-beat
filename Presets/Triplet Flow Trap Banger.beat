@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Triplet Flow Trap Banger
+genres:  Hip-Hop, Trap, 2010s, Modern, Hard, Dark, Club, Mainstream, 808, Triplet Flow, Hi-Hat Rolls, Southern, Atlanta, Bouncy, Streaming Era
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0625
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare    48=25, 240=25, 312=55
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim      24=120, 72=80, 120=55, 168=80, 192=55, 216=55, 336=120

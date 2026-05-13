@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Locomotive Country Shuffle
+genres:  Country, Roots, Americana, Train Beat, Boom Chicka Boom, Acoustic, Driving, Mid-tempo, Classic, Honky Tonk, Western, Rockabilly, Two Step, Southern, Live Drums
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.1125
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 192=120
+snare    0=80, 48=100, 96=80, 144=100, 192=80, 240=100, 288=80, 336=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

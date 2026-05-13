@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Snare Roll Buildup
+genres:  Electronic, Trance, Synth, Dance, EDM, Festival, Big Room, Uplifting, Euphoric, Climactic, Tension, Drop, Rave, 2000s, Energetic
+type:    Big Fill
+timesig: 4/4
+bars:    1
+density: 0.1062
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120
+snare    0=55, 24=55, 48=55, 72=55, 96=80, 120=80, 144=80, 168=80, 192=100, 216=100, 240=100, 264=100, 288=120, 312=120, 336=120, 360=120
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

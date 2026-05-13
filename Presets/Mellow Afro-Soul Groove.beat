@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Mellow Afro-Soul Groove
+genres:  Neo-Soul, Afro-Soul, Hip-Hop, Boom Bap, Lo-fi, Acoustic, Mellow, Laid-Back, Smooth, Intimate, Jazzy, Chill, Mid-tempo, 2000s, African
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.1500
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     48=80, 96=100, 216=120, 264=120, 288=55
+snare    72=55, 96=55, 120=55, 144=80, 168=55, 192=55, 288=55, 312=55, 336=55, 360=25
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h    240=55
+tom_m   
+tom_l   
+rim      0=25, 24=25, 120=55, 144=80, 192=25, 240=55, 312=25, 336=100

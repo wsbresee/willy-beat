@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Wonky Festival Glitch
+genres:  Electronic, Glitch Hop, Synth, Digital, Bass Music, Funky, Chopped Samples, Festival, EDM, Wonky, Soulful Electronica, Heady, 2010s, Mid-tempo, Bouncy
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.1125
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare   
+hihat_c  24=25, 48=25, 72=25, 96=80, 168=25, 240=55, 264=55, 360=55
+hihat_o  0=25, 216=55, 288=100, 336=25
+ride     240=25
+crash    0=25, 96=25, 120=25, 144=25, 312=55
+tom_h   
+tom_m   
+tom_l   
+rim     

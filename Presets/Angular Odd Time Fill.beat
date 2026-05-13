@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Angular Odd Time Fill
+genres:  Math Rock, Progressive, Post Rock, Indie Rock, Complex, Odd Time, Polyrhythmic, Angular, Syncopated, Technical, Experimental, Tight, Busy, Live Drums
+type:    Big Fill
+timesig: 4/4
+bars:    1
+density: 0.1187
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 120=120, 240=120
+snare    72=100, 168=100, 264=100, 312=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+hihat_o 
+ride    
+crash    0=120
+tom_h   
+tom_m    216=80, 264=80
+tom_l    336=100
+rim     

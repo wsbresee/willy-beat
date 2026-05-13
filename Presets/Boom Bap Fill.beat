@@ -1,17 +1,20 @@
-# WillyBeat Preset
+# WillyBeat Preset v2
+version: 2
 name:    Boom Bap Fill
-genres: Hip-Hop, Boom Bap, Rap, Urban, Beats, 90s, Underground, Sample-based, Old School, DJ Premier, Pete Rock, Dilla, East Coast, Golden Era, Crate Digger, Lo-Fi, Gritty, Head Nod, Drum Break
+genres:  Hip-Hop, Boom Bap, Rap, Urban, Beats, 90s, Underground, Sample-based, Old School, East Coast, Golden Era, Lo-Fi, Gritty, Head Nod, Drum Break
 type:    Sm. Fill
+timesig: 4/4
+bars:    1
 density: 0.1125
 
-# velocity codes:  . off   g ghost(25)   s soft(55)   m medium(80)   h hard(100)   a accent(120)
-kick    a..m....a.a.....
-snare   ....a.g.g..ahhhh
-hihat_c m.m.m.m.m.m.....
-hihat_o ................
-ride    ................
-crash   ................
-tom_h   ................
-tom_m   ................
-tom_l   ................
-rim     ................
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 72=80, 192=120, 240=120
+snare    96=120, 144=25, 192=25, 264=120, 288=100, 312=100, 336=100, 360=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

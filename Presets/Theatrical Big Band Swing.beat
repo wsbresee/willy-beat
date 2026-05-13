@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Theatrical Big Band Swing
+genres:  Big Band, Vocal Jazz, Swing, Jazz, Orchestral, Sophisticated, Classic, Lounge, Mid-tempo, Dramatic, Showtune, Standards, Live Drums, Crooner, 1960s
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0688
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=55, 48=80, 192=55, 216=55, 360=55
+snare   
+hihat_c 
+hihat_o  96=25, 264=25
+ride    
+crash    72=25, 264=25, 288=25
+tom_h    312=25
+tom_m   
+tom_l   
+rim     

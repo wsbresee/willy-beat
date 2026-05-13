@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Worship Showcase Fill
+genres:  Gospel, Soul, R&B, Spiritual, Church, Praise Break, Drum Showcase, Virtuoso, Energetic, Triplet Feel, Modern Worship, Busy, Live Drums, Chops, Fast
+type:    Big Fill
+timesig: 4/4
+bars:    1
+density: 0.1938
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 48=25, 72=80, 120=25, 192=120, 240=25, 264=80, 312=25
+snare    0=25, 24=25, 48=25, 72=100, 96=25, 120=25, 144=25, 168=100, 192=25, 216=25, 240=25, 264=100, 288=120, 312=120, 336=120, 360=120
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80
+hihat_o 
+ride    
+crash    0=120
+tom_h   
+tom_m   
+tom_l   
+rim     

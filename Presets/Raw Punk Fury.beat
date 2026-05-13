@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Raw Punk Fury
+genres:  Punk, Punk Rock, Rock, Fast, Raw, Aggressive, DIY, 70s, Garage Rock, Proto-Punk, Driving, Rebellious, Snotty, Anti-Establishment, UK
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.1125
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=55, 24=55, 48=25, 96=80, 120=25, 144=25, 168=55, 216=55, 240=25
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h    0=25, 72=25, 96=25, 192=55, 264=55, 288=55, 312=55, 336=25
+tom_m   
+tom_l   
+rim      360=55

@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Sparse Anthemic Rock Pulse
+genres:  Rock, Indie Rock, Alternative, Anthemic, Arena Rock, Stadium, 2000s, Driving, Mid-tempo, Emotional, Singalong, Heartland, Live Drums, Sparse, Mainstream
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0125
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     168=80, 336=80
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

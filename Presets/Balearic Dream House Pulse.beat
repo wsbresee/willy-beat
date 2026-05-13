@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Balearic Dream House Pulse
+genres:  Electronic, House, Dream House, Balearic, Late 80s, Four on the Floor, Hypnotic, Euphoric, Chillout, Ambient House, Club, Sunrise, Synth, Drum Machine, Dreamy
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.1250
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare   
+hihat_c  0=25, 24=25, 48=25, 72=25, 96=25, 120=25, 144=25, 192=25, 216=25, 240=25, 264=25, 312=25, 336=25, 360=25
+hihat_o 
+ride    
+crash    144=55, 168=55, 216=25, 264=25, 288=25, 360=25
+tom_h   
+tom_m   
+tom_l   
+rim     

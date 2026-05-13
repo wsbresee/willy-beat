@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Synth Funk Boogie Groove
+genres:  Funk, Electro, Boogie, Synth Funk, G-Funk, 70s, 80s, West Coast, Party, Groove, Old School, Hip-Hop, Sample-based, Bouncy, Mid-tempo
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0500
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare    360=80
+hihat_c 
+hihat_o  72=25, 120=25, 144=25, 168=25, 216=25, 264=25, 312=55
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

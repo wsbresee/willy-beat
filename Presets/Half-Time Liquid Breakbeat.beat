@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Half-Time Liquid Breakbeat
+genres:  Drum and Bass, Liquid DnB, Breakbeat, Half-Time, Electronic, Atmospheric, Rolling, Underground, 90s, UK, Late Night, Fast, Synth, Digital
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0875
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 288=120
+snare    96=100, 240=100, 312=100, 360=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

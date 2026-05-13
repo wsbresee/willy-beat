@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Smooth Y2K R&B Groove
+genres:  R&B, Pop, Soul, Smooth, Mid-tempo, 90s, Y2K, Mainstream, Urban, Catchy, Laid-back, Tight, Atlanta, Southern, Vocal
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0563
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare   
+hihat_c  240=100
+hihat_o  120=25
+ride     48=25, 96=25, 240=55, 288=25
+crash   
+tom_h    72=25, 168=25, 264=25
+tom_m   
+tom_l   
+rim     

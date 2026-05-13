@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Driving Post-Punk Fill
+genres:  Post-Punk, Punk, Rock, New Wave, Dark, 80s, Gothic Rock, Goth, Driving, Motorik, Cold Wave, Indie Rock, Brooding, Tom Roll, Propulsive
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+density: 0.1250
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 96=120, 192=120, 288=120
+snare    96=100, 288=100, 336=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+hihat_o 
+ride    
+crash    0=120
+tom_h   
+tom_m    192=80, 240=80
+tom_l    288=80, 336=100
+rim     

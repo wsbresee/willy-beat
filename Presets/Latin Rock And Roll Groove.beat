@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Latin Rock And Roll Groove
+genres:  Latin, Rock and Roll, Tex-Mex, Vintage, 50s, Upbeat, Party, Feel Good, Mid-tempo, Bouncy, Live Drums, Acoustic, Rhythm, World
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0375
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     120=55, 312=80
+snare   
+hihat_c 
+hihat_o 
+ride     240=25
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim      96=25, 120=25, 336=55

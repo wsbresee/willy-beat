@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Four On The Floor Fill
+genres:  Disco, House, Electronic, Dance, 70s, Funk, Groovy, Four on the Floor, Club, Synth, Nu-Disco, Filter House, Uplifting, Peak Time, Energetic
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+density: 0.1375
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 96=120, 192=120, 288=120
+snare    96=100, 288=100, 336=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+hihat_o  48=80, 144=80, 240=80, 336=80
+ride    
+crash    0=120
+tom_h   
+tom_m   
+tom_l    288=80, 336=100
+rim     

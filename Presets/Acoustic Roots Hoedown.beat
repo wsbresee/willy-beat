@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Acoustic Roots Hoedown
+genres:  Country, Folk, Roots, Americana, Acoustic, Traditional, Bluegrass, Singalong, Campfire, Hoedown, 2000s, Country Pop, Southern, Feel Good, Mid-tempo
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0875
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare    0=25, 24=25, 240=25, 360=25
+hihat_c 
+hihat_o  240=25
+ride    
+crash    336=25
+tom_h    0=55, 72=25, 144=25, 192=25, 216=55, 264=55, 288=25, 312=55
+tom_m   
+tom_l   
+rim     

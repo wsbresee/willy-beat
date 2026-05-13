@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Half-Time Anthem Fill
+genres:  Rock, Half-Time, Anthemic, Driving, Epic, Buildup, Heavy, Stadium, Arena, Hard Rock, Classic Rock, Live Drums, Power Ballad, Energetic
+type:    Big Fill
+timesig: 4/4
+bars:    1
+density: 0.0875
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 192=120
+snare    96=100, 288=100, 336=100
+hihat_c  0=80, 48=80, 96=80, 144=80
+hihat_o 
+ride    
+crash    0=120
+tom_h    192=100
+tom_m    240=100
+tom_l    288=100, 336=100
+rim     

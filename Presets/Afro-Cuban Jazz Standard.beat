@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Afro-Cuban Jazz Standard
+genres:  Jazz, Latin Jazz, Afro-Cuban, Big Band, Swing, Mambo, Sophisticated, Exotic, Mid-tempo, Classic, Bebop, Hard Bop, Latin, Lounge, Studio
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0750
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=80, 144=100, 240=80, 288=55, 312=55, 360=80
+snare    24=25, 48=55, 96=55, 168=55, 216=55, 264=55
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

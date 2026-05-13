@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Sparse Pop Punk Pulse
+genres:  Pop Punk, Pop Rock, 2020s, Mainstream, Sparse, Driving, Anthemic, Energetic, Catchy, Emo Revival, Teen Angst, Breakup, Fast, Punk
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0125
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     120=25
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim      72=25

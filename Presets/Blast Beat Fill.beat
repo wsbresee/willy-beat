@@ -1,17 +1,20 @@
-# WillyBeat Preset
+# WillyBeat Preset v2
+version: 2
 name:    Blast Beat Fill
-genres: Metal, Death Metal, Rock, Heavy, Aggressive, Dark, Guitar, Extreme, Brutal, Loud, Grindcore, Black Metal, Thrash, Hardcore Punk, Double Bass, Intense, Fast, Underground, 90s, Mosh
+genres:  Metal, Death Metal, Heavy, Aggressive, Dark, Extreme, Brutal, Loud, Grindcore, Black Metal, Thrash, Double Bass, Fast, Underground, Intense
 type:    Sm. Fill
+timesig: 4/4
+bars:    1
 density: 0.1500
 
-# velocity codes:  . off   g ghost(25)   s soft(55)   m medium(80)   h hard(100)   a accent(120)
-kick    a.a.a.a.a.a.a.a.
-snare   .h.h.h.h.h.h.h.h
-hihat_c m.m.m.m.m.m.m.m.
-hihat_o ................
-ride    ................
-crash   ................
-tom_h   ................
-tom_m   ................
-tom_l   ................
-rim     ................
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 48=120, 96=120, 144=120, 192=120, 240=120, 288=120, 336=120
+snare    24=100, 72=100, 120=100, 168=100, 216=100, 264=100, 312=100, 360=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

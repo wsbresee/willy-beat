@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Hazy Bedroom Pop Sketch
+genres:  Indie, Bedroom Pop, Alternative, Underground, Pop, Lofi, Intimate, Slacker Rock, Jangle Pop, Dreamy, Melancholic, Hazy, 2010s, Chillwave, Reverb Soaked, Sparse, Mellow
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0250
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     120=25
+snare   
+hihat_c 
+hihat_o  120=25, 312=25
+ride    
+crash   
+tom_h    216=55
+tom_m   
+tom_l   
+rim     

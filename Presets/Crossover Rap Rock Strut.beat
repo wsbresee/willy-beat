@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Crossover Rap Rock Strut
+genres:  Rock, Hard Rock, Rap Rock, Crossover, Heavy, Swagger, Groovy, Mid-tempo, 70s, 80s, Arena Rock, Riff Rock, Live Drums, Aggressive, Mainstream
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0563
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     96=100, 264=55, 288=80, 336=55
+snare   
+hihat_c  240=25
+hihat_o  48=25, 144=25
+ride    
+crash   
+tom_h    0=25, 192=55
+tom_m   
+tom_l   
+rim     

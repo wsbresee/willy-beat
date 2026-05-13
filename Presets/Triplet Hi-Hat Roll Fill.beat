@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Triplet Hi-Hat Roll Fill
+genres:  Hip-Hop, Trap, 2010s, 2020s, Modern, Aggressive, Hard, Hi-Hat Roll, Triplet Flow, Southern, Atlanta, 808, Bass Heavy, Club, Drum Machine
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+density: 0.1187
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 288=120
+snare    192=120
+hihat_c  0=80, 24=80, 48=80, 72=80, 96=80, 120=80, 144=80, 168=80, 192=80, 216=80, 240=80, 264=80, 288=80, 312=80, 336=80, 360=80
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

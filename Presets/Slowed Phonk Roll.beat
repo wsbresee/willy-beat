@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Slowed Phonk Roll
+genres:  Phonk, Hip-Hop, Trap, Memphis, Southern, Dark, Aggressive, Driving, Gritty, Distorted, Lofi, Underground, Slow, 2020s, Drum Machine
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+density: 0.1938
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 48=120, 96=120, 144=120, 192=120, 240=120, 288=120, 336=120
+snare    96=100, 144=100, 288=100, 312=100, 336=100, 360=100
+hihat_c  0=80, 24=80, 48=80, 72=80, 96=80, 120=80, 144=80, 168=80, 192=80, 216=80, 240=80, 264=80, 288=80, 312=80, 336=80, 360=80
+hihat_o 
+ride    
+crash    0=120
+tom_h   
+tom_m   
+tom_l   
+rim     

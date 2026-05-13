@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Tom-Driven Ambient House
+genres:  Electronic, Ambient House, Acid House, Synth, Dance, Club, Dreamy, Euphoric, Balearic, Late 80s, UK, Rave, Tom-Heavy, Mid-tempo, Atmospheric
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.1062
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare    48=55, 72=25, 264=25
+hihat_c 
+hihat_o 
+ride     24=25, 48=25, 72=25, 96=25, 120=25, 192=25
+crash    48=25, 144=25
+tom_h    0=25, 144=25, 240=25, 264=55, 312=55, 360=25
+tom_m   
+tom_l   
+rim     

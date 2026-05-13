@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Footwork Snare Burst
+genres:  Electronic, Footwork, Synth, Digital, Fast, Underground, Juke, Frenetic, 2010s, Chicago, Battle, Drum Machine, Busy, Club
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+density: 0.1437
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 72=120, 144=120, 216=120, 288=120, 360=120
+snare    24=25, 72=100, 120=25, 168=100, 192=25, 216=100, 264=100, 312=25, 360=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

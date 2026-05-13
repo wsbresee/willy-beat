@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Energetic Pop Punk Fill
+genres:  Pop Punk, Pop Rock, Punk, Fast, Energetic, Driving, Anthemic, Catchy, Youthful, 2000s, Skate Punk, Aggressive, Mainstream, Live Drums
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+density: 0.1000
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120
+snare    96=100, 144=100, 192=100, 216=100, 240=100, 264=100, 288=120, 312=120, 336=120, 360=120
+hihat_c  0=80, 48=80, 96=80, 144=80
+hihat_o 
+ride    
+crash    0=120
+tom_h   
+tom_m   
+tom_l   
+rim     

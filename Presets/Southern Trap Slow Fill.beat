@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Southern Trap Slow Fill
+genres:  Hip-Hop, Trap, Southern, Memphis, 808, Dark, Sinister, Phonk, Lo-Fi, Gritty, Underground, Slow, Moody, Atmospheric, 2010s
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+density: 0.1187
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 144=120, 192=120
+snare    96=100, 288=100, 336=100
+hihat_c  0=80, 48=80, 72=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80, 360=80
+hihat_o 
+ride    
+crash    0=120
+tom_h   
+tom_m   
+tom_l    288=80, 336=120
+rim     

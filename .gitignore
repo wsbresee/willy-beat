@@ -1,9 +1,13 @@
 build/
 .DS_Store
 .venv/
+.cache
 .cache/
 __pycache__/
 bulk_generate.log
 bulk_retry*.log
 llm_enrich.log
 .llm_enriched.json
+migrate_v2.log
+.migration_v2.json
+Presets_v1_archive/

@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Township House Log Drum
+genres:  Amapiano, House, African, Electronic, Dance, Four on the Floor, Club, Log Drum, Modern, 2020s, Groovy, Percussive, Lowend Bass, Mid-tempo, Bouncy
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+density: 0.1437
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 192=120
+snare    96=100, 288=100, 336=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+hihat_o 
+ride    
+crash    0=120
+tom_h   
+tom_m    48=100, 144=100, 240=100, 288=100, 336=100
+tom_l    0=100, 96=100, 192=100, 336=100
+rim     

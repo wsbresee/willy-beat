@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Carnival Tom Fill
+genres:  Latin, Brazilian, Samba, Carnival, Festive, Energetic, Uptempo, Tom Fill, Percussion Break, Drum Fill, Tropical, Dance Break, Busy, Driving, Live Drums
+type:    Big Fill
+timesig: 4/4
+bars:    1
+density: 0.2938
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+snare    48=25, 144=25, 240=25, 264=55, 288=25, 312=55, 336=80, 360=100
+hihat_c  0=80, 24=80, 48=80, 72=80, 96=80, 120=80, 144=80, 168=80, 192=80, 216=80, 240=80, 264=80, 288=80, 312=80, 336=80, 360=80
+hihat_o 
+ride    
+crash    0=120
+tom_h    192=80, 216=100, 240=80
+tom_m    240=80, 264=100
+tom_l    288=80, 312=100, 336=80, 360=100
+rim      0=80, 72=80, 144=80, 288=80, 336=80

@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Half-Time Shuffle Groove
+genres:  Funk, Soul, R&B, 70s, Half-Time, Shuffle, Ghost Notes, Pocket, Laid-Back, Smooth, Mid-tempo, Groove, Live Drums, Studio, Classic
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0938
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 192=120, 264=25
+snare    96=25, 168=100, 288=100, 360=25
+hihat_c  0=80, 48=55, 96=80, 144=55, 192=80, 240=55, 288=80, 336=55
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

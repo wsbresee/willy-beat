@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Funky Horn-Stab Groove
+genres:  R&B, Funk, Pop, 2000s, Go-Go, Urban, Mainstream, Danceable, Confident, Groove, Catchy, Summer, Mid-tempo, Live Drums
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0312
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     48=80, 96=55, 240=120
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h    144=100, 192=25
+tom_m   
+tom_l   
+rim     

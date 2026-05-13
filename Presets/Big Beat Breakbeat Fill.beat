@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Big Beat Breakbeat Fill
+genres:  Electronic, Big Beat, Breakbeat, Dance, 90s, Festival, Energetic, Heavy, Crunchy, Rave, Drum Break, Synth, Digital, Mainstream
+type:    Big Fill
+timesig: 4/4
+bars:    1
+density: 0.1250
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 72=120, 192=120, 240=120
+snare    96=100, 144=100, 192=100, 264=100, 288=100, 312=100, 336=100, 360=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80
+hihat_o  336=80
+ride    
+crash    0=120
+tom_h   
+tom_m   
+tom_l   
+rim     

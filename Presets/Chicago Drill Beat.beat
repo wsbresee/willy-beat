@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Chicago Drill Beat
+genres:  Hip-Hop, Drill, Trap, Dark, Aggressive, Menacing, Gritty, Street, Modern, 2010s, Chicago, 808, Sliding 808s, Mid-tempo, Underground
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0813
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 144=120, 192=120
+snare    192=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 264=80, 288=80, 336=80
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

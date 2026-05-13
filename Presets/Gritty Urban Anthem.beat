@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Gritty Urban Anthem
+genres:  Hip-Hop, Rap, Boom Bap, 2000s, Detroit, Gritty, Intense, Cinematic, Motivational, Mid-tempo, Driving, Underground, Sample-based, Dark
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.1000
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare    24=25, 48=55, 72=25, 96=25, 120=25, 144=25, 168=25, 192=25, 216=25, 240=25, 288=25, 312=25, 336=25
+hihat_c 
+hihat_o 
+ride    
+crash    264=55, 360=25
+tom_h    0=25
+tom_m   
+tom_l   
+rim     

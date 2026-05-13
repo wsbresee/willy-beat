@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Theatrical Rock Epic
+genres:  Rock, Classic Rock, Progressive Rock, Operatic Rock, Arena Rock, 70s, Retro, Theatrical, Epic, Anthem, Ballad, Dramatic, Mid-tempo, Live Drums, Iconic
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.1500
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare    0=55, 24=25, 48=25, 72=25, 96=25, 120=25, 144=25, 168=55, 192=25, 216=55, 240=80, 264=55, 288=25, 312=25, 336=25, 360=55
+hihat_c 
+hihat_o 
+ride     0=25, 24=25, 72=25, 96=25, 144=55, 288=25, 360=25
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim      264=100

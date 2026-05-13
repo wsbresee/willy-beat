@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Minimal Dark Pop Pulse
+genres:  Pop, Dark Pop, Bedroom Pop, Electropop, Minimal, Sparse, Sinister, Bass Heavy, Whisper Vocal, Electronic, Synth, Mid-tempo, Trap Pop, 2010s, Mainstream
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0063
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim      264=25

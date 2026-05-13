@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Hazy Drift Phonk
+genres:  Phonk, Drift Phonk, Trap, Hip-Hop, Memphis, Cloud Rap, Dark, Hazy, Atmospheric, Moody, Late Night, Underground, 808, Slowed, 2010s
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.1187
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare    0=25, 24=25, 48=25, 72=25, 96=25, 144=25, 168=25, 192=25, 216=25, 240=25, 264=25, 288=25, 312=25, 336=25, 360=25
+hihat_c 
+hihat_o  96=25, 312=55
+ride     288=80
+crash    144=120
+tom_h   
+tom_m   
+tom_l   
+rim     

@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Atmospheric Trip-Hop Pulse
+genres:  Trip-Hop, Downtempo, Electronic, Atmospheric, Dreamy, Hypnotic, Brooding, Mellow, Cinematic, 90s, Bristol, Slow Burn, Chillout, Sparse, Mid-tempo
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.1125
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=80, 24=25, 48=55, 72=80, 96=25, 120=55, 144=55, 168=25, 192=80, 216=25, 264=80, 288=25, 336=25
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h    120=25, 240=25, 312=25
+tom_m   
+tom_l   
+rim      96=55, 360=80

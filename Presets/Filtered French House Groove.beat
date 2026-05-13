@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Filtered French House Groove
+genres:  Electronic, French House, Filter House, Disco House, 90s, Late 90s, Synth, Vocoder, Robotic, Repetitive Groove, Dance Floor, Funky, Club, Four On The Floor, Mid-tempo
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0312
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     120=120, 168=25, 240=25, 264=25, 336=25
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

@@ -1,17 +1,20 @@
-# WillyBeat Preset
+# WillyBeat Preset v2
+version: 2
 name:    Hip-Hop Snare Buzz Roll
-genres: Hip-Hop, Rap, Urban, Beats, Boom Bap, Snare Roll, Buzz Roll, Drum Fill, Trap, Old School, 90s, Transition, Build Up, Hype
+genres:  Hip-Hop, Boom Bap, Trap, Old School, 90s, Snare Roll, Buzz Roll, Drum Fill, Transition, Build Up, Hype, Urban, Mid-tempo, Sample-based
 type:    Sm. Fill
+timesig: 4/4
+bars:    1
 density: 0.0813
 
-# velocity codes:  . off   g ghost(25)   s soft(55)   m medium(80)   h hard(100)   a accent(120)
-kick    a...............
-snare   ....m.h.hhhhaaaa
-hihat_c m.m.............
-hihat_o ................
-ride    ................
-crash   ................
-tom_h   ................
-tom_m   ................
-tom_l   ................
-rim     ................
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120
+snare    96=80, 144=100, 192=100, 216=100, 240=100, 264=100, 288=120, 312=120, 336=120, 360=120
+hihat_c  0=80, 48=80
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

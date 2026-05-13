@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Smoky Slow Blues
+genres:  Blues, Slow Blues, Electric Blues, Soul Blues, Smoky, Gritty, Slow, Mid-tempo, Memphis, Southern, 60s, Live Drums, Laid-back, Heavy, Classic Blues
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0500
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     72=100, 120=80, 216=80, 264=55
+snare    360=25
+hihat_c 
+hihat_o 
+ride    
+crash    24=25, 312=25
+tom_h    264=25
+tom_m   
+tom_l   
+rim     

@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Sparse Future Garage
+genres:  Electronic, UK Garage, Future Garage, Post-Dubstep, Bass Music, 2-Step, Underground, Club, Late Night, Sparse, 2010s, UK, Synth, Wonky
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0125
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     288=55
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash    72=55
+tom_h   
+tom_m   
+tom_l   
+rim     

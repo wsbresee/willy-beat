@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    House Clap Groove
+genres:  Electronic, House, Synth, Drum Machine, Four on the Floor, Club, Dance, Handclaps, Groovy, Uplifting, 90s, Peak Time, Mid-tempo, Driving, Underground
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+density: 0.0938
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 96=120, 192=120, 288=120
+snare    96=100, 288=100, 336=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80
+hihat_o  336=80
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

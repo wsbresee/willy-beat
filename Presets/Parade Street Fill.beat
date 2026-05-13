@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Parade Street Fill
+genres:  Funk, Soul, New Orleans, Southern, Groove, Syncopated, Brass Band Feel, Marching, Parade, Snare Roll, Street Beat, Jazz Funk, Live Drums, Mid-tempo, Bouncy
+type:    Big Fill
+timesig: 4/4
+bars:    1
+density: 0.1500
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 72=120, 144=120, 192=120, 264=120, 336=120
+snare    48=25, 120=100, 240=25, 312=100, 360=100
+hihat_c  0=80
+hihat_o 
+ride    
+crash    0=120
+tom_h    192=80, 216=100, 240=80
+tom_m    240=100, 288=100
+tom_l    288=100, 336=100
+rim      0=120, 96=80, 192=120, 288=80

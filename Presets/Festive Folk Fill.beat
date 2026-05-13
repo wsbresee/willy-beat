@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Festive Folk Fill
+genres:  Folk, Acoustic, Traditional, Roots, Eastern European, Balkan, Celebration, Festive, Lively, Wedding, Old World, Live Drums, Mid-tempo, Bright, Busy
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+density: 0.1562
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 72=80, 144=120, 192=120, 264=80, 336=120
+snare    96=100, 144=100, 288=100, 336=100
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80
+hihat_o 
+ride    
+crash    0=120
+tom_h   
+tom_m    288=80
+tom_l    336=100
+rim      48=55, 144=55, 192=100, 240=55, 288=55, 336=55

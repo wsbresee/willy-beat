@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Smooth Trap Soul Fill
+genres:  Hip-Hop, Trap, Trap Soul, R&B, Smooth, Moody, Atmospheric, Late Night, 2010s, Alternative R&B, Melodic Trap, Bedroom, Contemporary, Mid-tempo, 808
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+density: 0.1313
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=120, 144=120, 192=120
+snare    96=100, 240=25, 288=100, 336=100
+hihat_c  0=80, 48=80, 72=80, 96=80, 144=80, 192=80, 240=80, 264=80, 288=80, 336=80
+hihat_o  336=80
+ride    
+crash    0=120
+tom_h   
+tom_m   
+tom_l    288=55, 336=120
+rim     

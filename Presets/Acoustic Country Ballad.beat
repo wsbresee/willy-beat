@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Acoustic Country Ballad
+genres:  Folk, Country, Acoustic, Roots, Traditional, Americana, 70s, Bluegrass, Heartland, Nostalgic, Singalong, Appalachian, Mellow, Mid-tempo, Warm
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0375
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare    144=25
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h    264=25
+tom_m   
+tom_l   
+rim      0=25, 96=25, 192=25, 288=25

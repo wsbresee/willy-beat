@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Hypnotic Stomp Boogie
+genres:  Blues, Electric Blues, Chicago, Roots, Soul, 50s, Hypnotic, Stomp, Groove, Riff-Driven, Boogie, Mid-tempo, Loose, Live Drums
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.0187
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare   
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h    48=25, 120=100
+tom_m   
+tom_l   
+rim      96=25

@@ -1,0 +1,20 @@
+# WillyBeat Preset v2
+version: 2
+name:    Hihat-Driven Funk Pocket
+genres:  Funk, Disco, Soul, 70s, Groove, Pocket Groove, Mid-tempo, Smooth, Instrumental Funk, Horn-Section Feel, Dance, Retro, Live Drums, Blue-Eyed Soul, Tight
+type:    Regular
+timesig: 4/4
+bars:    1
+density: 0.1187
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick    
+snare   
+hihat_c  0=100, 24=100, 48=100, 72=100, 96=100, 120=80, 144=80, 192=25, 216=100, 240=80, 264=80, 288=100, 312=100, 336=100, 360=80
+hihat_o 
+ride     24=80, 96=25, 168=100, 192=80
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     
