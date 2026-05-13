@@ -4,3 +4,6 @@ build/
 .cache/
 __pycache__/
 bulk_generate.log
+bulk_retry*.log
+llm_enrich.log
+.llm_enriched.json
