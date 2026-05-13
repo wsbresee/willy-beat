@@ -3,6 +3,8 @@ project(WillyBeat VERSION 2.0.1)
 
 set(CMAKE_CXX_STANDARD 17)
 
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 include(FetchContent)
 FetchContent_Declare(
     JUCE
@@ -83,11 +85,24 @@ if(APPLE)
         COMMENT "BakeTagEmbeddings: precomputing NLEmbedding vectors"
         VERBATIM)
 
+    set(PRESET_BUNDLE "${BAKED_DIR}/PresetBundle.bin")
+
+    add_custom_command(
+        OUTPUT  "${PRESET_BUNDLE}"
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/Tools/pack_presets.py"
+                "${PRESETS_DIR}" "${PRESET_BUNDLE}"
+        DEPENDS ${BAKE_PRESET_SOURCES}
+        COMMENT "pack_presets: bundling starter preset bank"
+        VERBATIM)
+
     juce_add_binary_data(WillyBeatBakedData
         HEADER_NAME BinaryData.h
         NAMESPACE   BinaryData
-        SOURCES     "${BAKED_BIN}")
+        SOURCES     "${BAKED_BIN}"
+                    "${PRESET_BUNDLE}")
 
     target_link_libraries(WillyBeat PRIVATE WillyBeatBakedData)
-    target_compile_definitions(WillyBeat PRIVATE JUCE_INCLUDED_BAKED_EMBEDDINGS=1)
+    target_compile_definitions(WillyBeat PRIVATE
+        JUCE_INCLUDED_BAKED_EMBEDDINGS=1
+        JUCE_INCLUDED_PRESET_BUNDLE=1)
 endif()

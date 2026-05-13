@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Balkan 7/8
+genres:  7/8, Balkan, Odd Meter, World, Folk, Energetic
+type:    Regular
+timesig: 7/8
+bars:    1
+grid:    16th
+density: 0.0929
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 96=100, 192=100
+snare    96=80, 240=80, 288=80
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

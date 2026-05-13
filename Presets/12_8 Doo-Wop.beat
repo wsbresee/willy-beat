@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    12/8 Doo-Wop
+genres:  12/8, Doo-Wop, 50s, Slow, Romantic, Triplet
+type:    Regular
+timesig: 12/8
+bars:    1
+grid:    8th
+density: 0.0500
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 288=100
+snare    144=120, 480=120
+hihat_c  0=80, 96=80, 144=80, 240=80, 288=80, 384=80, 432=80, 528=80
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

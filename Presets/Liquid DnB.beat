@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Liquid DnB
+genres:  Drum and Bass, DnB, Liquid, Smooth, Musical, Soulful
+type:    Regular
+timesig: 4/4
+bars:    1
+grid:    16th
+density: 0.1000
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 192=100
+snare    96=120, 288=120
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+hihat_o 
+ride     48=80, 144=80, 240=80, 336=80
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

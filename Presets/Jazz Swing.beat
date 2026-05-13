@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Jazz Swing
+genres:  Jazz, Swing, Triplet, Ride, Acoustic, Bebop, Standard
+type:    Regular
+timesig: 4/4
+bars:    1
+grid:    8tr
+density: 0.0875
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 192=100
+snare    96=25, 288=25
+hihat_c  96=80, 288=80
+hihat_o 
+ride     0=80, 64=80, 96=80, 160=80, 192=80, 256=80, 288=80, 352=80
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

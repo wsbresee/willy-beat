@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Jazz Brushes
+genres:  Jazz, Brushes, Soft, Ballad, Acoustic, Smooth, Slow
+type:    Regular
+timesig: 4/4
+bars:    1
+grid:    8tr
+density: 0.0813
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 192=100
+snare    0=25, 64=25, 96=25, 160=25, 192=25, 256=25, 288=25, 352=25
+hihat_c 
+hihat_o 
+ride     0=80, 128=80, 256=80
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

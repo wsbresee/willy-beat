@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Funk Ghost Notes
+genres:  Funk, Soul, Ghost Notes, Pocket, Groove, Dynamic, Live
+type:    Regular
+timesig: 4/4
+bars:    1
+grid:    16th
+density: 0.1313
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 120=100, 192=100
+snare    0=25, 72=25, 96=120, 144=25, 168=25, 216=25, 240=25, 264=120, 312=25, 336=25
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

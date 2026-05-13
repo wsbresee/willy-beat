@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Afro-Cuban 6/8
+genres:  Afro-Cuban, 6/8, Latin, Folkloric, Bembe, Percussion
+type:    Regular
+timesig: 6/8
+bars:    1
+grid:    16th
+density: 0.1417
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 72=100, 144=100, 216=100
+snare   
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim      0=100, 72=100, 120=100, 144=100, 192=100, 216=100, 264=100

@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Jazz Bossa
+genres:  Jazz, Bossa, Brazilian, Latin Jazz, Smooth, Acoustic
+type:    Regular
+timesig: 4/4
+bars:    1
+grid:    16th
+density: 0.1125
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 96=100, 168=100, 192=100, 264=100, 336=100
+snare   
+hihat_c 
+hihat_o 
+ride     0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim      48=80, 144=80, 216=80, 288=80

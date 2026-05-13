@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Blast Beat
+genres:  Metal, Blast Beat, Extreme, Death, Black, Grindcore, Fast
+type:    Regular
+timesig: 4/4
+bars:    1
+grid:    32nd
+density: 0.3000
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 24=100, 48=100, 72=100, 96=100, 120=100, 144=100, 168=100, 192=100, 216=100, 240=100, 264=100, 288=100, 312=100, 336=100, 360=100
+snare    12=100, 36=100, 60=100, 84=100, 108=100, 132=100, 156=100, 180=100, 204=100, 228=100, 252=100, 276=100, 300=100, 324=100, 348=100, 372=100
+hihat_c  0=100, 24=100, 48=100, 72=100, 96=100, 120=100, 144=100, 168=100, 192=100, 216=100, 240=100, 264=100, 288=100, 312=100, 336=100, 360=100
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

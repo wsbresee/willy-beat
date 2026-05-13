@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Deep House
+genres:  House, Deep House, Club, Smooth, Underground, Late Night
+type:    Regular
+timesig: 4/4
+bars:    1
+grid:    16th
+density: 0.0875
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 96=100, 192=100, 288=100
+snare    96=55, 288=55
+hihat_c  48=80, 144=80, 240=80, 336=80
+hihat_o  48=100, 144=100, 240=100, 336=100
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

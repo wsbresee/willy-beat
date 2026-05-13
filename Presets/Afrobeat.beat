@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Afrobeat
+genres:  Afrobeat, African, Fela-Adjacent, Percussion, Nigerian, Polyrhythm
+type:    Regular
+timesig: 4/4
+bars:    1
+grid:    16th
+density: 0.1875
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 72=100, 120=100, 192=100, 264=100, 312=100
+snare    96=80, 168=80, 288=80, 360=80
+hihat_c  0=80, 48=80, 72=25, 96=80, 144=80, 168=25, 192=80, 240=80, 264=25, 288=80, 336=80, 360=25
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim      0=25, 48=25, 96=25, 144=25, 192=25, 240=25, 288=25, 336=25

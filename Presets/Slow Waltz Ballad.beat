@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Slow Waltz Ballad
+genres:  Waltz, Ballad, 3/4, Slow, Romantic, Smooth
+type:    Regular
+timesig: 3/4
+bars:    1
+grid:    16th
+density: 0.0667
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100
+snare    96=55
+hihat_c 
+hihat_o 
+ride     0=80, 48=80, 96=80, 144=80, 192=80, 240=80
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

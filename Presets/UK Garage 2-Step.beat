@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    UK Garage 2-Step
+genres:  UK Garage, 2-Step, Skippy, Syncopated, Bass, Underground, London
+type:    Regular
+timesig: 4/4
+bars:    1
+grid:    16th
+density: 0.1062
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 144=100, 264=100, 312=100
+snare    96=120, 240=120
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+hihat_o  48=100, 192=100, 336=100
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

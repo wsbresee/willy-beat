@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Jazz Waltz
+genres:  Jazz, Waltz, 3/4, Triplet, Acoustic, Lyrical
+type:    Regular
+timesig: 3/4
+bars:    1
+grid:    8tr
+density: 0.0750
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100
+snare    96=25, 192=25
+hihat_c 
+hihat_o 
+ride     0=80, 64=80, 96=80, 160=80, 192=80, 256=80
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

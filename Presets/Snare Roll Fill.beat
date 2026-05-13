@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Snare Roll Fill
+genres:  Fill, Snare Roll, Build, Transition, Rock
+type:    Sm. Fill
+timesig: 4/4
+bars:    1
+grid:    32nd
+density: 0.1062
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100
+snare    192=80, 204=80, 216=80, 228=80, 240=100, 252=100, 264=100, 276=100, 288=120, 300=120, 312=120, 324=120, 336=100, 348=100, 360=100, 372=100
+hihat_c 
+hihat_o 
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     

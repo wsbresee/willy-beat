@@ -1,0 +1,21 @@
+# WillyBeat Preset v2
+version: 2
+name:    Tech House
+genres:  House, Tech House, Club, Underground, Driving, Minimal
+type:    Regular
+timesig: 4/4
+bars:    1
+grid:    16th
+density: 0.1125
+
+# Hits per track as "tick=velocity" pairs. PPQN = 96.
+kick     0=100, 96=100, 192=100, 288=100
+snare    96=80, 288=80
+hihat_c  0=80, 48=80, 96=80, 144=80, 192=80, 240=80, 288=80, 336=80
+hihat_o  48=100, 144=100, 240=100, 336=100
+ride    
+crash   
+tom_h   
+tom_m   
+tom_l   
+rim     
