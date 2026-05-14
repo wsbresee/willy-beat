@@ -148,7 +148,8 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
                                       juce::int64  seed,
                                       float        humanize,
                                       float        swing,
-                                      float        feel)
+                                      float        feel,
+                                      float        durationPct)
 {
     // Internal MIDI file resolution: keep PPQN-style numbers (120 PPQN
     // tradition for SMFs) but our pattern data is at PPQN=96. We render
@@ -164,7 +165,9 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
     const double     swingUnitMidiTks  = (double) MIDI_TICKS_PER_STEP * (double) swingPeriodCells / 2.0;
     const double     swingTicks        = swing / 100.0 * swingUnitMidiTks * 0.5;
     const double     maxFeelTicks = feel  / 100.0 * MIDI_TICKS_PER_STEP * 0.08;
-    const double     gateFrac     = 0.80;
+    // Duration knob is 10-100% of a step; mirror processBlock's gatePct so
+    // exported MIDI note-offs match what the in-plugin preview produces.
+    const double     gateFrac     = juce::jlimit (0.1, 1.0, (double) durationPct / 100.0);
     const double     subStepScale = (double) MIDI_TICKS_PER_STEP / (double) PATTERN_TICKS_PER_STEP;
 
     const juce::int64 usedSeed = (seed < 0)
@@ -236,7 +239,7 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
             else if (inMidFill)
                 srcStep = globalStep % fillSteps;                                  // matching position
             else
-                srcStep = col;                                                     // main loop
+                srcStep = globalStep;                                              // main loop — multi-bar patterns play full content, not bar 0 on repeat
             srcStep = juce::jlimit (0, juce::jmax (1, src.numSteps) - 1, srcStep);
 
             const bool swung = (col % swingPeriodCells == swingTriggerCol);
@@ -629,6 +632,14 @@ static void setHitAtCell (DrumPattern& p, int track, int cellIdx, int cellTicks,
 
 void PatternGrid::mouseDown (const juce::MouseEvent& e)
 {
+    {
+        auto lf = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                      .getChildFile ("WillyBeat/grid_debug.log");
+        lf.getParentDirectory().createDirectory();
+        lf.appendText ("mouseDown x=" + juce::String(e.x) + " y=" + juce::String(e.y)
+                       + " editTarget=" + (editTarget != nullptr ? "ok" : "NULL")
+                       + " bounds=" + juce::String(getWidth()) + "x" + juce::String(getHeight()) + "\n");
+    }
     if (editTarget == nullptr) return;
     const Layout L = computeLayout (*editTarget);
     int row = -1, col = -1;
@@ -838,7 +849,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     tagInput.setColour (juce::TextEditor::outlineColourId,        WillyBeatLookAndFeel::border);
     tagInput.setColour (juce::TextEditor::focusedOutlineColourId, WillyBeatLookAndFeel::accent);
     tagInput.setColour (juce::TextEditor::textColourId,           WillyBeatLookAndFeel::textPrimary);
-    tagInput.setIndents (8, 0);
+    tagInput.setIndents (8, 5);
     tagInput.setTooltip ("Type a genre or style and press Enter (or Generate) to create a matching pattern.");
     tagInput.onReturnKey = [this] { genBtn.triggerClick(); };
     tagInput.onEscapeKey = [this] { tagInput.clear(); };
@@ -850,10 +861,20 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     patIdxSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, true, 96, 22);
     patIdxSlider.textFromValueFunction = [this] (double v) -> juce::String
     {
+        // Mirror selectPattern's slot filter so the slider's displayed name
+        // matches the pattern the processor actually plays at this index.
+        // Without this, a Fill landing in an early slot in library.all()
+        // shifts every subsequent name off by one relative to playback.
         const auto& pats = audioProcessor.getLibrary().all();
-        int idx = juce::jlimit (0, (int) pats.size() - 1, (int) std::round (v));
-        if (! pats.empty()) return pats[(size_t) idx].name;
-        return {};
+        if (pats.empty()) return {};
+        std::vector<const DrumPattern*> slots;
+        for (const auto& p : pats)
+            if (p.type == PatType::Regular || p.type == PatType::Variance)
+                slots.push_back (&p);
+        if (slots.empty())
+            for (const auto& p : pats) slots.push_back (&p);
+        const int idx = juce::jlimit (0, (int) slots.size() - 1, (int) std::round (v));
+        return slots[(size_t) idx]->name;
     };
     patIdxSlider.valueFromTextFunction = [] (const juce::String&) -> double { return 0.0; };
     patIdxSlider.setTooltip ("Step through saved patterns. Generate appends a new pattern at the end - go back one slot to see your previous generation.");
@@ -910,6 +931,10 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
             // Exact pattern-name match → navigate instead of generating.
             if (audioProcessor.navigateToPatternByName (query))
             {
+                // We only generate-or-navigate, never both. Cancel the
+                // pending shape capture so the timer doesn't reshape the
+                // pattern we just navigated to.
+                pendingGenerate = false;
                 refreshTagSelector();
                 return;
             }
@@ -1200,10 +1225,11 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         float humanize = audioProcessor.apvts.getRawParameterValue ("dynamics")->load();
         float swing    = audioProcessor.apvts.getRawParameterValue ("swing")->load();
         float feel     = audioProcessor.apvts.getRawParameterValue ("slop")->load();
+        float duration = audioProcessor.apvts.getRawParameterValue ("duration")->load();
 
         return writePatternToMidi (editingCopy, fillPtr, numBars,
                                    fillStart, fillMid, fillEnd,
-                                   seed, humanize, swing, feel);
+                                   seed, humanize, swing, feel, duration);
     };
     dragStrip.setTooltip ("Drag this strip into your DAW's MIDI track to drop the current pattern. Honours bar count, fills, density, and re-rolls humanize/swing/feel placement on every drag.");
 

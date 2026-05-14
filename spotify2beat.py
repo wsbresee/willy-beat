@@ -347,7 +347,7 @@ examples:
         print_preview(result)
 
         name      = chosen["name"]
-        beat_text = format_beat(name, genre_tags, "Regular", result["pattern"])
+        beat_text = format_beat(name, genre_tags, "Regular", result["velocities"])
 
         if args.print:
             print(beat_text)

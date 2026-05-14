@@ -80,13 +80,15 @@ EXPANSIONS: dict[str, list[str]] = {
     "Pop Rock":     ["Rock", "Pop", "Catchy", "Mainstream"],
     "Surf Rock":    ["Rock", "60s", "Beach", "Retro"],
     "Grunge":       ["Rock", "Alternative", "90s", "Raw", "Heavy"],
-    "Alternative":  ["Rock", "Indie", "90s"],
+    "Alternative":  ["Rock", "Indie", "90s", "Underground"],
     "Post-Rock":    ["Rock", "Atmospheric", "Cinematic", "Instrumental"],
     "Post-Punk":    ["Punk", "Rock", "New Wave", "Dark", "80s"],
     "Post-Hardcore": ["Hardcore", "Punk", "Heavy", "Aggressive"],
     "Math Rock":    ["Rock", "Progressive", "Complex", "Odd Time"],
     "Punk":         ["Rock", "Fast", "Raw", "Aggressive", "DIY"],
-    "Hardcore":     ["Punk", "Aggressive", "Fast", "Heavy"],
+    # "Hardcore" is polysemous (punk and electronic gabber/hardstyle); union
+    # both senses' tags so search hits patterns tagged with either meaning.
+    "Hardcore":     ["Punk", "Aggressive", "Fast", "Heavy", "Electronic", "Dance"],
     "Skate Punk":   ["Punk", "Fast", "90s"],
     "Pop Punk":     ["Punk", "Pop", "Fast", "Catchy", "2000s"],
     "Emo":          ["Rock", "Punk", "Sad", "Emotional"],
@@ -104,7 +106,6 @@ EXPANSIONS: dict[str, list[str]] = {
     "K-Pop":        ["Pop", "Korean", "Modern", "Dance"],
     "City Pop":     ["Pop", "80s", "Japanese", "Smooth", "Retro"],
     "Boy Band":     ["Pop", "Vocal", "Mainstream"],
-    "Pop Punk":     ["Pop", "Punk", "Catchy", "Fast"],
     "Tropical House": ["Pop", "House", "Electronic", "Summer", "Chill"],
     "Dream Pop":    ["Pop", "Atmospheric", "Dreamy", "Mellow"],
 
@@ -119,7 +120,6 @@ EXPANSIONS: dict[str, list[str]] = {
     "Techno":       ["Electronic", "Dance", "Club", "Underground", "Driving"],
     "Detroit Techno": ["Techno", "Electronic", "Dance", "Underground"],
     "Hardstyle":    ["Electronic", "Dance", "Aggressive", "Hard", "Fast"],
-    "Hardcore":     ["Electronic", "Dance", "Fast", "Aggressive"],
     "Gabber":       ["Electronic", "Hardcore", "Dance", "Fast", "Aggressive"],
     "EBM":          ["Electronic", "Industrial", "Dark", "Driving"],
     "Industrial":   ["Electronic", "Dark", "Mechanical", "Aggressive"],
@@ -214,7 +214,6 @@ EXPANSIONS: dict[str, list[str]] = {
     "Lo-fi":        ["Lofi", "Chill", "Mellow", "Underground"],
     "Trip-Hop":     ["Hip-Hop", "Electronic", "Atmospheric", "Mellow", "90s", "Bristol"],
     "Indie":        ["Alternative", "Underground", "Independent"],
-    "Alternative":  ["Indie", "Underground"],
     "Experimental": ["Avant-garde", "Underground", "Modern"],
     "Classic":      ["Iconic", "Influential", "Canon"],
 

@@ -515,8 +515,12 @@ void WillyBeatAudioProcessor::generateVariation()
 
 bool WillyBeatAudioProcessor::navigateToPatternByName (const juce::String& name)
 {
+    // Only Regular/Variance patterns appear in the slot list that patIdx
+    // indexes into (see selectPattern); matching a Fill here would return
+    // true but actually land the engine on slot 0 of an unrelated pattern.
     for (const auto& pat : library.all())
     {
+        if (pat.type != PatType::Regular && pat.type != PatType::Variance) continue;
         if (pat.name.equalsIgnoreCase (name))
         {
             apvts.removeParameterListener ("patIdx", this);

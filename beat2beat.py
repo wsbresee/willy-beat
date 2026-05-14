@@ -50,6 +50,10 @@ MAX_STEPS  = 16
 
 PAT_TYPES = ["Regular", "Variance", "Sm. Fill", "Big Fill"]
 
+# v2 file format constants. PPQN = 96; a 4/4 bar of 16ths is 16 steps × 24 ticks.
+PPQN = 96
+TICKS_PER_STEP = (PPQN * 4) // MAX_STEPS   # = 24
+
 
 # ─── Spectral helpers ─────────────────────────────────────────────────────────
 
@@ -309,23 +313,39 @@ def transcribe(
 # ─── .beat file writer ────────────────────────────────────────────────────────
 
 def format_beat(name: str, genres: str | list, pat_type: str,
-                pattern: list) -> str:
-    """genres may be a comma-separated string or a list of tag strings."""
+                velocities: list) -> str:
+    """Emit a v2 .beat file from a 10×16 velocity grid (each cell 0-127).
+
+    genres may be a comma-separated string or a list of tag strings.
+    The transcription always produces a single 4/4 bar of 16ths, so timesig,
+    bars, and grid are fixed.
+    """
     if isinstance(genres, list):
         genres_str = ", ".join(g.strip() for g in genres if g.strip())
     else:
         genres_str = genres
+
+    active = sum(1 for row in velocities for v in row if v > 0)
+    density = active / (NUM_TRACKS * MAX_STEPS)
+
     lines = [
-        "# WillyBeat Preset",
+        "# WillyBeat Preset v2",
+        "version: 2",
         f"name:    {name}",
         f"genres:  {genres_str}",
         f"type:    {pat_type}",
+        "timesig: 4/4",
+        "bars:    1",
+        "grid:    16th",
+        f"density: {density:.4f}",
         "",
-        "# velocity codes:  . off   g ghost(25)   s soft(55)"
-        "   m medium(80)   h hard(100)   a accent(120)",
+        '# Hits per track as "tick=velocity" pairs. PPQN = 96.',
     ]
     for ti, key in enumerate(TRACK_KEYS):
-        lines.append(f"{key.ljust(8)}{pattern[ti]}")
+        pairs = [f"{step * TICKS_PER_STEP}={velocities[ti][step]}"
+                 for step in range(MAX_STEPS) if velocities[ti][step] > 0]
+        prefix = key.ljust(8)
+        lines.append(f"{prefix} {', '.join(pairs)}" if pairs else prefix)
     return '\n'.join(lines) + '\n'
 
 
@@ -406,7 +426,7 @@ examples:
 
     print_preview(result)
 
-    beat_text = format_beat(name, args.genre, args.pat_type, result["pattern"])
+    beat_text = format_beat(name, args.genre, args.pat_type, result["velocities"])
 
     if args.print:
         print(beat_text)

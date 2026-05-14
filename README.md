@@ -18,7 +18,7 @@ cmake --build build --target WillyBeat_VST3 WillyBeat_AU
 - VST3 → `~/Library/Audio/Plug-Ins/VST3/WillyBeat.vst3`
 - AU → `~/Library/Audio/Plug-Ins/Components/WillyBeat.component`
 
-The plugin reads its preset library from `~/Library/Application Support/WillyBeat/Presets/`. Install the bundled library with:
+The plugin reads its preset library from `~/Library/WillyBeat/Presets/`. Install the bundled library with:
 
 ```bash
 ./install_presets.sh           # copy any missing presets, skip existing
@@ -26,6 +26,8 @@ The plugin reads its preset library from `~/Library/Application Support/WillyBea
 ```
 
 New patterns and edits save back to that folder.
+
+> **Note:** `juce::File::userApplicationDataDirectory` resolves to `~/Library` on macOS, so the runtime path is `~/Library/WillyBeat/Presets/` rather than the `~/Library/Application Support/` convention. Both directories may exist on your machine; the engine only reads from `~/Library/WillyBeat/Presets/`.
 
 ---
 
@@ -88,7 +90,7 @@ If you'd rather route MIDI live, leave WillyBeat as a MIDI source and the downst
 
 ## Pattern library
 
-Patterns live as plain-text `.beat` files in `~/Library/Application Support/WillyBeat/Presets/`. The v2 format is self-describing:
+Patterns live as plain-text `.beat` files in `~/Library/WillyBeat/Presets/`. The v2 format is self-describing:
 
 ```
 # WillyBeat Preset v2

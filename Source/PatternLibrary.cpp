@@ -45,7 +45,7 @@ namespace
         { "Dubstep", "Brostep", "Wonky", "Future Garage", "Bassline",
           "Glitch Hop" },
         // Big Beat / Breaks
-        { "Big Beat", "Breakbeat", "Breaks", "Breakbeat" },
+        { "Big Beat", "Breakbeat", "Breaks" },
         // IDM / experimental
         { "IDM", "Glitch", "Glitch Hop", "Ambient", "Ambient Techno",
           "Drone", "Industrial", "Experimental", "Avant Pop" },

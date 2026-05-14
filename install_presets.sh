@@ -12,7 +12,7 @@ if [[ "${1:-}" == "--force" ]]; then
 fi
 
 src="$(cd "$(dirname "$0")" && pwd)/Presets"
-dst="$HOME/Library/Application Support/WillyBeat/Presets"
+dst="$HOME/Library/WillyBeat/Presets"
 
 if [[ ! -d "$src" ]]; then
     echo "error: $src does not exist" >&2

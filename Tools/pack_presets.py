@@ -34,7 +34,9 @@ def main():
         name = os.path.splitext(fname)[0].encode("utf-8")
         entries.append((name, data))
 
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    out_dir = os.path.dirname(out_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
 
     with open(out_path, "wb") as f:
         f.write(struct.pack("<IIII", 0x50425442, 1, len(entries), 0))  # magic, ver, count, pad
