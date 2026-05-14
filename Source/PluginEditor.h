@@ -144,6 +144,10 @@ public:
     // Fired after a cell edit; passes the track and tick that changed.
     std::function<void(int track, int tick)> onHitChanged;
 
+    // Fired before the first edit within a single mouse-down gesture,
+    // giving the owner a chance to snapshot state for undo.
+    std::function<void()> onBeforeEdit;
+
 private:
     struct Layout;
     Layout computeLayout (const DrumPattern& pat) const;
@@ -215,9 +219,11 @@ public:
     explicit WillyBeatAudioProcessorEditor (WillyBeatAudioProcessor&);
     ~WillyBeatAudioProcessorEditor() override;
 
-    void paint   (juce::Graphics&) override;
-    void resized ()                override;
-    void timerCallback()           override;
+    void paint               (juce::Graphics&)          override;
+    void resized             ()                          override;
+    void timerCallback       ()                          override;
+    bool keyPressed          (const juce::KeyPress& key) override;
+    void mouseDoubleClick    (const juce::MouseEvent& e) override;
 
     // FileDragAndDropTarget
     bool isInterestedInFileDrag (const juce::StringArray& files) override;
@@ -328,6 +334,17 @@ private:
     // Used to mirror DAW time-sig changes into the active pattern.
     int lastHostTsNum = 0;
     int lastHostTsDen = 0;
+
+    // Undo history for grid edits (Cmd+Z). Stores fullPattern snapshots taken
+    // before each mouse-down gesture, oldest first.
+    std::deque<DrumPattern> undoHistory;
+    static constexpr int    kMaxUndoDepth = 32;
+
+    void undoLastGridEdit();
+    void renameCurrentPattern (const juce::String& newName);
+
+    // Set true when genBtn fires, cleared when the new pattern is detected.
+    bool isGenerating = false;
 
     // Set by genBtn.onClick to apply the current UI time-sig/bars/grid to
     // the newly-generated pattern instead of letting syncShapeCombos reset them.

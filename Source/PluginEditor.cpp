@@ -579,6 +579,23 @@ void PatternGrid::paint (juce::Graphics& g)
         g.drawHorizontalLine ((int) ((float) row * L.cellH),
                               0.0f, (float) bounds.getWidth());
 
+    // Empty-grid hint: shown only when every track has no hits and the grid
+    // is in edit mode (editTarget != nullptr).
+    if (editTarget != nullptr)
+    {
+        bool anyHit = false;
+        for (int r = 0; r < NUM_TRACKS && !anyHit; ++r)
+            anyHit = !displayPat->hits[r].empty();
+
+        if (!anyHit)
+        {
+            g.setFont (juce::Font (juce::FontOptions{}.withHeight (11.5f)));
+            g.setColour (WillyBeatLookAndFeel::textMuted.withAlpha (0.38f));
+            g.drawText ("Click a cell to draw hits  ·  or press Generate",
+                        bounds, juce::Justification::centred, false);
+        }
+    }
+
     // Velocity badge.
     if (badgeRow >= 0 && badgeCol >= 0 && badgeVel > 0 && badgeAlpha > 0.001f
         && badgeCol < L.numCells)
@@ -634,18 +651,12 @@ static void setHitAtCell (DrumPattern& p, int track, int cellIdx, int cellTicks,
 
 void PatternGrid::mouseDown (const juce::MouseEvent& e)
 {
-    {
-        auto lf = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                      .getChildFile ("WillyBeat/grid_debug.log");
-        lf.getParentDirectory().createDirectory();
-        lf.appendText ("mouseDown x=" + juce::String(e.x) + " y=" + juce::String(e.y)
-                       + " editTarget=" + (editTarget != nullptr ? "ok" : "NULL")
-                       + " bounds=" + juce::String(getWidth()) + "x" + juce::String(getHeight()) + "\n");
-    }
     if (editTarget == nullptr) return;
     const Layout L = computeLayout (*editTarget);
     int row = -1, col = -1;
     if (! cellAt (e.x, e.y, row, col, L)) return;
+
+    if (onBeforeEdit) onBeforeEdit();
 
     const auto* h = hitInCell (*editTarget, row, col, L.cellTicks);
     const uint8_t curVel = (h != nullptr) ? h->velocity : 0;
@@ -972,6 +983,9 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
             audioProcessor.generateComposite();
         }
 
+        isGenerating = true;
+        genBtn.setButtonText ("...");
+        genBtn.setEnabled (false);
         refreshTagSelector();
     };
     genBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::accent);
@@ -1236,7 +1250,16 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     dragStrip.setTooltip ("Drag this strip into your DAW's MIDI track to drop the current pattern. Honours bar count, fills, density, and re-rolls humanize/swing/feel placement on every drag.");
 
     // ── Grid — always in edit mode ────────────────────────────────────────
-    grid.onHitChanged = [this] (int t, int tick) { autoSaveCurrentEditAtTick (t, tick); };
+    grid.onHitChanged  = [this] (int t, int tick) { autoSaveCurrentEditAtTick (t, tick); };
+    grid.onBeforeEdit  = [this]
+    {
+        if ((int) undoHistory.size() >= kMaxUndoDepth)
+            undoHistory.pop_front();
+        undoHistory.push_back (fullPattern);
+    };
+
+    setWantsKeyboardFocus (true);
+    patIdxSlider.addMouseListener (this, false);
 
     // ── Initialise full + filtered patterns from the active pattern ───────
     // Tags are intentionally NOT pulled from the initial pattern here: a
@@ -1353,6 +1376,15 @@ void WillyBeatAudioProcessorEditor::timerCallback()
     if (pat != lastKnownPattern)
     {
         lastKnownPattern = pat;
+        undoHistory.clear();
+
+        if (isGenerating)
+        {
+            isGenerating = false;
+            genBtn.setButtonText ("GENERATE");
+            genBtn.setEnabled (true);
+        }
+
         if (pat != nullptr)
         {
             fullPattern = pat->sourceFile.existsAsFile()
@@ -1825,19 +1857,6 @@ static bool looksLikeStandardMidi (const juce::File& f)
     return hdr[0] == 'M' && hdr[1] == 'T' && hdr[2] == 'h' && hdr[3] == 'd';
 }
 
-static void logDragEvent (const juce::String& label, const juce::StringArray& files)
-{
-    auto logFile = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                       .getChildFile ("WillyBeat/drag.log");
-    logFile.getParentDirectory().createDirectory();
-    juce::String line;
-    line << juce::Time::getCurrentTime().toString (true, true, true, true)
-         << "  " << label << "  files=" << files.size();
-    for (auto& f : files) line << "\n    " << f;
-    line << "\n";
-    logFile.appendText (line);
-}
-
 bool WillyBeatAudioProcessorEditor::isInterestedInFileDrag (const juce::StringArray& files)
 {
     // Be permissive at this stage — we'll validate the SMF header at drop
@@ -1847,7 +1866,6 @@ bool WillyBeatAudioProcessorEditor::isInterestedInFileDrag (const juce::StringAr
 
 void WillyBeatAudioProcessorEditor::fileDragEnter (const juce::StringArray& files, int, int)
 {
-    logDragEvent ("enter", files);
     if (isInterestedInFileDrag (files))
     {
         midiDragHovered = true;
@@ -1855,16 +1873,14 @@ void WillyBeatAudioProcessorEditor::fileDragEnter (const juce::StringArray& file
     }
 }
 
-void WillyBeatAudioProcessorEditor::fileDragExit (const juce::StringArray& files)
+void WillyBeatAudioProcessorEditor::fileDragExit (const juce::StringArray&)
 {
-    logDragEvent ("exit", files);
     midiDragHovered = false;
     repaint();
 }
 
 void WillyBeatAudioProcessorEditor::filesDropped (const juce::StringArray& files, int, int)
 {
-    logDragEvent ("drop", files);
     midiDragHovered = false;
     repaint();
 
@@ -2104,4 +2120,93 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     fillEndLabel  .setText (compactMode ? "FILL END"   : "END",   juce::dontSendNotification);
 
     setSize (760, compactMode ? 174 : 640);
+}
+
+//==============================================================================
+// Keyboard shortcuts
+//==============================================================================
+
+bool WillyBeatAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
+{
+    const bool cmdZ = key == juce::KeyPress ('z', juce::ModifierKeys::commandModifier, 0);
+    if (cmdZ)
+    {
+        undoLastGridEdit();
+        return true;
+    }
+    return false;
+}
+
+void WillyBeatAudioProcessorEditor::undoLastGridEdit()
+{
+    if (undoHistory.empty()) return;
+
+    fullPattern = undoHistory.back();
+    undoHistory.pop_back();
+
+    editingCopy = fullPattern;
+    applyDensityToEditingCopy();
+    audioProcessor.getLibrary().updatePattern (editingCopy);
+    audioProcessor.autoSavePattern (fullPattern);
+    grid.repaint();
+    miniGrid.repaint();
+}
+
+//==============================================================================
+// Pattern rename (double-click on the pattern-index slider label)
+//==============================================================================
+
+void WillyBeatAudioProcessorEditor::mouseDoubleClick (const juce::MouseEvent& e)
+{
+    if (e.originalComponent == &patIdxSlider)
+    {
+        const juce::String current = editingCopy.name.isEmpty() ? "Custom Pattern"
+                                                                 : editingCopy.name;
+        auto* dlg = new juce::AlertWindow ("Rename Pattern",
+                                           "Enter a new name for this pattern:",
+                                           juce::AlertWindow::NoIcon, this);
+        dlg->addTextEditor ("name", current);
+        dlg->addButton ("OK",     1, juce::KeyPress (juce::KeyPress::returnKey));
+        dlg->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+        dlg->enterModalState (true,
+            juce::ModalCallbackFunction::create ([this, dlg] (int result)
+            {
+                if (result == 1)
+                {
+                    const juce::String newName = dlg->getTextEditorContents ("name").trim();
+                    if (newName.isNotEmpty())
+                        renameCurrentPattern (newName);
+                }
+                delete dlg;
+            }), true);
+    }
+}
+
+void WillyBeatAudioProcessorEditor::renameCurrentPattern (const juce::String& newName)
+{
+    if (newName.isEmpty()) return;
+
+    const juce::String oldName = editingCopy.name;
+    editingCopy.name  = newName;
+    fullPattern.name  = newName;
+
+    // Rename the backing file if it exists, keeping the same directory.
+    if (fullPattern.sourceFile.existsAsFile())
+    {
+        const juce::File newFile = fullPattern.sourceFile.getSiblingFile (newName + ".beat");
+        if (newFile != fullPattern.sourceFile)
+        {
+            fullPattern.sourceFile.moveFileTo (newFile);
+            fullPattern.sourceFile  = newFile;
+            editingCopy.sourceFile  = newFile;
+        }
+    }
+
+    audioProcessor.autoSavePattern (fullPattern);
+    audioProcessor.getLibrary().updatePattern (editingCopy);
+
+    // Refresh the slider label to show the new name.
+    patIdxSlider.repaint();
+    juce::ignoreUnused (oldName);
 }
