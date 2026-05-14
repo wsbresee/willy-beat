@@ -30,6 +30,8 @@ public:
     void drawTooltip (juce::Graphics&, const juce::String& text,
                       int width, int height) override;
 
+    int  getPopupMenuItemHeight() { return 26; }
+
     juce::Font getTextButtonFont (juce::TextButton&, int) override;
     juce::Font getComboBoxFont   (juce::ComboBox&)         override;
     juce::Font getPopupMenuFont()                          override;

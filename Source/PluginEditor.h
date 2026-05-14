@@ -291,8 +291,8 @@ private:
     MiniPatternView miniGrid;
 
     // ── Pattern selector row ─────────────────────────────────────────────
-    juce::Label    genreLabel   { {}, "Tags" };
-    juce::Label    patLabel     { {}, "Pattern" };
+    juce::Label    genreLabel   { {}, "TAGS" };
+    juce::Label    patLabel     { {}, "PATTERN" };
 
     TagChipBar     tagBar;
     juce::Slider   patIdxSlider;
@@ -309,11 +309,11 @@ private:
     std::unique_ptr<BA> soundAttach;
 
     // ── Knob row ─────────────────────────────────────────────────────────
-    KnobLabel  gateLabel      { {}, "Duration" };
-    KnobLabel  humanizeLabel  { {}, "Dynamics" };
-    KnobLabel  swingLabel     { {}, "Swing" };
-    KnobLabel  feelLabel      { {}, "Slop" };
-    KnobLabel  densityLabel   { {}, "Density" };
+    KnobLabel  gateLabel      { {}, "DURATION" };
+    KnobLabel  humanizeLabel  { {}, "DYNAMICS" };
+    KnobLabel  swingLabel     { {}, "SWING" };
+    KnobLabel  feelLabel      { {}, "SLOP" };
+    KnobLabel  densityLabel   { {}, "DENSITY" };
 
     juce::Slider gateKnob;
     juce::Slider humanizeKnob;
@@ -328,26 +328,26 @@ private:
     std::unique_ptr<SA>  densityAttach;
 
     // ── Pattern shape + export controls ─────────────────────────────────
-    juce::Label      timeSigLabel { {}, "Time" };
+    juce::Label      timeSigLabel { {}, "TIME" };
     juce::ComboBox   timeSigBox;
 
-    juce::Label      barsLabel    { {}, "Bars" };
+    juce::Label      barsLabel    { {}, "BARS" };
     juce::ComboBox   barsBox;
 
-    juce::Label      gridLabel    { {}, "Grid" };
+    juce::Label      gridLabel    { {}, "GRID" };
     juce::ComboBox   gridBox;
 
-    juce::Label      humanizeSectionLabel { {}, "Humanize" };
-    juce::Label      fillSectionLabel     { {}, "Fill" };
-    KnobLabel        fillStartLabel  { {}, "Start" };
+    juce::Label      humanizeSectionLabel { {}, "HUMANIZE" };
+    juce::Label      fillSectionLabel     { {}, "FILL" };
+    KnobLabel        fillStartLabel  { {}, "START" };
     SlowScrollSlider fillStartKnob;
     std::unique_ptr<SA> fillStartAttach;
 
-    KnobLabel        fillMidLabel    { {}, "Mid" };
+    KnobLabel        fillMidLabel    { {}, "MID" };
     SlowScrollSlider fillMidKnob;
     std::unique_ptr<SA> fillMidAttach;
 
-    KnobLabel        fillEndLabel    { {}, "End" };
+    KnobLabel        fillEndLabel    { {}, "END" };
     SlowScrollSlider fillEndKnob;
     std::unique_ptr<SA> fillEndAttach;
 
@@ -372,6 +372,7 @@ private:
 
     bool compactMode = false;
     bool midiDragHovered = false;
+    int  rowSepY = 0;   // y-position of the hairline between rowA and knobs
 
     juce::StringArray lastKnownTags;
 

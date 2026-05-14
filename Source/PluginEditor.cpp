@@ -503,19 +503,20 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
 
 void DragStrip::paint (juce::Graphics& g)
 {
-    // Match the Generate button: accent-filled idle, brighter on hover.
-    auto b = getLocalBounds().toFloat().reduced (1.0f);
+    auto b = getLocalBounds().toFloat().reduced (0.5f);
 
-    g.setColour (hovered ? WillyBeatLookAndFeel::accentBright
-                         : WillyBeatLookAndFeel::accent);
-    g.fillRoundedRectangle (b, 4.0f);
+    g.setColour (hovered ? WillyBeatLookAndFeel::bgRaised.brighter (0.10f)
+                         : WillyBeatLookAndFeel::bgRaised);
+    g.fillRoundedRectangle (b, 6.0f);
 
-    g.setColour (juce::Colours::white);
-    g.setFont (juce::Font (juce::FontOptions{}
-                              .withHeight (13.0f)
-                              .withStyle ("Bold")));
-    g.drawText ("Drag to DAW",
-                getLocalBounds(), juce::Justification::centred, false);
+    g.setColour (hovered ? WillyBeatLookAndFeel::accentSoft
+                         : WillyBeatLookAndFeel::borderBright.withAlpha (0.35f));
+    g.drawRoundedRectangle (b, 6.0f, 1.0f);
+
+    g.setColour (hovered ? WillyBeatLookAndFeel::textPrimary
+                         : WillyBeatLookAndFeel::textSecondary);
+    g.setFont (juce::Font (juce::FontOptions{}.withHeight (10.0f)));
+    g.drawText ("DRAG TO DAW", getLocalBounds(), juce::Justification::centred, false);
 }
 
 void DragStrip::mouseEnter (const juce::MouseEvent&) { hovered = true;  repaint(); }
@@ -1146,8 +1147,8 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     auto labelStyle = [] (juce::Label* lbl)
     {
-        lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (14.0f)));
-        lbl->setColour (juce::Label::textColourId, juce::Colour (0xffaaaacc));
+        lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (10.0f)));
+        lbl->setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textMuted);
         lbl->setJustificationType (juce::Justification::centred);
     };
     for (juce::Label* lbl : { (juce::Label*) &genreLabel, (juce::Label*) &patLabel,
@@ -1165,6 +1166,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     };
     genBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::accent);
     genBtn.setColour (juce::TextButton::textColourOffId, juce::Colours::white);
+    genBtn.setButtonText ("GENERATE");
     genBtn.setTooltip ("Generate a brand-new pattern from the selected genre tags. Each click produces a different mix.");
 
     // ── Clear button ──────────────────────────────────────────────────────
@@ -1195,6 +1197,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     };
     clearBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::bgRaised);
     clearBtn.setColour (juce::TextButton::textColourOffId, WillyBeatLookAndFeel::textPrimary);
+    clearBtn.setButtonText ("CLEAR");
     clearBtn.setTooltip ("Clear hits from current pattern.  Shift+Click to delete ALL patterns and start fresh.");
 
     // ── Collapse / expand toggle ──────────────────────────────────────────
@@ -1205,10 +1208,11 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     // ── Internal preview audio toggle ────────────────────────────────────
     soundBtn.setClickingTogglesState (true);
-    soundBtn.setColour (juce::TextButton::buttonColourId,    WillyBeatLookAndFeel::bgPanel);
+    soundBtn.setColour (juce::TextButton::buttonColourId,    WillyBeatLookAndFeel::bgRaised);
     soundBtn.setColour (juce::TextButton::buttonOnColourId,  WillyBeatLookAndFeel::accent);
-    soundBtn.setColour (juce::TextButton::textColourOffId,   WillyBeatLookAndFeel::textPrimary);
+    soundBtn.setColour (juce::TextButton::textColourOffId,   WillyBeatLookAndFeel::textSecondary);
     soundBtn.setColour (juce::TextButton::textColourOnId,    juce::Colours::white);
+    soundBtn.setButtonText ("AUDIO");
     soundBtn.setTooltip ("Internal drum-sound preview. When on, WillyBeat plays simple synthesized drums through its audio output as the DAW transport rolls. Default off so the plugin defers to a downstream sampler.");
     soundAttach = std::make_unique<BA> (p.apvts, "internalSound", soundBtn);
 
@@ -1232,7 +1236,8 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     auto shapeLabelStyle = [] (juce::Label* lbl)
     {
-        lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (13.0f)));
+        lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (10.0f)));
+        lbl->setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textMuted);
         lbl->setJustificationType (juce::Justification::centred);
     };
     shapeLabelStyle (&timeSigLabel);
@@ -1302,7 +1307,8 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     auto fillLabelStyle = [] (juce::Label& l)
     {
-        l.setFont (juce::Font (juce::FontOptions{}.withHeight (13.0f)));
+        l.setFont (juce::Font (juce::FontOptions{}.withHeight (10.0f)));
+        l.setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textMuted);
         l.setJustificationType (juce::Justification::centred);
     };
     fillLabelStyle (fillStartLabel);
@@ -1311,9 +1317,9 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     auto sectionLabelStyle = [] (juce::Label& l)
     {
-        l.setFont (juce::Font (juce::FontOptions{}.withHeight (13.0f)));
+        l.setFont (juce::Font (juce::FontOptions{}.withHeight (8.0f)));
         l.setJustificationType (juce::Justification::centred);
-        l.setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textPrimary);
+        l.setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textMuted.withAlpha (0.65f));
     };
     sectionLabelStyle (humanizeSectionLabel);
     sectionLabelStyle (fillSectionLabel);
@@ -1974,6 +1980,13 @@ void WillyBeatAudioProcessorEditor::paint (juce::Graphics& g)
 
     juce::ignoreUnused (titleArea);
 
+    // Horizontal divider between the tag/generate row and the knob section.
+    if (rowSepY > 0)
+    {
+        g.setColour (WillyBeatLookAndFeel::border.withAlpha (0.45f));
+        g.drawHorizontalLine (rowSepY, 10.0f, (float) getWidth() - 10.0f);
+    }
+
     // Drop-zone overlay while a MIDI file is dragged over the editor.
     if (midiDragHovered)
     {
@@ -2067,7 +2080,7 @@ void WillyBeatAudioProcessorEditor::filesDropped (const juce::StringArray& files
 
 void WillyBeatAudioProcessorEditor::resized()
 {
-    auto area = getLocalBounds().reduced (8);
+    auto area = getLocalBounds().reduced (10, 8);
 
     // ── Title row (h=56 to contain the 48px logo drawn in paint()) ────────
     // Buttons are vertically centred on the hairline (y=27 = logoMargin + logoSize/2).
@@ -2075,42 +2088,42 @@ void WillyBeatAudioProcessorEditor::resized()
         constexpr int lineY = 3 + 48 / 2; // 27 — must match paint()
         auto titleRow    = area.removeFromTop (46);
         auto collapseBox = titleRow.removeFromRight (28);
-        collapseBtn.setBounds (collapseBox.withSizeKeepingCentre (24, 22).withY (lineY - 11));
+        collapseBtn.setBounds (collapseBox.withSizeKeepingCentre (26, 28).withY (lineY - 14));
         titleRow.removeFromRight (4);
         auto soundBox    = titleRow.removeFromRight (72);
-        soundBtn.setBounds (soundBox.withSizeKeepingCentre (68, 22).withY (lineY - 11));
+        soundBtn.setBounds (soundBox.withSizeKeepingCentre (68, 28).withY (lineY - 14));
     }
 
     // ── Row A: genre tags + pat selector + Generate + Drag-to-DAW ────────
-    auto rowA = area.removeFromTop (42);
+    auto rowA = area.removeFromTop (38);
 
     {
-        auto dragCol = rowA.removeFromRight (140);
-        dragStrip.setBounds (dragCol.withHeight (34).withY (rowA.getY() + 4));
-        rowA.removeFromRight (6);
+        auto dragCol = rowA.removeFromRight (132);
+        dragStrip.setBounds (dragCol.withHeight (28).withY (rowA.getY() + 5));
+        rowA.removeFromRight (8);
 
         auto genCol = rowA.removeFromRight (100);
-        genBtn.setBounds (genCol.withHeight (34).withY (rowA.getY() + 4));
-        rowA.removeFromRight (6);
-        auto clearCol = rowA.removeFromRight (68);
-        clearBtn.setBounds (clearCol.withHeight (34).withY (rowA.getY() + 4));
-        rowA.removeFromRight (10);
+        genBtn.setBounds (genCol.withHeight (28).withY (rowA.getY() + 5));
+        rowA.removeFromRight (8);
+        auto clearCol = rowA.removeFromRight (64);
+        clearBtn.setBounds (clearCol.withHeight (28).withY (rowA.getY() + 5));
+        rowA.removeFromRight (8);
     }
 
-    auto tagsArea = rowA.removeFromLeft (260);
-    genreLabel.setBounds (tagsArea.removeFromTop (18));
-    tagBar    .setBounds (tagsArea.removeFromTop (24));
+    auto tagsArea = rowA.removeFromLeft (252);
+    genreLabel.setBounds (tagsArea.removeFromTop (10));
+    tagBar    .setBounds (tagsArea.removeFromTop (26));
     rowA.removeFromLeft (8);
 
     auto patArea = rowA;   // take all remaining space
-    patLabel    .setBounds (patArea.removeFromTop (18));
-    patIdxSlider.setBounds (patArea.removeFromTop (24));
+    patLabel    .setBounds (patArea.removeFromTop (10));
+    patIdxSlider.setBounds (patArea.removeFromTop (26));
 
     // ── Compact mode ──────────────────────────────────────────────────────
     if (compactMode)
     {
-        area.removeFromTop (8);
-        auto miniRow = area.removeFromTop (84);
+        area.removeFromTop (6);
+        auto miniRow = area.removeFromTop (82);
 
         auto fillCol = miniRow.removeFromRight (165);
         {
@@ -2120,7 +2133,7 @@ void WillyBeatAudioProcessorEditor::resized()
             for (int i = 0; i < 3; ++i)
             {
                 auto col = fillCol.removeFromLeft (i < 2 ? colW : fillCol.getWidth());
-                fLabels[i]->setBounds (col.removeFromTop (14));
+                fLabels[i]->setBounds (col.removeFromTop (12));
                 fKnobs[i] ->setBounds (col);
             }
         }
@@ -2140,13 +2153,17 @@ void WillyBeatAudioProcessorEditor::resized()
         for (int i = 0; i < 5; ++i)
         {
             auto col = miniRow.removeFromLeft (i < 4 ? colW : miniRow.getWidth());
-            labels[i]->setBounds (col.removeFromTop (14));
+            labels[i]->setBounds (col.removeFromTop (12));
             knobs[i] ->setBounds (col);
         }
         return;
     }
 
+    // Store separator Y for paint() hairline, then add gap.
     area.removeFromTop (4);
+    rowSepY = area.getY();
+    area.removeFromTop (1);  // separator pixel itself
+    area.removeFromTop (6);  // breathing room below separator
 
     // ── Two staggered rows ────────────────────────────────────────────────
     // Row 1: [Duration] [Swing] [Slop] [Start] [End]
@@ -2154,12 +2171,12 @@ void WillyBeatAudioProcessorEditor::resized()
     //   Each row-2 knob lands at the midpoint of two adjacent row-1 slots:
     //   Dynamics ↔ Swing/Slop  |  Density ↔ Slop/Start  |  Mid ↔ Start/End
     {
-        constexpr int kLabH  = 12;
-        constexpr int kKnobH = 56;
-        constexpr int kRowH  = kLabH + kKnobH;    // 68
-        constexpr int kGapR  = 4;
-        constexpr int kBotY  = kRowH + kGapR;     // 72
-        constexpr int kSecH  = 2 * kRowH + kGapR; // 140
+        constexpr int kLabH  = 10;
+        constexpr int kKnobH = 52;
+        constexpr int kRowH  = kLabH + kKnobH;    // 62
+        constexpr int kGapR  = 8;
+        constexpr int kBotY  = kRowH + kGapR;     // 70
+        constexpr int kSecH  = 2 * kRowH + kGapR; // 132
 
         auto rowB = area.removeFromTop (kSecH);
         const int Y0 = rowB.getY();
@@ -2197,9 +2214,9 @@ void WillyBeatAudioProcessorEditor::resized()
             int cx = X0;
             auto placeCombo = [&] (juce::Label& lbl, juce::ComboBox& box, int w)
             {
-                lbl.setBounds (cx, Y1,      w, 16);
-                box.setBounds (cx, Y1 + 16, w, 24);
-                cx += w + 6;
+                lbl.setBounds (cx, Y1,      w, 10);
+                box.setBounds (cx, Y1 + 10, w, 28);
+                cx += w + 8;
             };
             placeCombo (timeSigLabel, timeSigBox, 50);
             placeCombo (barsLabel,    barsBox,    60);
@@ -2211,9 +2228,9 @@ void WillyBeatAudioProcessorEditor::resized()
         // between adjacent circles is ~92 px. Labels are 84 px wide, centered at
         // the column boundary — fits comfortably inside the gap on both sides.
         {
-            constexpr int secW    = 84;
-            constexpr int secH    = 14;
-            constexpr int liftPx  = 10;
+            constexpr int secW    = 72;
+            constexpr int secH    = 12;
+            constexpr int liftPx  = 8;
             const int cy = Y0 + kLabH + kKnobH / 2 - liftPx;
             humanizeSectionLabel.setBounds (X0 + 2*kW - secW/2, cy - secH/2, secW, secH);
             fillSectionLabel    .setBounds (X0 + 4*kW - secW/2, cy - secH/2, secW, secH);
@@ -2231,14 +2248,14 @@ void WillyBeatAudioProcessorEditor::resized()
 
 juce::String WillyBeatAudioProcessorEditor::knobLabelRestingText (juce::Label* lbl) const
 {
-    if (lbl == &gateLabel)      return "Duration";
-    if (lbl == &humanizeLabel)  return "Dynamics";
-    if (lbl == &swingLabel)     return "Swing";
-    if (lbl == &feelLabel)      return "Slop";
-    if (lbl == &densityLabel)   return "Density";
-    if (lbl == &fillStartLabel) return "Start";
-    if (lbl == &fillMidLabel)   return "Mid";
-    if (lbl == &fillEndLabel)   return "End";
+    if (lbl == &gateLabel)      return "DURATION";
+    if (lbl == &humanizeLabel)  return "DYNAMICS";
+    if (lbl == &swingLabel)     return "SWING";
+    if (lbl == &feelLabel)      return "SLOP";
+    if (lbl == &densityLabel)   return "DENSITY";
+    if (lbl == &fillStartLabel) return "START";
+    if (lbl == &fillMidLabel)   return "MID";
+    if (lbl == &fillEndLabel)   return "END";
     return lbl->getText();
 }
 
@@ -2274,9 +2291,9 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     // In compact mode each rotary needs its own "Fill"-prefixed label
     // because there's no section header. In full mode the header carries
     // that word and the sub-labels read just Start / Mid / End.
-    fillStartLabel.setText (compactMode ? "Fill Start" : "Start", juce::dontSendNotification);
-    fillMidLabel  .setText (compactMode ? "Fill Mid"   : "Mid",   juce::dontSendNotification);
-    fillEndLabel  .setText (compactMode ? "Fill End"   : "End",   juce::dontSendNotification);
+    fillStartLabel.setText (compactMode ? "FILL START" : "START", juce::dontSendNotification);
+    fillMidLabel  .setText (compactMode ? "FILL MID"   : "MID",   juce::dontSendNotification);
+    fillEndLabel  .setText (compactMode ? "FILL END"   : "END",   juce::dontSendNotification);
 
-    setSize (760, compactMode ? 178 : 640);
+    setSize (760, compactMode ? 174 : 640);
 }

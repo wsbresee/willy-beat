@@ -143,10 +143,10 @@ void WillyBeatLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& t
 {
     auto bounds = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height).reduced (0.5f);
 
-    g.setColour (bgPanel);
+    g.setColour (bgPanel.brighter (0.04f));
     g.fillRoundedRectangle (bounds, 6.0f);
 
-    g.setColour (borderBright.withAlpha (0.55f));
+    g.setColour (borderBright.withAlpha (0.50f));
     g.drawRoundedRectangle (bounds, 6.0f, 1.0f);
 
     g.setColour (textSecondary);
@@ -163,11 +163,12 @@ void WillyBeatLookAndFeel::drawButtonBackground (juce::Graphics& g,
                                                   bool isButtonDown)
 {
     auto bounds = button.getLocalBounds().toFloat().reduced (0.5f);
-    const bool on = button.getToggleState();
+    const bool on       = button.getToggleState();
+    const float enableA = button.isEnabled() ? 1.0f : 0.45f;
 
-    juce::Colour fill = on
+    juce::Colour fill = (on
         ? button.findColour (juce::TextButton::buttonOnColourId)
-        : button.findColour (juce::TextButton::buttonColourId);
+        : button.findColour (juce::TextButton::buttonColourId)).withMultipliedAlpha (enableA);
 
     if (isButtonDown)
         fill = fill.darker (0.18f);
@@ -175,13 +176,13 @@ void WillyBeatLookAndFeel::drawButtonBackground (juce::Graphics& g,
         fill = fill.brighter (0.12f);
 
     g.setColour (fill);
-    g.fillRoundedRectangle (bounds, 8.0f);
+    g.fillRoundedRectangle (bounds, 6.0f);
 
     // Accent-filled buttons get a bright rim; dark-filled buttons get a subtle border.
     g.setColour (fill.getPerceivedBrightness() > 0.35f
-                     ? accentBright.withAlpha (0.45f)
-                     : borderBright.withAlpha (0.30f));
-    g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
+                     ? accentBright.withAlpha (0.40f)
+                     : borderBright.withAlpha (0.25f));
+    g.drawRoundedRectangle (bounds, 6.0f, 1.0f);
 }
 
 void WillyBeatLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height,
@@ -193,10 +194,10 @@ void WillyBeatLookAndFeel::drawComboBox (juce::Graphics& g, int width, int heigh
                                            (float) width, (float) height).reduced (0.5f);
 
     g.setColour (box.findColour (juce::ComboBox::backgroundColourId));
-    g.fillRoundedRectangle (bounds, 8.0f);
+    g.fillRoundedRectangle (bounds, 6.0f);
 
     g.setColour (box.findColour (juce::ComboBox::outlineColourId));
-    g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
+    g.drawRoundedRectangle (bounds, 6.0f, 1.0f);
 
     auto arrowZone = juce::Rectangle<float> ((float) width - 18.0f, 0.0f,
                                               14.0f, (float) height);
