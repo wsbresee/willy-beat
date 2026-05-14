@@ -590,8 +590,8 @@ void PatternGrid::paint (juce::Graphics& g)
         if (!anyHit)
         {
             g.setFont (juce::Font (juce::FontOptions{}.withHeight (11.5f)));
-            g.setColour (WillyBeatLookAndFeel::textMuted.withAlpha (0.38f));
-            g.drawText ("Click a cell to draw hits  ·  or press Generate",
+            g.setColour (WillyBeatLookAndFeel::textMuted.withAlpha (0.65f));
+            g.drawText ("Click a cell to draw hits  |  or press Generate",
                         bounds, juce::Justification::centred, false);
         }
     }

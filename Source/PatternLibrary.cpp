@@ -913,12 +913,24 @@ DrumPattern PatternLibrary::makeComposite (const juce::StringArray& tags,
             compat.push_back (p);
     if (compat.empty()) compat.push_back (sources[0]);
 
+    // Build a canonical (unfiltered) cache for each compat source.
+    // The in-memory library copies may hold density-filtered hits (written
+    // back by updatePattern while the Density knob is live). Reading from
+    // disk here ensures composites are always drawn from full-density sources.
+    std::map<const DrumPattern*, DrumPattern> canonical;
+    for (auto* p : compat)
+    {
+        if (p->sourceFile.existsAsFile())
+            canonical.emplace (p, PatternLibrary::loadFromFile (p->sourceFile));
+    }
+
     // Independently pick a random source pattern for each track and copy
     // its hit list over.
     for (int t = 0; t < NUM_TRACKS; ++t)
     {
         auto* src = compat[(size_t) rng.nextInt ((int) compat.size())];
-        result.hits[t] = src->hits[t];
+        auto it = canonical.find (src);
+        result.hits[t] = (it != canonical.end()) ? it->second.hits[t] : src->hits[t];
     }
 
     result.genres      = tags;
