@@ -29,14 +29,14 @@ WillyBeatLookAndFeel::WillyBeatLookAndFeel()
     setColour (juce::Slider::textBoxBackgroundColourId,   juce::Colours::transparentBlack);
 
     // ── Combo box ────────────────────────────────────────────────────────
-    setColour (juce::ComboBox::backgroundColourId,        bgPanel);
+    setColour (juce::ComboBox::backgroundColourId,        bgRaised);
     setColour (juce::ComboBox::textColourId,              textPrimary);
     setColour (juce::ComboBox::outlineColourId,           border);
     setColour (juce::ComboBox::arrowColourId,             accent);
     setColour (juce::ComboBox::buttonColourId,            juce::Colours::transparentBlack);
 
     // ── Buttons ──────────────────────────────────────────────────────────
-    setColour (juce::TextButton::buttonColourId,          bgPanel);
+    setColour (juce::TextButton::buttonColourId,          bgRaised);
     setColour (juce::TextButton::buttonOnColourId,        accent);
     setColour (juce::TextButton::textColourOffId,         textPrimary);
     setColour (juce::TextButton::textColourOnId,          juce::Colours::white);
@@ -65,6 +65,55 @@ WillyBeatLookAndFeel::WillyBeatLookAndFeel()
 
 //==============================================================================
 
+void WillyBeatLookAndFeel::drawRotarySlider (juce::Graphics& g,
+                                              int x, int y, int width, int height,
+                                              float sliderPos,
+                                              float startAngle, float endAngle,
+                                              juce::Slider&)
+{
+    const float radius   = juce::jmin (width * 0.5f, height * 0.5f) * 0.82f;
+    const float cx       = x + width  * 0.5f;
+    const float cy       = y + height * 0.5f;
+
+    // ── Body ─────────────────────────────────────────────────────────────────
+    // Dark disc with a very subtle inner shadow ring.
+    g.setColour (bgRecess);
+    g.fillEllipse (cx - radius, cy - radius, radius * 2.0f, radius * 2.0f);
+
+    // Thin rim — gives the disc a recessed-plate feel.
+    g.setColour (border.withAlpha (0.6f));
+    g.drawEllipse (cx - radius, cy - radius, radius * 2.0f, radius * 2.0f, 1.0f);
+
+    // ── Track + active arc ────────────────────────────────────────────────────
+    const float trackR   = radius * 0.78f;
+    const float arcW     = radius * 0.14f;  // stroke width
+
+    // Background track (full range, dim).
+    juce::Path track;
+    track.addCentredArc (cx, cy, trackR, trackR, 0.0f, startAngle, endAngle, true);
+    g.setColour (borderBright.withAlpha (0.25f));
+    g.strokePath (track, juce::PathStrokeType (arcW,
+                  juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    // Active arc (value).
+    const float valueAngle = startAngle + sliderPos * (endAngle - startAngle);
+    if (sliderPos > 0.001f)
+    {
+        juce::Path active;
+        active.addCentredArc (cx, cy, trackR, trackR, 0.0f, startAngle, valueAngle, true);
+        g.setColour (accent);
+        g.strokePath (active, juce::PathStrokeType (arcW,
+                      juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    }
+
+    // ── Indicator dot at value tip ────────────────────────────────────────────
+    const float dotR  = arcW * 0.72f;
+    const float dotPx = cx + trackR * std::sin (valueAngle);
+    const float dotPy = cy - trackR * std::cos (valueAngle);
+    g.setColour (sliderPos > 0.001f ? accentBright : borderBright.withAlpha (0.5f));
+    g.fillEllipse (dotPx - dotR, dotPy - dotR, dotR * 2.0f, dotR * 2.0f);
+}
+
 void WillyBeatLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
 {
     // Slider value labels: draw the text only - no background fill, no
@@ -89,6 +138,52 @@ void WillyBeatLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
                       label.getMinimumHorizontalScale());
 }
 
+void WillyBeatLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& text,
+                                         int width, int height)
+{
+    auto bounds = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height).reduced (0.5f);
+
+    g.setColour (bgPanel);
+    g.fillRoundedRectangle (bounds, 6.0f);
+
+    g.setColour (borderBright.withAlpha (0.55f));
+    g.drawRoundedRectangle (bounds, 6.0f, 1.0f);
+
+    g.setColour (textSecondary);
+    g.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
+    g.drawFittedText (text,
+                      juce::Rectangle<int> (8, 2, width - 16, height - 4),
+                      juce::Justification::centredLeft, 3);
+}
+
+void WillyBeatLookAndFeel::drawButtonBackground (juce::Graphics& g,
+                                                  juce::Button& button,
+                                                  const juce::Colour& /*backgroundColour*/,
+                                                  bool isMouseOverButton,
+                                                  bool isButtonDown)
+{
+    auto bounds = button.getLocalBounds().toFloat().reduced (0.5f);
+    const bool on = button.getToggleState();
+
+    juce::Colour fill = on
+        ? button.findColour (juce::TextButton::buttonOnColourId)
+        : button.findColour (juce::TextButton::buttonColourId);
+
+    if (isButtonDown)
+        fill = fill.darker (0.18f);
+    else if (isMouseOverButton)
+        fill = fill.brighter (0.12f);
+
+    g.setColour (fill);
+    g.fillRoundedRectangle (bounds, 8.0f);
+
+    // Accent-filled buttons get a bright rim; dark-filled buttons get a subtle border.
+    g.setColour (fill.getPerceivedBrightness() > 0.35f
+                     ? accentBright.withAlpha (0.45f)
+                     : borderBright.withAlpha (0.30f));
+    g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
+}
+
 void WillyBeatLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height,
                                          bool /*isButtonDown*/,
                                          int /*bx*/, int /*by*/, int /*bw*/, int /*bh*/,
@@ -98,10 +193,10 @@ void WillyBeatLookAndFeel::drawComboBox (juce::Graphics& g, int width, int heigh
                                            (float) width, (float) height).reduced (0.5f);
 
     g.setColour (box.findColour (juce::ComboBox::backgroundColourId));
-    g.fillRoundedRectangle (bounds, 4.0f);
+    g.fillRoundedRectangle (bounds, 8.0f);
 
     g.setColour (box.findColour (juce::ComboBox::outlineColourId));
-    g.drawRoundedRectangle (bounds, 4.0f, 1.0f);
+    g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
 
     auto arrowZone = juce::Rectangle<float> ((float) width - 18.0f, 0.0f,
                                               14.0f, (float) height);

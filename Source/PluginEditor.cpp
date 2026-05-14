@@ -1193,13 +1193,13 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
             repaint();
         }
     };
-    clearBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::bgPanel);
+    clearBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::bgRaised);
     clearBtn.setColour (juce::TextButton::textColourOffId, WillyBeatLookAndFeel::textPrimary);
     clearBtn.setTooltip ("Clear hits from current pattern.  Shift+Click to delete ALL patterns and start fresh.");
 
     // ── Collapse / expand toggle ──────────────────────────────────────────
     collapseBtn.onClick = [this] { toggleCompactMode(); };
-    collapseBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::bgPanel);
+    collapseBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::bgRaised);
     collapseBtn.setColour (juce::TextButton::textColourOffId, WillyBeatLookAndFeel::textPrimary);
     collapseBtn.setTooltip ("Collapse / expand the editor.");
 
@@ -1245,23 +1245,13 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     // Editable so users can type arbitrary "N/D" signatures (math-rock
     // 11/16, 9/8, 2/2 cut time, etc.) beyond the dropdown presets.
-    timeSigBox.setEditableText (true);
-
     timeSigBox.onChange = [this]() {
-        int newNum = -1, newDen = -1;
         const int sel = timeSigBox.getSelectedId();
         if (sel >= 1 && sel <= kNumTimeSigChoices)
         {
             auto [n, d] = kTimeSigChoices[(size_t) sel - 1];
-            newNum = n; newDen = d;
+            applyTimeSig (n, d);
         }
-        else if (! parseTimeSigText (timeSigBox.getText(), newNum, newDen))
-        {
-            // Invalid typed text - revert combo to the pattern's current sig.
-            syncShapeCombos();
-            return;
-        }
-        applyTimeSig (newNum, newDen);
     };
 
     barsBox.onChange = [this]() {
@@ -1844,7 +1834,7 @@ void WillyBeatAudioProcessorEditor::capturePendingShape()
         pendingTsNum = n;
         pendingTsDen = d;
     }
-    else if (! parseTimeSigText (timeSigBox.getText(), pendingTsNum, pendingTsDen))
+    else
     {
         pendingTsNum = 4;
         pendingTsDen = 4;
@@ -1870,11 +1860,7 @@ void WillyBeatAudioProcessorEditor::syncShapeCombos()
     }
     const int gridIdx = juce::jlimit (1, (int) GridSub::NUM_GRID_SUBS, (int) fullPattern.gridSub + 1);
 
-    if (tsIdx > 0)
-        timeSigBox.setSelectedId (tsIdx, juce::dontSendNotification);
-    else
-        timeSigBox.setText (juce::String (fullPattern.timeSigNum) + "/" + juce::String (fullPattern.timeSigDen),
-                            juce::dontSendNotification);
+    timeSigBox.setSelectedId (tsIdx > 0 ? tsIdx : 1, juce::dontSendNotification);
 
     barsBox.setSelectedId (barsIdx,  juce::dontSendNotification);
     gridBox.setSelectedId (gridIdx,  juce::dontSendNotification);
@@ -2087,7 +2073,7 @@ void WillyBeatAudioProcessorEditor::resized()
     // Buttons are vertically centred on the hairline (y=27 = logoMargin + logoSize/2).
     {
         constexpr int lineY = 3 + 48 / 2; // 27 — must match paint()
-        auto titleRow    = area.removeFromTop (52);
+        auto titleRow    = area.removeFromTop (46);
         auto collapseBox = titleRow.removeFromRight (28);
         collapseBtn.setBounds (collapseBox.withSizeKeepingCentre (24, 22).withY (lineY - 11));
         titleRow.removeFromRight (4);
@@ -2292,5 +2278,5 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     fillMidLabel  .setText (compactMode ? "Fill Mid"   : "Mid",   juce::dontSendNotification);
     fillEndLabel  .setText (compactMode ? "Fill End"   : "End",   juce::dontSendNotification);
 
-    setSize (760, compactMode ? 184 : 640);
+    setSize (760, compactMode ? 178 : 640);
 }

@@ -19,6 +19,17 @@ public:
     // label so the readout number sits naked over the window.
     void drawLabel (juce::Graphics&, juce::Label&) override;
 
+    void drawRotarySlider (juce::Graphics&, int x, int y, int width, int height,
+                           float sliderPos, float startAngle, float endAngle,
+                           juce::Slider&) override;
+
+    void drawButtonBackground (juce::Graphics&, juce::Button&,
+                               const juce::Colour& backgroundColour,
+                               bool isMouseOverButton, bool isButtonDown) override;
+
+    void drawTooltip (juce::Graphics&, const juce::String& text,
+                      int width, int height) override;
+
     juce::Font getTextButtonFont (juce::TextButton&, int) override;
     juce::Font getComboBoxFont   (juce::ComboBox&)         override;
     juce::Font getPopupMenuFont()                          override;

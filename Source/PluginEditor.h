@@ -282,7 +282,7 @@ private:
     WillyBeatAudioProcessor& audioProcessor;
 
     WillyBeatLookAndFeel lookAndFeel;
-    juce::TooltipWindow  tooltipWindow { this, 1800 };
+    juce::TooltipWindow  tooltipWindow { this, 2800 };
 
     DragStrip       dragStrip;
     PatternGrid     grid;
