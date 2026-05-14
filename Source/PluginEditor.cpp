@@ -328,9 +328,11 @@ void DragStrip::mouseDrag (const juce::MouseEvent&)
     if (! tempFile.existsAsFile()) return;
 
     dragStarted = true;
+    // Don't delete in completion callback — the receiving app (or OS) may
+    // still be reading the file asynchronously. The fixed path in /tmp means
+    // the next drag overwrites it automatically.
     juce::DragAndDropContainer::performExternalDragDropOfFiles (
-        { tempFile.getFullPathName() }, false, this,
-        [tempFile]() mutable { tempFile.deleteFile(); });
+        { tempFile.getFullPathName() }, false, this, nullptr);
 }
 
 //==============================================================================
