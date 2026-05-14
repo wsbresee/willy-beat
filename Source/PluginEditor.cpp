@@ -1323,7 +1323,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // Poll for active-pattern changes at 10 Hz
     startTimerHz (10);
 
-    setSize (760, 616);
+    setSize (760, 608);
 }
 
 WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
@@ -1907,11 +1907,10 @@ void WillyBeatAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced (10, 8);
 
-    // ── Title row (h=56 to contain the 48px logo drawn in paint()) ────────
-    // Buttons are vertically centred on the hairline (y=27 = logoMargin + logoSize/2).
+    // ── Title row — buttons centred on the hairline (y=27 = logoMargin + logoSize/2).
     {
         constexpr int lineY = 3 + 48 / 2; // 27 — must match paint()
-        auto titleRow    = area.removeFromTop (46);
+        auto titleRow    = area.removeFromTop (38);
         auto collapseBox = titleRow.removeFromRight (28);
         collapseBtn.setBounds (collapseBox.withSizeKeepingCentre (26, 28).withY (lineY - 14));
         titleRow.removeFromRight (4);
@@ -2128,7 +2127,7 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     fillMidLabel  .setText (compactMode ? "FILL MID"   : "MID",   juce::dontSendNotification);
     fillEndLabel  .setText (compactMode ? "FILL END"   : "END",   juce::dontSendNotification);
 
-    setSize (760, compactMode ? 174 : 616);
+    setSize (760, compactMode ? 166 : 608);
 }
 
 //==============================================================================
