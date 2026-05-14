@@ -411,7 +411,7 @@ juce::Colour PatternGrid::velColour (uint8_t vel)
     if (vel <= 65)  return juce::Colour (0xff6e4210);   // soft
     if (vel <= 90)  return juce::Colour (0xffb06218);   // medium
     if (vel <= 110) return juce::Colour (0xfff08020);   // hard
-    return              juce::Colour (0xffff9f0a);      // accent (Apple amber)
+    return              juce::Colour (0xffff9f0a);      // accent
 }
 
 // Layout cache derived from the active pattern's shape + grid subdivision.

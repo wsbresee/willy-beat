@@ -1,6 +1,6 @@
 #include "DrumwrightLookAndFeel.h"
 
-// Logic-Pro-X-inspired palette — neutral dark grays, Apple system blue accent.
+// Dark neutral palette — charcoal grays, blue accent, warm amber hits.
 const juce::Colour DrumwrightLookAndFeel::bgWindow      { 0xff1c1c1e };
 const juce::Colour DrumwrightLookAndFeel::bgPanel       { 0xff2c2c2e };
 const juce::Colour DrumwrightLookAndFeel::bgRecess      { 0xff141414 };
