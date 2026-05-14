@@ -1296,14 +1296,15 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     fillEndAttach   = std::make_unique<SA> (p.apvts, "fillSteps", fillEndKnob);
 
     // Same helper as the macro row — direction & style identical.
-    setupRotary (fillStartKnob);
-    setupRotary (fillMidKnob);
-    setupRotary (fillEndKnob);
-    // Fill range is only 0-16, so use a much higher drag distance to avoid
-    // the large per-step visual jumps feeling jerky and uncontrollable.
-    fillStartKnob.setMouseDragSensitivity (3200);
-    fillMidKnob  .setMouseDragSensitivity (3200);
-    fillEndKnob  .setMouseDragSensitivity (3200);
+    // Fill knobs use circular Rotary mode (angle-based drag) rather than
+    // RHVD — lets the user aim directly at the desired position, which is
+    // more predictable for a coarse 0-16 integer range.
+    for (auto* k : { &fillStartKnob, &fillMidKnob, &fillEndKnob })
+    {
+        k->setSliderStyle (juce::Slider::Rotary);
+        k->setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+        k->setRotaryParameters (kRotaryStart, kRotaryEnd, true);
+    }
 
     fillStartKnob.setTooltip ("Fill at start  -  number of leading 16th notes drawn from a fill pattern (head of the fill). 0 = none, 16 = full bar.");
     fillMidKnob  .setTooltip ("Mid-pattern fill  -  number of 16th notes scattered through the middle of the export, drawn from fill content. Deterministic per seed.");

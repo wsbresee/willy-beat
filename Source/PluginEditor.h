@@ -85,6 +85,31 @@ public:
                          const juce::MouseWheelDetails& wheel) override;
 };
 
+// Slider that accumulates scroll-wheel input and fires at most one integer
+// step per gesture, so coarse-range knobs (fill 0-16) don't jump wildly.
+class SlowScrollSlider : public juce::Slider
+{
+public:
+    using juce::Slider::Slider;
+    void mouseWheelMove (const juce::MouseEvent& e,
+                         const juce::MouseWheelDetails& w) override
+    {
+        scrollAccum += w.deltaY;
+        constexpr float kThreshold = 0.15f;
+        if (std::abs (scrollAccum) >= kThreshold)
+        {
+            // Pass a synthetic single-step event so JUCE handles direction.
+            auto single = w;
+            single.deltaY = scrollAccum > 0.0f ? kThreshold : -kThreshold;
+            single.deltaX = 0.0f;
+            scrollAccum = 0.0f;
+            juce::Slider::mouseWheelMove (e, single);
+        }
+    }
+private:
+    float scrollAccum = 0.0f;
+};
+
 // Label that supports double-click-to-edit without changing the cursor on hover,
 // so the appearance is identical to a plain label when not being edited.
 class KnobLabel : public juce::Label
@@ -315,15 +340,15 @@ private:
     juce::Label      humanizeSectionLabel { {}, "Humanize" };
     juce::Label      fillSectionLabel     { {}, "Fill" };
     KnobLabel        fillStartLabel  { {}, "Start" };
-    juce::Slider     fillStartKnob;
+    SlowScrollSlider fillStartKnob;
     std::unique_ptr<SA> fillStartAttach;
 
     KnobLabel        fillMidLabel    { {}, "Mid" };
-    juce::Slider     fillMidKnob;
+    SlowScrollSlider fillMidKnob;
     std::unique_ptr<SA> fillMidAttach;
 
     KnobLabel        fillEndLabel    { {}, "End" };
-    juce::Slider     fillEndKnob;
+    SlowScrollSlider fillEndKnob;
     std::unique_ptr<SA> fillEndAttach;
 
 
