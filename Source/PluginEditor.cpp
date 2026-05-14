@@ -1320,7 +1320,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // Poll for active-pattern changes at 10 Hz
     startTimerHz (10);
 
-    setSize (760, 640);
+    setSize (760, 616);
 }
 
 WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
@@ -1995,12 +1995,17 @@ void WillyBeatAudioProcessorEditor::resized()
     //   Each row-2 knob lands at the midpoint of two adjacent row-1 slots:
     //   Dynamics ↔ Swing/Slop  |  Density ↔ Slop/Start  |  Mid ↔ Start/End
     {
-        constexpr int kLabH  = 10;
-        constexpr int kKnobH = 52;
-        constexpr int kRowH  = kLabH + kKnobH;    // 62
-        constexpr int kGapR  = 8;
-        constexpr int kBotY  = kRowH + kGapR;     // 70
-        constexpr int kSecH  = 2 * kRowH + kGapR; // 132
+        constexpr int kLabH   = 10;
+        constexpr int kKnobH  = 52;
+        constexpr int kRowH   = kLabH + kKnobH;       // 62
+        constexpr int kGapR   = 8;
+        constexpr int kBotY   = kRowH + kGapR;        // 70
+        // Row-2 combos: 10px label + 28px box = 38px tall.
+        // Row-2 rotaries are raised so they bottom-align with the combos,
+        // giving equal breathing room between all row-2 controls and the grid.
+        constexpr int kComboH = 38;
+        constexpr int kRaise  = kRowH - kComboH;      // 24 — how far rotaries shift up
+        constexpr int kSecH   = kBotY + kComboH;      // 108  (was 132)
 
         auto rowB = area.removeFromTop (kSecH);
         const int Y0 = rowB.getY();
@@ -2022,18 +2027,19 @@ void WillyBeatAudioProcessorEditor::resized()
         placeTop (fillStartLabel, fillStartKnob,  3);  // Start
         placeTop (fillEndLabel,   fillEndKnob,    4);  // End
 
-        // Row 2 knobs at half-slot offsets (halfCol * kW/2 from X0)
+        // Row-2 rotaries: raised by kRaise so their bottom aligns with the combos.
         auto placeBot = [&] (juce::Label& lbl, juce::Slider& knob, int halfCol)
         {
             int x = X0 + halfCol * kW / 2;
-            lbl .setBounds (x, Y1,         kW, kLabH);
-            knob.setBounds (x, Y1 + kLabH, kW, kKnobH);
+            int y = Y1 - kRaise;
+            lbl .setBounds (x, y,          kW, kLabH);
+            knob.setBounds (x, y + kLabH,  kW, kKnobH);
         };
         placeBot (humanizeLabel,  humanizeKnob,  3);  // Dynamics — between Swing (1) + Slop (2)
         placeBot (densityLabel,   densityKnob,   5);  // Density  — between Slop (2) + Start (3)
         placeBot (fillMidLabel,   fillMidKnob,   7);  // Mid      — between Start (3) + End (4)
 
-        // Row 2 dropdowns fill the empty left space (X0 to Dynamics start = X0 + 3*kW/2)
+        // Row-2 combos: bottom-aligned with the rotaries (both at Y1 + kComboH - kRaise).
         {
             int cx = X0;
             auto placeCombo = [&] (juce::Label& lbl, juce::ComboBox& box, int w)
@@ -2119,7 +2125,7 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
     fillMidLabel  .setText (compactMode ? "FILL MID"   : "MID",   juce::dontSendNotification);
     fillEndLabel  .setText (compactMode ? "FILL END"   : "END",   juce::dontSendNotification);
 
-    setSize (760, compactMode ? 174 : 640);
+    setSize (760, compactMode ? 174 : 616);
 }
 
 //==============================================================================
