@@ -1,18 +1,18 @@
 #include "DrumwrightLookAndFeel.h"
 
-// Tokyo-Night palette — flat, lavender accent, soft text.
-const juce::Colour DrumwrightLookAndFeel::bgWindow      { 0xff1a1b26 };
-const juce::Colour DrumwrightLookAndFeel::bgPanel       { 0xff24283b };
-const juce::Colour DrumwrightLookAndFeel::bgRecess      { 0xff16161e };
-const juce::Colour DrumwrightLookAndFeel::bgRaised      { 0xff2a2e42 };
-const juce::Colour DrumwrightLookAndFeel::border        { 0xff414868 };
-const juce::Colour DrumwrightLookAndFeel::borderBright  { 0xff565f89 };
-const juce::Colour DrumwrightLookAndFeel::accent        { 0xffa78bfa };
-const juce::Colour DrumwrightLookAndFeel::accentBright  { 0xffc4b5fd };
-const juce::Colour DrumwrightLookAndFeel::accentSoft    { 0xff7c6bc8 };
-const juce::Colour DrumwrightLookAndFeel::textPrimary   { 0xffc0caf5 };
-const juce::Colour DrumwrightLookAndFeel::textSecondary { 0xff9aa5ce };
-const juce::Colour DrumwrightLookAndFeel::textMuted     { 0xff6b7394 };
+// Logic-Pro-X-inspired palette — neutral dark grays, Apple system blue accent.
+const juce::Colour DrumwrightLookAndFeel::bgWindow      { 0xff1c1c1e };
+const juce::Colour DrumwrightLookAndFeel::bgPanel       { 0xff2c2c2e };
+const juce::Colour DrumwrightLookAndFeel::bgRecess      { 0xff141414 };
+const juce::Colour DrumwrightLookAndFeel::bgRaised      { 0xff3a3a3c };
+const juce::Colour DrumwrightLookAndFeel::border        { 0xff48484a };
+const juce::Colour DrumwrightLookAndFeel::borderBright  { 0xff636366 };
+const juce::Colour DrumwrightLookAndFeel::accent        { 0xff0a84ff };
+const juce::Colour DrumwrightLookAndFeel::accentBright  { 0xff409cff };
+const juce::Colour DrumwrightLookAndFeel::accentSoft    { 0xff0055c8 };
+const juce::Colour DrumwrightLookAndFeel::textPrimary   { 0xffe8e8ed };
+const juce::Colour DrumwrightLookAndFeel::textSecondary { 0xffaeaeb2 };
+const juce::Colour DrumwrightLookAndFeel::textMuted     { 0xff636366 };
 
 //==============================================================================
 
