@@ -1,4 +1,4 @@
-# WillyBeat
+# Drumwright
 
 A MIDI drum-pattern generator built with JUCE. Type vibe words ("Aggressive Trap", "Smoky Trip-Hop", "Bossa"), hit **Generate**, edit on a flexible grid (any time signature, any subdivision, triplets included), drag the resulting MIDI clip into your DAW. Ships as a VST3 and an Audio Unit instrument plugin: it produces MIDI for routing to other samplers and ships its own simple synthesized drum kit for in-plugin preview (off by default — toggle the **Audio** button in the title bar).
 
@@ -10,15 +10,15 @@ A MIDI drum-pattern generator built with JUCE. Type vibe words ("Aggressive Trap
 git clone https://github.com/wsbresee/willy-beat.git
 cd willy-beat
 cmake -B build
-cmake --build build --target WillyBeat_VST3 WillyBeat_AU
+cmake --build build --target Drumwright_VST3 Drumwright_AU
 ```
 
 `COPY_PLUGIN_AFTER_BUILD` copies the artefacts into the system plugin folders automatically:
 
-- VST3 → `~/Library/Audio/Plug-Ins/VST3/WillyBeat.vst3`
-- AU → `~/Library/Audio/Plug-Ins/Components/WillyBeat.component`
+- VST3 → `~/Library/Audio/Plug-Ins/VST3/Drumwright.vst3`
+- AU → `~/Library/Audio/Plug-Ins/Components/Drumwright.component`
 
-The plugin reads its preset library from `~/Library/WillyBeat/Presets/`. Install the bundled library with:
+The plugin reads its preset library from `~/Library/Drumwright/Presets/`. Install the bundled library with:
 
 ```bash
 ./install_presets.sh           # copy any missing presets, skip existing
@@ -27,7 +27,7 @@ The plugin reads its preset library from `~/Library/WillyBeat/Presets/`. Install
 
 New patterns and edits save back to that folder.
 
-> **Note:** `juce::File::userApplicationDataDirectory` resolves to `~/Library` on macOS, so the runtime path is `~/Library/WillyBeat/Presets/` rather than the `~/Library/Application Support/` convention. Both directories may exist on your machine; the engine only reads from `~/Library/WillyBeat/Presets/`.
+> **Note:** `juce::File::userApplicationDataDirectory` resolves to `~/Library` on macOS, so the runtime path is `~/Library/Drumwright/Presets/` rather than the `~/Library/Application Support/` convention. Both directories may exist on your machine; the engine only reads from `~/Library/Drumwright/Presets/`.
 
 ---
 
@@ -35,7 +35,7 @@ New patterns and edits save back to that folder.
 
 ### Install
 
-1. Build with `cmake --build build --target WillyBeat_VST3`.
+1. Build with `cmake --build build --target Drumwright_VST3`.
 2. Open Cubase. **Studio → VST Plug-in Manager**, refresh.
 3. Confirm `WillyBeat` shows up under **Instruments**.
 
@@ -44,7 +44,7 @@ New patterns and edits save back to that folder.
 Two routes:
 
 - **Use WillyBeat's built-in drum sounds**: **Project → Add Track → Instrument**, pick **WillyBeat**, click the title-bar **Audio** toggle to unmute the internal kit, hit play. No external sampler needed.
-- **Route MIDI to a real sampler**: Add WillyBeat on its own instrument track (audio muted). Add a Groove Agent SE track. In Cubase's MIDI input routing, set Groove Agent's MIDI input to WillyBeat's MIDI output.
+- **Route MIDI to a real sampler**: Add Drumwright on its own instrument track (audio muted). Add a Groove Agent SE track. In Cubase's MIDI input routing, set Groove Agent's MIDI input to WillyBeat's MIDI output.
 
 ---
 
@@ -52,14 +52,14 @@ Two routes:
 
 ### Install
 
-1. Build with `cmake --build build --target WillyBeat_AU`.
+1. Build with `cmake --build build --target Drumwright_AU`.
 2. Quit Logic. Launch it again — Logic auto-validates new components on startup.
-3. If validation seems stuck, run `auval -a | grep -i willybeat` from Terminal to confirm the AU is registered, then `killall -9 AudioComponentRegistrar` and reopen Logic.
+3. If validation seems stuck, run `auval -a | grep -i drumwright` from Terminal to confirm the AU is registered, then `killall -9 AudioComponentRegistrar` and reopen Logic.
 
 ### Set up a track
 
 - **Built-in sounds**: **Track → New Software Instrument Track**, pick **AU Instruments → WillyBresee → WillyBeat**. Click the title-bar **Audio** toggle to unmute the internal kit.
-- **Route MIDI**: Load WillyBeat on its own instrument track. Add a second track with Drum Kit Designer / Drum Machine Designer. Route via IAC bus or **External MIDI**.
+- **Route MIDI**: Load Drumwright on its own instrument track. Add a second track with Drum Kit Designer / Drum Machine Designer. Route via IAC bus or **External MIDI**.
 
 ---
 
@@ -71,7 +71,7 @@ Two routes:
 4. **Tweak macros**: Duration, Dynamics, Slop, Swing, Density.
 5. **Drag the Drag-to-DAW strip** onto a MIDI track to commit. The exported clip uses the current shape + fills.
 
-If you'd rather route MIDI live, leave WillyBeat as a MIDI source and the downstream sampler plays in real time — no drag needed.
+If you'd rather route MIDI live, leave Drumwright as a MIDI source and the downstream sampler plays in real time — no drag needed.
 
 ## The interface
 
@@ -90,10 +90,10 @@ If you'd rather route MIDI live, leave WillyBeat as a MIDI source and the downst
 
 ## Pattern library
 
-Patterns live as plain-text `.beat` files in `~/Library/WillyBeat/Presets/`. The v2 format is self-describing:
+Patterns live as plain-text `.beat` files in `~/Library/Drumwright/Presets/`. The v2 format is self-describing:
 
 ```
-# WillyBeat Preset v2
+# Drumwright Preset v2
 version: 2
 name:    Boom Bap Pocket
 genres:  Hip-Hop, Boom Bap, 90s, Underground, Sample-based

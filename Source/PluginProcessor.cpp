@@ -1,7 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-WillyBeatAudioProcessor::WillyBeatAudioProcessor()
+DrumwrightAudioProcessor::DrumwrightAudioProcessor()
     : AudioProcessor (BusesProperties()
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Parameters", createParameterLayout())
@@ -19,13 +19,13 @@ WillyBeatAudioProcessor::WillyBeatAudioProcessor()
     selectPattern();
 }
 
-WillyBeatAudioProcessor::~WillyBeatAudioProcessor()
+DrumwrightAudioProcessor::~DrumwrightAudioProcessor()
 {
     apvts.removeParameterListener ("patIdx", this);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout
-WillyBeatAudioProcessor::createParameterLayout()
+DrumwrightAudioProcessor::createParameterLayout()
 {
     using namespace juce;
 
@@ -110,7 +110,7 @@ WillyBeatAudioProcessor::createParameterLayout()
     return layout;
 }
 
-juce::StringArray WillyBeatAudioProcessor::getSelectedGenreTags() const
+juce::StringArray DrumwrightAudioProcessor::getSelectedGenreTags() const
 {
     auto csv = apvts.state.getProperty ("genreTags", juce::String()).toString();
     juce::StringArray result;
@@ -120,7 +120,7 @@ juce::StringArray WillyBeatAudioProcessor::getSelectedGenreTags() const
     return result;
 }
 
-void WillyBeatAudioProcessor::setSelectedGenreTags (const juce::StringArray& tags)
+void DrumwrightAudioProcessor::setSelectedGenreTags (const juce::StringArray& tags)
 {
     juce::StringArray cleaned;
     for (const auto& t : tags)
@@ -130,12 +130,12 @@ void WillyBeatAudioProcessor::setSelectedGenreTags (const juce::StringArray& tag
     selectPattern();
 }
 
-void WillyBeatAudioProcessor::parameterChanged (const juce::String&, float)
+void DrumwrightAudioProcessor::parameterChanged (const juce::String&, float)
 {
     selectPattern();
 }
 
-void WillyBeatAudioProcessor::selectPattern()
+void DrumwrightAudioProcessor::selectPattern()
 {
     // The chip bar above the grid IS the active pattern's tags (not a
     // library filter), so patIdx steps through every non-fill pattern in
@@ -154,28 +154,33 @@ void WillyBeatAudioProcessor::selectPattern()
 
     if (slots.empty())
     {
-        activePattern = nullptr;
+        activePattern.store (nullptr);
         return;
     }
 
     idx = juce::jlimit (0, (int) slots.size() - 1, idx);
-    activePattern = slots[(size_t) idx];
+    activePattern.store (slots[(size_t) idx]);
 }
 
-juce::File WillyBeatAudioProcessor::getPresetsDirectory() const
+juce::File DrumwrightAudioProcessor::getPresetsDirectory() const
 {
     return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-               .getChildFile ("WillyBeat/Presets");
+               .getChildFile ("Drumwright/Presets");
 }
 
-void WillyBeatAudioProcessor::reloadLibrary()
+void DrumwrightAudioProcessor::reloadLibrary()
 {
-    activePattern = nullptr;                    // prevent dangling pointer on audio thread
+    // Hold the callback lock so processBlock cannot run while we clear and
+    // repopulate the library. Without this, the audio thread could read a
+    // dangling pointer into the old patterns vector between the null-store
+    // and the vector clear.
+    juce::ScopedLock sl (getCallbackLock());
+    activePattern.store (nullptr);
     library.loadFromDirectory (getPresetsDirectory());
     selectPattern();
 }
 
-void WillyBeatAudioProcessor::navigateToPattern (const DrumPattern& p)
+void DrumwrightAudioProcessor::navigateToPattern (const DrumPattern& p)
 {
     // Inherit the pattern's tags as the user's selection so density
     // augmentation, fill matching, and the chip bar all reflect the same
@@ -198,7 +203,7 @@ void WillyBeatAudioProcessor::navigateToPattern (const DrumPattern& p)
 
 //==============================================================================
 
-void WillyBeatAudioProcessor::prepareToPlay (double sampleRate, int)
+void DrumwrightAudioProcessor::prepareToPlay (double sampleRate, int)
 {
     activeNotes.clear();
     absoluteSample = 0;
@@ -208,9 +213,9 @@ void WillyBeatAudioProcessor::prepareToPlay (double sampleRate, int)
     stockDrums.prepare (sampleRate);
 }
 
-void WillyBeatAudioProcessor::releaseResources() {}
+void DrumwrightAudioProcessor::releaseResources() {}
 
-bool WillyBeatAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool DrumwrightAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     auto out = layouts.getMainOutputChannelSet();
     return out == juce::AudioChannelSet::stereo() || out == juce::AudioChannelSet::mono();
@@ -218,7 +223,7 @@ bool WillyBeatAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 
 //==============================================================================
 
-void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
+void DrumwrightAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
                                              juce::MidiBuffer& midi)
 {
     midi.clear();
@@ -226,7 +231,8 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
 
     const bool internalOn = apvts.getRawParameterValue ("internalSound")->load() > 0.5f;
 
-    if (!activePattern) return;
+    const DrumPattern* const pat = activePattern.load();
+    if (!pat) return;
 
     auto* ph = getPlayHead();
     if (!ph) return;
@@ -252,6 +258,7 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
             stockDrums.allNotesOff();
             currentStep = 0;
             for (int t = 0; t < NUM_TRACKS; ++t) lastFiredAbsTick[t] = -1;
+            lastPPQEnd = -1.0;
         }
         wasPlaying = false;
         absoluteSample += getBlockSize();
@@ -269,10 +276,15 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
     const double ppqStart    = ppqPosition;
     const double ppqEnd      = ppqStart + (double) blockSize * ppqPerSample;
 
+    // If the playhead jumped backward (loop region, rewind while playing),
+    // reset the per-track re-fire guards so hits aren't silently skipped.
+    if (lastPPQEnd >= 0.0 && ppqStart < lastPPQEnd - 0.1)
+        for (int t = 0; t < NUM_TRACKS; ++t) lastFiredAbsTick[t] = -1;
+
     const float  gatePct      = apvts.getRawParameterValue ("duration")->load() / 100.0f;
     const int    humanize     = (int) apvts.getRawParameterValue ("dynamics")->load();
     // Swing granularity follows the active pattern's grid subdivision.
-    const int    swingUnitTicks = gridSubCellTicks (activePattern->gridSub);
+    const int    swingUnitTicks = gridSubCellTicks (pat->gridSub);
     const double swingMaxPPQ  = (double) swingUnitTicks / (double) PPQN * 0.5;  // up to half the unit
     const double swingDelay   = apvts.getRawParameterValue ("swing")->load() * swingMaxPPQ / 100.0;
     const double maxFeelSamp  = apvts.getRawParameterValue ("slop")->load() / 100.0
@@ -282,10 +294,10 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
 
     // Density is applied in the editor's applyDensity pass before the
     // pattern reaches the library, so processBlock just plays whatever
-    // hits are currently in activePattern.
+    // hits are currently in the active pattern.
 
     // Pattern shape in tick / PPQ space.
-    const long   totalTicks  = activePattern->totalTicks();
+    const long   totalTicks  = pat->totalTicks();
     if (totalTicks <= 0) { absoluteSample += blockSize; return; }
     const double patternPPQ  = (double) totalTicks / (double) PPQN;
 
@@ -317,7 +329,7 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
     {
         const double patPPQ = std::fmod (ppqStart, patternPPQ);
         const double posPPQ = (patPPQ < 0.0) ? patPPQ + patternPPQ : patPPQ;
-        currentStep = (int) std::floor (posPPQ / stepPPQ) % juce::jmax (1, activePattern->numSteps);
+        currentStep = (int) std::floor (posPPQ / stepPPQ) % juce::jmax (1, pat->numSteps);
         currentTick = (int) std::floor (posPPQ * (double) PPQN);
     }
 
@@ -326,7 +338,7 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
     for (int t = 0; t < NUM_TRACKS; ++t)
     {
         const int note = kTrackNotes[t];
-        for (const auto& hit : activePattern->hits[t])
+        for (const auto& hit : pat->hits[t])
         {
             const double hitPPQInPattern = (double) hit.tick / (double) PPQN + swungPPQOffset (hit.tick);
 
@@ -374,12 +386,13 @@ void WillyBeatAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
     if (internalOn)
         stockDrums.render (buf, 0, blockSize);
 
+    lastPPQEnd = ppqEnd;
     absoluteSample += blockSize;
 }
 
 //==============================================================================
 
-bool WillyBeatAudioProcessor::loadMidiFile (const juce::File& file)
+bool DrumwrightAudioProcessor::loadMidiFile (const juce::File& file)
 {
     juce::FileInputStream stream (file);
     if (! stream.openedOk()) return false;
@@ -498,22 +511,7 @@ bool WillyBeatAudioProcessor::loadMidiFile (const juce::File& file)
     return true;
 }
 
-void WillyBeatAudioProcessor::generateVariation()
-{
-    if (!activePattern) return;
-    auto variation = generator.makeVariance (*activePattern);
-
-    apvts.removeParameterListener ("patIdx",  this);
-
-    library.savePattern (variation, getPresetsDirectory());
-    reloadLibrary();
-    navigateToPattern (variation);
-    selectPattern();
-
-    apvts.addParameterListener ("patIdx",  this);
-}
-
-bool WillyBeatAudioProcessor::navigateToPatternByName (const juce::String& name)
+bool DrumwrightAudioProcessor::navigateToPatternByName (const juce::String& name)
 {
     // Only Regular/Variance patterns appear in the slot list that patIdx
     // indexes into (see selectPattern); matching a Fill here would return
@@ -533,13 +531,13 @@ bool WillyBeatAudioProcessor::navigateToPatternByName (const juce::String& name)
     return false;
 }
 
-void WillyBeatAudioProcessor::generateComposite()
+void DrumwrightAudioProcessor::generateComposite()
 {
     auto tags = getSelectedGenreTags();
     generateComposite (tags, tags);
 }
 
-void WillyBeatAudioProcessor::generateComposite (const juce::StringArray& sourcePool,
+void DrumwrightAudioProcessor::generateComposite (const juce::StringArray& sourcePool,
                                                   const juce::StringArray& assignedGenres)
 {
     juce::int64 seed = juce::Random::getSystemRandom().nextInt64();
@@ -578,7 +576,7 @@ void WillyBeatAudioProcessor::generateComposite (const juce::StringArray& source
     apvts.addParameterListener ("patIdx",  this);
 }
 
-void WillyBeatAudioProcessor::autoSavePattern (DrumPattern& p)
+void DrumwrightAudioProcessor::autoSavePattern (DrumPattern& p)
 {
     auto dir = getPresetsDirectory();
     dir.createDirectory();
@@ -592,9 +590,10 @@ void WillyBeatAudioProcessor::autoSavePattern (DrumPattern& p)
     library.updatePattern (p);
 }
 
-void WillyBeatAudioProcessor::resetAllPatterns()
+void DrumwrightAudioProcessor::resetAllPatterns()
 {
-    activePattern = nullptr;
+    juce::ScopedLock sl (getCallbackLock());
+    activePattern.store (nullptr);
 
     for (auto& f : getPresetsDirectory().findChildFiles (juce::File::findFiles, false, "*.beat"))
         f.deleteFile();
@@ -610,7 +609,7 @@ void WillyBeatAudioProcessor::resetAllPatterns()
     apvts.addParameterListener ("patIdx", this);
 }
 
-void WillyBeatAudioProcessor::saveEditedPattern (const DrumPattern& p)
+void DrumwrightAudioProcessor::saveEditedPattern (const DrumPattern& p)
 {
     apvts.removeParameterListener ("patIdx",  this);
 
@@ -624,7 +623,7 @@ void WillyBeatAudioProcessor::saveEditedPattern (const DrumPattern& p)
 
 //==============================================================================
 
-void WillyBeatAudioProcessor::killAllNotes (juce::MidiBuffer& midi, int offset)
+void DrumwrightAudioProcessor::killAllNotes (juce::MidiBuffer& midi, int offset)
 {
     for (auto& n : activeNotes)
         midi.addEvent (juce::MidiMessage::noteOff (10, n.note), offset);
@@ -633,32 +632,32 @@ void WillyBeatAudioProcessor::killAllNotes (juce::MidiBuffer& midi, int offset)
 
 //==============================================================================
 
-const juce::String WillyBeatAudioProcessor::getName() const { return JucePlugin_Name; }
-bool WillyBeatAudioProcessor::acceptsMidi()  const { return true; }
-bool WillyBeatAudioProcessor::producesMidi() const { return true; }
-bool WillyBeatAudioProcessor::isMidiEffect() const { return false; }
-double WillyBeatAudioProcessor::getTailLengthSeconds() const { return 0.0; }
+const juce::String DrumwrightAudioProcessor::getName() const { return JucePlugin_Name; }
+bool DrumwrightAudioProcessor::acceptsMidi()  const { return true; }
+bool DrumwrightAudioProcessor::producesMidi() const { return true; }
+bool DrumwrightAudioProcessor::isMidiEffect() const { return false; }
+double DrumwrightAudioProcessor::getTailLengthSeconds() const { return 0.0; }
 
-int  WillyBeatAudioProcessor::getNumPrograms()              { return 1; }
-int  WillyBeatAudioProcessor::getCurrentProgram()           { return 0; }
-void WillyBeatAudioProcessor::setCurrentProgram (int)       {}
-const juce::String WillyBeatAudioProcessor::getProgramName (int) { return {}; }
-void WillyBeatAudioProcessor::changeProgramName (int, const juce::String&) {}
-bool WillyBeatAudioProcessor::hasEditor() const { return true; }
+int  DrumwrightAudioProcessor::getNumPrograms()              { return 1; }
+int  DrumwrightAudioProcessor::getCurrentProgram()           { return 0; }
+void DrumwrightAudioProcessor::setCurrentProgram (int)       {}
+const juce::String DrumwrightAudioProcessor::getProgramName (int) { return {}; }
+void DrumwrightAudioProcessor::changeProgramName (int, const juce::String&) {}
+bool DrumwrightAudioProcessor::hasEditor() const { return true; }
 
-juce::AudioProcessorEditor* WillyBeatAudioProcessor::createEditor()
+juce::AudioProcessorEditor* DrumwrightAudioProcessor::createEditor()
 {
-    return new WillyBeatAudioProcessorEditor (*this);
+    return new DrumwrightAudioProcessorEditor (*this);
 }
 
-void WillyBeatAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void DrumwrightAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
     copyXmlToBinary (*xml, destData);
 }
 
-void WillyBeatAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void DrumwrightAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
     if (!xml) return;
@@ -669,5 +668,5 @@ void WillyBeatAudioProcessor::setStateInformation (const void* data, int sizeInB
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new WillyBeatAudioProcessor();
+    return new DrumwrightAudioProcessor();
 }

@@ -5,12 +5,12 @@
 #include "VariationGenerator.h"
 #include "StockDrums.h"
 
-class WillyBeatAudioProcessor : public juce::AudioProcessor,
+class DrumwrightAudioProcessor : public juce::AudioProcessor,
                                  public juce::AudioProcessorValueTreeState::Listener
 {
 public:
-    WillyBeatAudioProcessor();
-    ~WillyBeatAudioProcessor() override;
+    DrumwrightAudioProcessor();
+    ~DrumwrightAudioProcessor() override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -39,7 +39,7 @@ public:
 
     // --- public interface for the editor ---
     PatternLibrary&    getLibrary()       { return library; }
-    const DrumPattern* getActivePattern() const { return activePattern; }
+    const DrumPattern* getActivePattern() const { return activePattern.load(); }
     std::atomic<int>&  getCurrentStep()   { return currentStep; }
     std::atomic<int>&  getCurrentTick()   { return currentTick; }   // tick within the active pattern
 
@@ -56,9 +56,6 @@ public:
     // Navigate to a saved pattern by exact case-insensitive name match.
     // Returns true if found and selected.
     bool navigateToPatternByName (const juce::String& name);
-
-    // Generate a variation of the active pattern and store it as a preset
-    void generateVariation();
 
     // Generate a composite pattern from same-genre patterns and store it.
     // Defaults to using the user's currently-selected tags for both the
@@ -100,14 +97,15 @@ private:
     // Separate RNG for audio thread (only accessed from processBlock)
     juce::Random audioRng { juce::Random::getSystemRandom().nextInt64() };
 
-    const DrumPattern* activePattern = nullptr;
+    std::atomic<const DrumPattern*> activePattern { nullptr };
 
     std::atomic<int> currentStep { 0 };
     std::atomic<int> currentTick { 0 };
     std::atomic<int> hostTsNum   { 0 };
     std::atomic<int> hostTsDen   { 0 };
-    long lastFiredAbsTick[NUM_TRACKS] = {};   // per-track last-fired absolute tick (re-fire guard)
-    bool wasPlaying = false;
+    long   lastFiredAbsTick[NUM_TRACKS] = {};   // per-track last-fired absolute tick (re-fire guard)
+    double lastPPQEnd = -1.0;                   // ppqEnd from last playing block, for rewind detection
+    bool   wasPlaying = false;
 
     struct ActiveNote { int note; long offAtSample; };
     std::vector<ActiveNote> activeNotes;
@@ -117,5 +115,5 @@ private:
 
     void killAllNotes (juce::MidiBuffer& midi, int offset);
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WillyBeatAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumwrightAudioProcessor)
 };

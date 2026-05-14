@@ -1,22 +1,22 @@
-#include "WillyBeatLookAndFeel.h"
+#include "DrumwrightLookAndFeel.h"
 
 // Tokyo-Night palette — flat, lavender accent, soft text.
-const juce::Colour WillyBeatLookAndFeel::bgWindow      { 0xff1a1b26 };
-const juce::Colour WillyBeatLookAndFeel::bgPanel       { 0xff24283b };
-const juce::Colour WillyBeatLookAndFeel::bgRecess      { 0xff16161e };
-const juce::Colour WillyBeatLookAndFeel::bgRaised      { 0xff2a2e42 };
-const juce::Colour WillyBeatLookAndFeel::border        { 0xff414868 };
-const juce::Colour WillyBeatLookAndFeel::borderBright  { 0xff565f89 };
-const juce::Colour WillyBeatLookAndFeel::accent        { 0xffa78bfa };
-const juce::Colour WillyBeatLookAndFeel::accentBright  { 0xffc4b5fd };
-const juce::Colour WillyBeatLookAndFeel::accentSoft    { 0xff7c6bc8 };
-const juce::Colour WillyBeatLookAndFeel::textPrimary   { 0xffc0caf5 };
-const juce::Colour WillyBeatLookAndFeel::textSecondary { 0xff9aa5ce };
-const juce::Colour WillyBeatLookAndFeel::textMuted     { 0xff6b7394 };
+const juce::Colour DrumwrightLookAndFeel::bgWindow      { 0xff1a1b26 };
+const juce::Colour DrumwrightLookAndFeel::bgPanel       { 0xff24283b };
+const juce::Colour DrumwrightLookAndFeel::bgRecess      { 0xff16161e };
+const juce::Colour DrumwrightLookAndFeel::bgRaised      { 0xff2a2e42 };
+const juce::Colour DrumwrightLookAndFeel::border        { 0xff414868 };
+const juce::Colour DrumwrightLookAndFeel::borderBright  { 0xff565f89 };
+const juce::Colour DrumwrightLookAndFeel::accent        { 0xffa78bfa };
+const juce::Colour DrumwrightLookAndFeel::accentBright  { 0xffc4b5fd };
+const juce::Colour DrumwrightLookAndFeel::accentSoft    { 0xff7c6bc8 };
+const juce::Colour DrumwrightLookAndFeel::textPrimary   { 0xffc0caf5 };
+const juce::Colour DrumwrightLookAndFeel::textSecondary { 0xff9aa5ce };
+const juce::Colour DrumwrightLookAndFeel::textMuted     { 0xff6b7394 };
 
 //==============================================================================
 
-WillyBeatLookAndFeel::WillyBeatLookAndFeel()
+DrumwrightLookAndFeel::DrumwrightLookAndFeel()
 {
     // ── Slider / rotary (uses JUCE V4 default drawing) ───────────────────
     setColour (juce::Slider::rotarySliderFillColourId,    accent);
@@ -65,7 +65,7 @@ WillyBeatLookAndFeel::WillyBeatLookAndFeel()
 
 //==============================================================================
 
-void WillyBeatLookAndFeel::drawRotarySlider (juce::Graphics& g,
+void DrumwrightLookAndFeel::drawRotarySlider (juce::Graphics& g,
                                               int x, int y, int width, int height,
                                               float sliderPos,
                                               float startAngle, float endAngle,
@@ -114,7 +114,7 @@ void WillyBeatLookAndFeel::drawRotarySlider (juce::Graphics& g,
     g.fillEllipse (dotPx - dotR, dotPy - dotR, dotR * 2.0f, dotR * 2.0f);
 }
 
-void WillyBeatLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
+void DrumwrightLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
 {
     // Slider value labels: draw the text only - no background fill, no
     // outline rectangle, even when the underlying LookAndFeel_V4 default
@@ -138,7 +138,7 @@ void WillyBeatLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
                       label.getMinimumHorizontalScale());
 }
 
-void WillyBeatLookAndFeel::fillTextEditorBackground (juce::Graphics& g,
+void DrumwrightLookAndFeel::fillTextEditorBackground (juce::Graphics& g,
                                                       int width, int height,
                                                       juce::TextEditor& te)
 {
@@ -147,7 +147,7 @@ void WillyBeatLookAndFeel::fillTextEditorBackground (juce::Graphics& g,
     g.fillRoundedRectangle (b, 6.0f);
 }
 
-void WillyBeatLookAndFeel::drawTextEditorOutline (juce::Graphics& g,
+void DrumwrightLookAndFeel::drawTextEditorOutline (juce::Graphics& g,
                                                    int width, int height,
                                                    juce::TextEditor& te)
 {
@@ -159,7 +159,7 @@ void WillyBeatLookAndFeel::drawTextEditorOutline (juce::Graphics& g,
     g.drawRoundedRectangle (b, 6.0f, 1.0f);
 }
 
-void WillyBeatLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& text,
+void DrumwrightLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& text,
                                          int width, int height)
 {
     auto bounds = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height).reduced (0.5f);
@@ -177,7 +177,7 @@ void WillyBeatLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& t
                       juce::Justification::centredLeft, 3);
 }
 
-void WillyBeatLookAndFeel::drawButtonBackground (juce::Graphics& g,
+void DrumwrightLookAndFeel::drawButtonBackground (juce::Graphics& g,
                                                   juce::Button& button,
                                                   const juce::Colour& /*backgroundColour*/,
                                                   bool isMouseOverButton,
@@ -206,7 +206,7 @@ void WillyBeatLookAndFeel::drawButtonBackground (juce::Graphics& g,
     g.drawRoundedRectangle (bounds, 6.0f, 1.0f);
 }
 
-void WillyBeatLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height,
+void DrumwrightLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height,
                                          bool /*isButtonDown*/,
                                          int /*bx*/, int /*by*/, int /*bw*/, int /*bh*/,
                                          juce::ComboBox& box)
@@ -234,7 +234,7 @@ void WillyBeatLookAndFeel::drawComboBox (juce::Graphics& g, int width, int heigh
                                                 juce::PathStrokeType::rounded));
 }
 
-void WillyBeatLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
+void DrumwrightLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
 {
     label.setBounds (juce::Rectangle<int> (8, 0, box.getWidth() - 22, box.getHeight()));
     label.setFont (getComboBoxFont (box));
@@ -242,17 +242,17 @@ void WillyBeatLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Labe
 
 //==============================================================================
 
-juce::Font WillyBeatLookAndFeel::getTextButtonFont (juce::TextButton&, int)
+juce::Font DrumwrightLookAndFeel::getTextButtonFont (juce::TextButton&, int)
 {
     return juce::Font (juce::FontOptions{}.withHeight (12.0f));
 }
 
-juce::Font WillyBeatLookAndFeel::getComboBoxFont (juce::ComboBox&)
+juce::Font DrumwrightLookAndFeel::getComboBoxFont (juce::ComboBox&)
 {
     return juce::Font (juce::FontOptions{}.withHeight (12.0f));
 }
 
-juce::Font WillyBeatLookAndFeel::getPopupMenuFont()
+juce::Font DrumwrightLookAndFeel::getPopupMenuFont()
 {
     return juce::Font (juce::FontOptions{}.withHeight (12.5f));
 }

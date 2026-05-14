@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WillyBeat VERSION 2.0.1)
+project(Drumwright VERSION 2.0.1)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -14,7 +14,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
-juce_add_plugin(WillyBeat
+juce_add_plugin(Drumwright
     COMPANY_NAME                "WillyBresee"
     PLUGIN_MANUFACTURER_CODE    Wbrs
     PLUGIN_CODE                 Wbdt
@@ -26,32 +26,32 @@ juce_add_plugin(WillyBeat
     VST3_CATEGORIES             Instrument Drum
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD     TRUE
-    PRODUCT_NAME                "WillyBeat"
+    PRODUCT_NAME                "Drumwright"
     ICON_BIG                    "${CMAKE_SOURCE_DIR}/Resources/logo.png"
     ICON_SMALL                  "${CMAKE_SOURCE_DIR}/Resources/logo.png"
 )
 
-juce_generate_juce_header(WillyBeat)
+juce_generate_juce_header(Drumwright)
 
-target_sources(WillyBeat
+target_sources(Drumwright
     PRIVATE
         Source/PatternLibrary.cpp
         Source/VariationGenerator.cpp
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
-        Source/WillyBeatLookAndFeel.cpp
+        Source/DrumwrightLookAndFeel.cpp
         Source/StockDrums.cpp
         Source/TagVectorIndex.mm
 )
 
-target_compile_definitions(WillyBeat
+target_compile_definitions(Drumwright
     PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
 )
 
-target_link_libraries(WillyBeat
+target_link_libraries(Drumwright
     PRIVATE
         juce::juce_audio_utils
     PUBLIC
@@ -63,7 +63,7 @@ target_link_libraries(WillyBeat
 if(APPLE)
     find_library(NATURAL_LANGUAGE_FRAMEWORK NaturalLanguage)
     find_library(FOUNDATION_FRAMEWORK       Foundation)
-    target_link_libraries(WillyBeat PRIVATE ${NATURAL_LANGUAGE_FRAMEWORK})
+    target_link_libraries(Drumwright PRIVATE ${NATURAL_LANGUAGE_FRAMEWORK})
 
     # ── BakeTagEmbeddings: pre-compute NLEmbedding vectors for every tag in
     # Presets/ so the plugin doesn't have to call the framework at startup.
@@ -97,15 +97,15 @@ if(APPLE)
         COMMENT "pack_presets: bundling starter preset bank"
         VERBATIM)
 
-    juce_add_binary_data(WillyBeatBakedData
+    juce_add_binary_data(DrumwrightBakedData
         HEADER_NAME BinaryData.h
         NAMESPACE   BinaryData
         SOURCES     "${BAKED_BIN}"
                     "${PRESET_BUNDLE}"
                     "${CMAKE_SOURCE_DIR}/Resources/logo_ui.png")
 
-    target_link_libraries(WillyBeat PRIVATE WillyBeatBakedData)
-    target_compile_definitions(WillyBeat PRIVATE
+    target_link_libraries(Drumwright PRIVATE DrumwrightBakedData)
+    target_compile_definitions(Drumwright PRIVATE
         JUCE_INCLUDED_BAKED_EMBEDDINGS=1
         JUCE_INCLUDED_PRESET_BUNDLE=1)
 endif()

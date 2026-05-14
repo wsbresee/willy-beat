@@ -1,7 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "WillyBeatLookAndFeel.h"
+#include "DrumwrightLookAndFeel.h"
 #include "TagVectorIndex.h"
 
 
@@ -81,11 +81,11 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat().reduced (0.5f, 1.5f);
-        g.setColour (hovered ? WillyBeatLookAndFeel::accent.withAlpha (0.18f)
-                             : WillyBeatLookAndFeel::bgPanel);
+        g.setColour (hovered ? DrumwrightLookAndFeel::accent.withAlpha (0.18f)
+                             : DrumwrightLookAndFeel::bgPanel);
         g.fillRoundedRectangle (b, 4.0f);
-        g.setColour (hovered ? WillyBeatLookAndFeel::accentBright
-                             : WillyBeatLookAndFeel::accent.withAlpha (0.75f));
+        g.setColour (hovered ? DrumwrightLookAndFeel::accentBright
+                             : DrumwrightLookAndFeel::accent.withAlpha (0.75f));
         g.drawRoundedRectangle (b, 4.0f, 1.0f);
         g.setColour (findColour (juce::Label::textColourId));
         g.setFont (getFont());
@@ -94,6 +94,44 @@ public:
 
 private:
     bool hovered = false;
+};
+
+// Left/right chevron arrow button for pattern navigation.
+// Draws a rounded-rect box with a chevron matching the combo-box dropdown arrow style.
+class PatNavButton : public juce::Button
+{
+public:
+    explicit PatNavButton (bool isLeft_) : juce::Button ({}), isLeft (isLeft_) {}
+
+    void paintButton (juce::Graphics& g, bool isMouseOverButton, bool isButtonDown) override
+    {
+        auto b = getLocalBounds().toFloat();
+        const float cx = b.getCentreX();
+        const float cy = b.getCentreY();
+
+        juce::Path arrow;
+        if (isLeft)
+        {
+            arrow.startNewSubPath (cx + 2.0f, cy - 4.0f);
+            arrow.lineTo          (cx - 2.5f, cy);
+            arrow.lineTo          (cx + 2.0f, cy + 4.0f);
+        }
+        else
+        {
+            arrow.startNewSubPath (cx - 2.0f, cy - 4.0f);
+            arrow.lineTo          (cx + 2.5f, cy);
+            arrow.lineTo          (cx - 2.0f, cy + 4.0f);
+        }
+
+        g.setColour (isButtonDown      ? DrumwrightLookAndFeel::accentBright
+                   : isMouseOverButton ? DrumwrightLookAndFeel::accent
+                                       : DrumwrightLookAndFeel::accent.withAlpha (0.55f));
+        g.strokePath (arrow, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved,
+                                                    juce::PathStrokeType::rounded));
+    }
+
+private:
+    bool isLeft;
 };
 
 // ─── DragStrip ───────────────────────────────────────────────────────────────
@@ -120,7 +158,7 @@ class PatternGrid : public juce::Component,
                     public juce::Timer
 {
 public:
-    explicit PatternGrid (WillyBeatAudioProcessor& p);
+    explicit PatternGrid (DrumwrightAudioProcessor& p);
     ~PatternGrid() override;
 
     void paint           (juce::Graphics& g)         override;
@@ -154,15 +192,16 @@ private:
     bool   cellAt (int x, int y, int& outRow, int& outCell, const Layout& L) const;
     void   updateBadgeAt (int x, int y);
 
-    WillyBeatAudioProcessor& proc;
+    DrumwrightAudioProcessor& proc;
     DrumPattern*             editTarget = nullptr;
     int                      lastStep   = -1;
 
     // Drag-to-set-velocity state
-    int dragRow      = -1;
-    int dragCol      = -1;
-    int dragStartVel = 0;
-    bool dragMoved   = false;
+    int  dragRow       = -1;
+    int  dragCol       = -1;
+    int  dragStartVel  = 0;
+    bool dragMoved     = false;
+    bool deferredClear = false; // true when mouseDown found a filled cell; clear deferred to mouseUp
 
     // Scroll-velocity badge state: which cell was most recently scrolled,
     // its current velocity, and when the last scroll happened (ms since
@@ -192,7 +231,7 @@ class MiniPatternView : public juce::Component,
                         public juce::Timer
 {
 public:
-    explicit MiniPatternView (WillyBeatAudioProcessor& p);
+    explicit MiniPatternView (DrumwrightAudioProcessor& p);
     ~MiniPatternView() override;
 
     void paint        (juce::Graphics& g)         override;
@@ -206,18 +245,18 @@ public:
     std::function<void()> onClick;
 
 private:
-    WillyBeatAudioProcessor& proc;
+    DrumwrightAudioProcessor& proc;
     DrumPattern*             editTarget = nullptr;
 };
 
-// ─── WillyBeatAudioProcessorEditor ───────────────────────────────────────────
-class WillyBeatAudioProcessorEditor : public juce::AudioProcessorEditor,
+// ─── DrumwrightAudioProcessorEditor ───────────────────────────────────────────
+class DrumwrightAudioProcessorEditor : public juce::AudioProcessorEditor,
                                       public juce::Timer,
                                       public juce::FileDragAndDropTarget
 {
 public:
-    explicit WillyBeatAudioProcessorEditor (WillyBeatAudioProcessor&);
-    ~WillyBeatAudioProcessorEditor() override;
+    explicit DrumwrightAudioProcessorEditor (DrumwrightAudioProcessor&);
+    ~DrumwrightAudioProcessorEditor() override;
 
     void paint               (juce::Graphics&)          override;
     void resized             ()                          override;
@@ -232,9 +271,9 @@ public:
     void fileDragExit           (const juce::StringArray& files) override;
 
 private:
-    WillyBeatAudioProcessor& audioProcessor;
+    DrumwrightAudioProcessor& audioProcessor;
 
-    WillyBeatLookAndFeel lookAndFeel;
+    DrumwrightLookAndFeel lookAndFeel;
     juce::TooltipWindow  tooltipWindow { this, 2800 };
 
     DragStrip       dragStrip;
@@ -249,7 +288,10 @@ private:
 
     juce::TextEditor tagInput;
     TagVectorIndex   tagVectorIndex;
-    juce::Slider   patIdxSlider;
+    juce::Slider     patIdxSlider;   // hidden; APVTS attachment point only
+    PatNavButton     patPrevBtn { true  };
+    PatNavButton     patNextBtn { false };
+    juce::Label      patNameLabel;
 
     juce::TextButton clearBtn    { "Clear" };
     juce::TextButton genBtn      { "Generate" };
@@ -359,5 +401,5 @@ private:
     const DrumPattern* findFill (const DrumPattern& pat, juce::int64 seed) const;
     DrumPattern buildFillPatternForExport (juce::int64 seed) const;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WillyBeatAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumwrightAudioProcessorEditor)
 };

@@ -169,6 +169,7 @@ static DrumPattern make (const char* name, const char* genres, PatType t,
     p.setRow (TR_TOM_M,   tomM);
     p.setRow (TR_TOM_L,   tomL);
     p.setRow (TR_RIM,     rim);
+    p.syncHitsFromLegacy();
     p.computeDensity();
     return p;
 }
@@ -474,7 +475,7 @@ juce::File PatternLibrary::patternFile (const juce::File& dir, const DrumPattern
 bool PatternLibrary::patternToFile (const DrumPattern& p, const juce::File& f)
 {
     juce::String text;
-    text << "# WillyBeat Preset v2\n";
+    text << "# Drumwright Preset v2\n";
     text << "version: 2\n";
     text << "name:    " << p.name << "\n";
     text << "genres:  " << p.genres.joinIntoString (", ") << "\n";
@@ -852,11 +853,101 @@ std::vector<const DrumPattern*> PatternLibrary::getByTags (const juce::StringArr
     return result;
 }
 
+// ─── Composite modifier helpers ──────────────────────────────────────────────
+
+struct CompositeModifiers
+{
+    float velScale    = 1.0f;   // >1 = louder, <1 = quieter
+    float densityBias = 0.0f;   // >0 = prefer denser, <0 = prefer sparser  (-1..+1)
+};
+
+static CompositeModifiers parseModifiers (const juce::StringArray& tags,
+                                          juce::StringArray& cleanTags)
+{
+    // Each entry: {velScaleMultiplier, densityBiasDelta}.
+    // Words in this table are stripped from the tag list so they don't pollute
+    // semantic tag matching; their effects are applied to the final pattern.
+    static const std::map<juce::String, std::pair<float, float>> kMods
+    {
+        { "loud",     {1.35f,  0.00f} },
+        { "louder",   {1.40f,  0.00f} },
+        { "hard",     {1.25f,  0.20f} },
+        { "heavy",    {1.25f,  0.30f} },
+        { "punchy",   {1.20f,  0.10f} },
+        { "big",      {1.30f,  0.10f} },
+        { "powerful", {1.30f,  0.10f} },
+        { "soft",     {0.65f,  0.00f} },
+        { "quiet",    {0.60f,  0.00f} },
+        { "quieter",  {0.55f,  0.00f} },
+        { "gentle",   {0.55f, -0.20f} },
+        { "subtle",   {0.60f, -0.20f} },
+        { "light",    {0.70f, -0.20f} },
+        { "crazy",    {1.20f,  1.00f} },
+        { "wild",     {1.20f,  1.00f} },
+        { "insane",   {1.30f,  1.00f} },
+        { "intense",  {1.20f,  0.80f} },
+        { "dense",    {1.00f,  1.00f} },
+        { "full",     {1.00f,  0.80f} },
+        { "busy",     {1.00f,  0.80f} },
+        { "complex",  {1.00f,  0.70f} },
+        { "thick",    {1.10f,  0.70f} },
+        { "thin",     {0.90f, -1.00f} },
+        { "sparse",   {1.00f, -1.00f} },
+        { "minimal",  {1.00f, -1.00f} },
+        { "simple",   {1.00f, -0.80f} },
+        { "basic",    {1.00f, -0.70f} },
+        { "open",     {1.00f, -0.70f} },
+        { "stripped", {0.90f, -0.90f} },
+        { "bare",     {0.90f, -0.90f} },
+    };
+
+    CompositeModifiers mods;
+    cleanTags.clear();
+
+    for (const auto& tag : tags)
+    {
+        juce::StringArray words;
+        words.addTokens (tag, " \t", "");
+        juce::StringArray kept;
+
+        for (const auto& w : words)
+        {
+            const juce::String lw = w.toLowerCase().trim();
+            if (lw.isEmpty()) continue;
+            auto it = kMods.find (lw);
+            if (it != kMods.end())
+            {
+                mods.velScale    = juce::jlimit (0.3f, 2.5f,  mods.velScale    * it->second.first);
+                mods.densityBias = juce::jlimit (-1.0f, 1.0f, mods.densityBias + it->second.second);
+            }
+            else
+            {
+                kept.add (w);
+            }
+        }
+
+        if (! kept.isEmpty())
+            cleanTags.add (kept.joinIntoString (" "));
+    }
+
+    if (cleanTags.isEmpty())   // pure-modifier query — keep originals for semantic search
+        cleanTags = tags;
+
+    return mods;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 DrumPattern PatternLibrary::makeComposite (const juce::StringArray& tags,
                                            PatType type,
                                            juce::int64 seed) const
 {
     constexpr int kMinSources = 5;
+
+    // Strip modifier words (loud, quiet, dense, sparse …) from the tags before
+    // semantic matching. The modifiers are applied to the final pattern instead.
+    juce::StringArray cleanTags;
+    const CompositeModifiers mods = parseModifiers (tags, cleanTags);
 
     auto isUsable = [&] (const DrumPattern& p)
     {
@@ -873,7 +964,7 @@ DrumPattern PatternLibrary::makeComposite (const juce::StringArray& tags,
     std::vector<const DrumPattern*> sources;
 
     // Pass 1: tag-matched, same type, non-composite.
-    auto matches = getByTags (tags);
+    auto matches = getByTags (cleanTags);
     for (auto* p : matches)
         if (isUsable (*p) && p->type == type)
             sources.push_back (p);
@@ -885,8 +976,8 @@ DrumPattern PatternLibrary::makeComposite (const juce::StringArray& tags,
                 sources.push_back (p);
 
     // Pass 3: fuzzy tag matches (substring, case-insensitive).
-    if ((int) sources.size() < kMinSources && ! tags.isEmpty())
-        for (const auto& tag : tags)
+    if ((int) sources.size() < kMinSources && ! cleanTags.isEmpty())
+        for (const auto& tag : cleanTags)
         {
             auto fuzzy = getByTag (tag, /*fuzzy=*/true);
             for (auto* p : fuzzy)
@@ -910,48 +1001,143 @@ DrumPattern PatternLibrary::makeComposite (const juce::StringArray& tags,
 
     juce::Random rng (seed);
 
-    // Shape comes from the first source. Only mix in sources whose shape
-    // matches so we don't combine 4/4 with 6/8 or 1-bar with 2-bar
-    // patterns - the resulting groove makes no sense.
-    DrumPattern result;
-    result.timeSigNum = sources[0]->timeSigNum;
-    result.timeSigDen = sources[0]->timeSigDen;
-    result.bars       = sources[0]->bars;
-    result.gridSub    = sources[0]->gridSub;
+    // ── Density-bias sorting ───────────────────────────────────────────────
+    // When the query includes density modifiers (dense/sparse/crazy/minimal…),
+    // sort the whole source list so denser or sparser patterns float to the top.
+    // We do this before shape selection so the most-popular shape is computed
+    // over the biased ordering, and compat[0] (the anchor) is already a good fit.
+    if (std::abs (mods.densityBias) > 0.15f)
+    {
+        std::stable_sort (sources.begin(), sources.end(),
+            [&] (const DrumPattern* a, const DrumPattern* b)
+            {
+                return mods.densityBias > 0.0f
+                    ? a->density > b->density   // dense: high first
+                    : a->density < b->density;  // sparse: low first
+            });
+    }
 
+    // ── Shape selection: prefer the shape backed by the most sources ──────
+    // Avoids cases where sources[0] is a 2-bar outlier that leaves compat
+    // with only 1 pattern, producing identical output on every generate.
+    using ShapeKey = std::tuple<int, int, int>;  // {tsNum, tsDen, bars}
+    std::map<ShapeKey, int> shapeCounts;
+    for (auto* p : sources)
+        shapeCounts[{ p->timeSigNum, p->timeSigDen, p->bars }]++;
+
+    auto bestShapeIt = std::max_element (shapeCounts.begin(), shapeCounts.end(),
+        [] (const auto& a, const auto& b) { return a.second < b.second; });
+
+    DrumPattern result;
+    result.timeSigNum = std::get<0> (bestShapeIt->first);
+    result.timeSigDen = std::get<1> (bestShapeIt->first);
+    result.bars       = std::get<2> (bestShapeIt->first);
+    result.gridSub    = GridSub::Sixteenth;
+    for (auto* p : sources)
+        if (p->timeSigNum == result.timeSigNum && p->timeSigDen == result.timeSigDen
+            && p->bars == result.bars)
+        { result.gridSub = p->gridSub; break; }
+
+    // ── Compat pool: sources matching the chosen shape ─────────────────────
     std::vector<const DrumPattern*> compat;
     compat.reserve (sources.size());
     for (auto* p : sources)
-        if (p->timeSigNum == result.timeSigNum
-            && p->timeSigDen == result.timeSigDen
-            && p->bars       == result.bars)
+        if (p->timeSigNum == result.timeSigNum && p->timeSigDen == result.timeSigDen
+            && p->bars == result.bars)
             compat.push_back (p);
     if (compat.empty()) compat.push_back (sources[0]);
 
-    // Build a canonical (unfiltered) cache for each compat source.
-    // The in-memory library copies may hold density-filtered hits (written
-    // back by updatePattern while the Density knob is live). Reading from
-    // disk here ensures composites are always drawn from full-density sources.
-    std::map<const DrumPattern*, DrumPattern> canonical;
-    for (auto* p : compat)
+    // ── Expand compat pool when it's too small ─────────────────────────────
+    // Pull in any additional non-composite pattern with the same shape so
+    // there's always enough variety to draw from.
+    constexpr int kMinCompat = 3;
+    if ((int) compat.size() < kMinCompat)
     {
-        if (p->sourceFile.existsAsFile())
-            canonical.emplace (p, PatternLibrary::loadFromFile (p->sourceFile));
+        for (const auto& p : patterns)
+            if (isUsable (p) && ! contains (compat, &p)
+                && p.timeSigNum == result.timeSigNum
+                && p.timeSigDen == result.timeSigDen
+                && p.bars       == result.bars)
+            {
+                compat.push_back (&p);
+                if ((int) compat.size() >= kMinCompat * 3) break;
+            }
     }
 
-    // Independently pick a random source pattern for each track and copy
-    // its hit list over.
-    for (int t = 0; t < NUM_TRACKS; ++t)
+    // ── Canonical (full-density) cache ────────────────────────────────────
+    // In-memory copies may hold density-filtered hits; reading from disk
+    // ensures composites always draw from full-velocity source patterns.
+    std::map<const DrumPattern*, DrumPattern> canonical;
+    for (auto* p : compat)
+        if (p->sourceFile.existsAsFile())
+            canonical.emplace (p, PatternLibrary::loadFromFile (p->sourceFile));
+
+    auto getHits = [&] (const DrumPattern* src, int t) -> const std::vector<DrumHit>&
     {
-        auto* src = compat[(size_t) rng.nextInt ((int) compat.size())];
         auto it = canonical.find (src);
-        result.hits[t] = (it != canonical.end()) ? it->second.hits[t] : src->hits[t];
+        return (it != canonical.end()) ? it->second.hits[t] : src->hits[t];
+    };
+
+    // ── Per-track mixing with guaranteed variety ───────────────────────────
+    // compat[0] = anchor (best semantic match). Randomly pick a source per
+    // track, but guarantee at least kMinVariantTracks come from a non-anchor
+    // source so consecutive generates always sound distinctly different.
+    constexpr int kMinVariantTracks = 3;
+
+    if ((int) compat.size() >= 2)
+    {
+        // Shuffle track indices so forced variants are distributed randomly.
+        std::vector<int> trackOrder (NUM_TRACKS);
+        for (int i = 0; i < NUM_TRACKS; ++i) trackOrder[i] = i;
+        for (int i = NUM_TRACKS - 1; i > 0; --i)
+        {
+            int j = rng.nextInt (i + 1);
+            std::swap (trackOrder[i], trackOrder[j]);
+        }
+
+        std::vector<const DrumPattern*> trackSrc (NUM_TRACKS, compat[0]);
+        int variantsAssigned = 0;
+
+        for (int idx = 0; idx < NUM_TRACKS; ++idx)
+        {
+            int t             = trackOrder[idx];
+            int remaining     = NUM_TRACKS - idx;
+            int variantsLeft  = kMinVariantTracks - variantsAssigned;
+            bool forceVariant = variantsLeft >= remaining;
+
+            if (forceVariant || rng.nextFloat() < 0.5f)
+            {
+                int srcIdx  = 1 + rng.nextInt ((int) compat.size() - 1);
+                trackSrc[t] = compat[srcIdx];
+                ++variantsAssigned;
+            }
+        }
+
+        for (int t = 0; t < NUM_TRACKS; ++t)
+            result.hits[t] = getHits (trackSrc[t], t);
     }
+    else
+    {
+        for (int t = 0; t < NUM_TRACKS; ++t)
+            result.hits[t] = getHits (compat[0], t);
+    }
+
+    // ── Velocity scale + jitter ──────────────────────────────────────────────
+    // Apply the loudness modifier (if any), then add ±12 jitter so consecutive
+    // generates from a small pool still feel dynamically different.
+    constexpr int kJitter = 12;
+    for (int t = 0; t < NUM_TRACKS; ++t)
+        for (auto& h : result.hits[t])
+        {
+            float scaled   = juce::jlimit (1.0f, 127.0f, (float) h.velocity * mods.velScale);
+            int   jittered = (int) std::round (scaled) + rng.nextInt (2 * kJitter + 1) - kJitter;
+            h.velocity     = (uint8_t) juce::jlimit (1, 127, jittered);
+        }
 
     result.genres      = tags;
     result.type        = type;
     result.isComposite = true;
-    result.name        = "Generated";   // caller stamps a unique name before saving
+    result.name        = "Generated";
     result.sourceFile  = juce::File();
     result.syncLegacyFromHits();
     result.recomputeDensity();

@@ -15,7 +15,7 @@ void GridViewport::mouseWheelMove (const juce::MouseEvent& e,
 void TrackLabels::paint (juce::Graphics& g)
 {
     g.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
-    g.setColour (WillyBeatLookAndFeel::textSecondary);
+    g.setColour (DrumwrightLookAndFeel::textSecondary);
     const float cellH = (float) getHeight() / (float) NUM_TRACKS;
     for (int row = 0; row < NUM_TRACKS; ++row)
         g.drawText (kTrackNames[row],
@@ -44,20 +44,6 @@ static constexpr int kNumTimeSigChoices = sizeof (kTimeSigChoices) / sizeof (kTi
 static bool isSupportedTimeSigDen (int d)
 {
     return d == 1 || d == 2 || d == 4 || d == 8 || d == 16 || d == 32;
-}
-
-// Parse a "N/D" string. Returns false if anything's wrong.
-static bool parseTimeSigText (const juce::String& text, int& outNum, int& outDen)
-{
-    const auto t = text.trim();
-    const int slash = t.indexOfChar ('/');
-    if (slash <= 0) return false;
-    const int n = t.substring (0, slash).getIntValue();
-    const int d = t.substring (slash + 1).getIntValue();
-    if (n < 1 || n > 32)         return false;
-    if (! isSupportedTimeSigDen (d)) return false;
-    outNum = n; outDen = d;
-    return true;
 }
 
 // Tile-or-clip a pattern's hits[] to fit a new total tick length. Shared
@@ -286,7 +272,7 @@ static juce::File writePatternToMidi (const DrumPattern& mainPat,
     if (safeName.isEmpty()) safeName = "pattern";
 
     auto tempFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                        .getChildFile ("WillyBeat_" + safeName + ".mid");
+                        .getChildFile ("Drumwright_" + safeName + ".mid");
 
     if (auto os = tempFile.createOutputStream())
         midiFile.writeTo (*os);
@@ -302,16 +288,16 @@ void DragStrip::paint (juce::Graphics& g)
 {
     auto b = getLocalBounds().toFloat().reduced (0.5f);
 
-    g.setColour (hovered ? WillyBeatLookAndFeel::bgRaised.brighter (0.10f)
-                         : WillyBeatLookAndFeel::bgRaised);
+    g.setColour (hovered ? DrumwrightLookAndFeel::bgRaised.brighter (0.10f)
+                         : DrumwrightLookAndFeel::bgRaised);
     g.fillRoundedRectangle (b, 6.0f);
 
-    g.setColour (hovered ? WillyBeatLookAndFeel::accentSoft
-                         : WillyBeatLookAndFeel::borderBright.withAlpha (0.35f));
+    g.setColour (hovered ? DrumwrightLookAndFeel::accentSoft
+                         : DrumwrightLookAndFeel::borderBright.withAlpha (0.35f));
     g.drawRoundedRectangle (b, 6.0f, 1.0f);
 
-    g.setColour (hovered ? WillyBeatLookAndFeel::textPrimary
-                         : WillyBeatLookAndFeel::textSecondary);
+    g.setColour (hovered ? DrumwrightLookAndFeel::textPrimary
+                         : DrumwrightLookAndFeel::textSecondary);
     g.setFont (juce::Font (juce::FontOptions{}.withHeight (10.0f)));
     g.drawText ("DRAG TO DAW", getLocalBounds(), juce::Justification::centred, false);
 }
@@ -339,7 +325,7 @@ void DragStrip::mouseDrag (const juce::MouseEvent&)
 // MiniPatternView
 //==============================================================================
 
-MiniPatternView::MiniPatternView (WillyBeatAudioProcessor& p) : proc (p)
+MiniPatternView::MiniPatternView (DrumwrightAudioProcessor& p) : proc (p)
 {
     startTimerHz (15);
 }
@@ -362,13 +348,13 @@ void MiniPatternView::mouseDown (const juce::MouseEvent&)
 void MiniPatternView::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
-    g.setColour (WillyBeatLookAndFeel::bgRecess);
+    g.setColour (DrumwrightLookAndFeel::bgRecess);
     g.fillRoundedRectangle (bounds, 3.0f);
 
     const auto* pat = (editTarget != nullptr) ? editTarget : proc.getActivePattern();
     if (pat == nullptr)
     {
-        g.setColour (WillyBeatLookAndFeel::border);
+        g.setColour (DrumwrightLookAndFeel::border);
         g.drawRoundedRectangle (bounds, 3.0f, 1.0f);
         return;
     }
@@ -383,7 +369,7 @@ void MiniPatternView::paint (juce::Graphics& g)
     if (playTick >= 0 && playTick < totalTicks)
     {
         float cx = inner.getX() + (float) playTick * pixPerTick;
-        g.setColour (WillyBeatLookAndFeel::accent.withAlpha (0.18f));
+        g.setColour (DrumwrightLookAndFeel::accent.withAlpha (0.18f));
         g.fillRect (cx, inner.getY(), juce::jmax (1.0f, pixPerTick * (float) PPQN / 4.0f), inner.getHeight());
     }
 
@@ -400,7 +386,7 @@ void MiniPatternView::paint (juce::Graphics& g)
         }
     }
 
-    g.setColour (WillyBeatLookAndFeel::border);
+    g.setColour (DrumwrightLookAndFeel::border);
     g.drawRoundedRectangle (bounds.reduced (0.5f), 3.0f, 1.0f);
 }
 
@@ -408,7 +394,7 @@ void MiniPatternView::paint (juce::Graphics& g)
 // PatternGrid
 //==============================================================================
 
-PatternGrid::PatternGrid (WillyBeatAudioProcessor& p) : proc (p)
+PatternGrid::PatternGrid (DrumwrightAudioProcessor& p) : proc (p)
 {
     startTimerHz (30);
 }
@@ -484,7 +470,7 @@ void PatternGrid::paint (juce::Graphics& g)
     const auto* displayPat = (editTarget != nullptr) ? editTarget
                                                      : proc.getActivePattern();
     const auto bounds = getLocalBounds();
-    g.fillAll (WillyBeatLookAndFeel::bgRecess);
+    g.fillAll (DrumwrightLookAndFeel::bgRecess);
 
     if (displayPat == nullptr) return;
 
@@ -496,7 +482,7 @@ void PatternGrid::paint (juce::Graphics& g)
     if (playCell >= 0 && playCell < L.numCells)
     {
         const float cx = (float) L.gridX + (float) playCell * L.cellW;
-        g.setColour (WillyBeatLookAndFeel::accent.withAlpha (0.16f));
+        g.setColour (DrumwrightLookAndFeel::accent.withAlpha (0.16f));
         g.fillRect (cx, 0.0f, L.cellW, (float) bounds.getHeight());
     }
 
@@ -514,7 +500,7 @@ void PatternGrid::paint (juce::Graphics& g)
             const float w = L.cellW * (float) juce::jmin (beatCells, L.numCells - col);
             if (colInBar == 0)
             {
-                g.setColour (WillyBeatLookAndFeel::borderBright.withAlpha (0.28f));
+                g.setColour (DrumwrightLookAndFeel::borderBright.withAlpha (0.28f));
                 g.fillRect (x, 0.0f, w, (float) bounds.getHeight());
             }
             else if (beatIdx % 2 == 1)
@@ -535,12 +521,12 @@ void PatternGrid::paint (juce::Graphics& g)
         const float x = (float) L.gridX + (float) col * L.cellW;
         if (isBarLine)
         {
-            g.setColour (WillyBeatLookAndFeel::borderBright);
+            g.setColour (DrumwrightLookAndFeel::borderBright);
             g.fillRect (x - 1.0f, 0.0f, 2.0f, (float) bounds.getHeight());
         }
         else
         {
-            g.setColour (WillyBeatLookAndFeel::border.withAlpha (0.55f));
+            g.setColour (DrumwrightLookAndFeel::border.withAlpha (0.55f));
             g.drawVerticalLine ((int) x, 0.0f, (float) bounds.getHeight());
         }
     }
@@ -574,7 +560,7 @@ void PatternGrid::paint (juce::Graphics& g)
         }
     }
 
-    g.setColour (WillyBeatLookAndFeel::border);
+    g.setColour (DrumwrightLookAndFeel::border);
     for (int row = 0; row <= NUM_TRACKS; ++row)
         g.drawHorizontalLine ((int) ((float) row * L.cellH),
                               0.0f, (float) bounds.getWidth());
@@ -590,7 +576,7 @@ void PatternGrid::paint (juce::Graphics& g)
         if (!anyHit)
         {
             g.setFont (juce::Font (juce::FontOptions{}.withHeight (11.5f)));
-            g.setColour (WillyBeatLookAndFeel::textMuted.withAlpha (0.65f));
+            g.setColour (DrumwrightLookAndFeel::textMuted.withAlpha (0.65f));
             g.drawText ("Click a cell to draw hits  |  or press Generate",
                         bounds, juce::Justification::centred, false);
         }
@@ -610,7 +596,8 @@ void PatternGrid::paint (juce::Graphics& g)
         const float fontH = juce::jlimit (9.0f, 14.0f, L.cellH - 4.0f);
         g.setColour (juce::Colours::white.withAlpha (alpha));
         g.setFont (juce::Font (juce::FontOptions{}.withHeight (fontH).withStyle ("Bold")));
-        g.drawText (juce::String (badgeVel), cell, juce::Justification::centred, false);
+        auto textCell = cell.withSizeKeepingCentre (juce::jmax (L.cellW, 36.0f), L.cellH);
+        g.drawText (juce::String (badgeVel), textCell, juce::Justification::centred, false);
     }
 }
 
@@ -625,6 +612,9 @@ int PatternGrid::getNaturalWidth (int viewportW) const
 
 void PatternGrid::setEditTarget (DrumPattern* target)
 {
+    dragRow = dragCol = -1;
+    dragMoved = false;
+    deferredClear = false;
     editTarget = target;
     repaint();
 }
@@ -664,9 +654,10 @@ void PatternGrid::mouseDown (const juce::MouseEvent& e)
     if (e.mods.isRightButtonDown())
     {
         setHitAtCell (*editTarget, row, col, L.cellTicks, 0);
-        dragRow = dragCol = -1;
-        dragMoved = false;
-        dragStartVel = 0;
+        dragRow       = dragCol = -1;
+        dragMoved     = false;
+        deferredClear = false;
+        dragStartVel  = 0;
 
         badgeRow = row; badgeCol = col;
         badgeVel = 0; badgeTarget = 0.0f;
@@ -677,23 +668,36 @@ void PatternGrid::mouseDown (const juce::MouseEvent& e)
         return;
     }
 
-    // Left-click toggles. Empty cell → max-velocity accent; filled → clear.
-    const uint8_t newVel = (curVel == 0) ? (uint8_t) 120 : (uint8_t) 0;
-    setHitAtCell (*editTarget, row, col, L.cellTicks, newVel);
-
-    dragRow      = row;
-    dragCol      = col;
-    dragMoved    = false;
-    dragStartVel = newVel;
-
-    badgeRow    = row;
-    badgeCol    = col;
-    badgeVel    = (int) newVel;
-    badgeTarget = (newVel > 0) ? 1.0f : 0.0f;
+    dragRow       = row;
+    dragCol       = col;
+    dragMoved     = false;
+    deferredClear = false;
     pendingBadge.valid = false;
 
-    repaint();
-    if (onHitChanged) onHitChanged (row, col * L.cellTicks);
+    if (curVel == 0)
+    {
+        // Empty cell: place immediately at max velocity.
+        setHitAtCell (*editTarget, row, col, L.cellTicks, 120);
+        dragStartVel = 120;
+        badgeRow    = row;
+        badgeCol    = col;
+        badgeVel    = 120;
+        badgeTarget = 1.0f;
+        repaint();
+        if (onHitChanged) onHitChanged (row, col * L.cellTicks);
+    }
+    else
+    {
+        // Filled cell: lock in current velocity for drag; defer the clear to
+        // mouseUp so a click-without-drag still toggles off the hit.
+        deferredClear = true;
+        dragStartVel  = curVel;
+        badgeRow    = row;
+        badgeCol    = col;
+        badgeVel    = (int) curVel;
+        badgeTarget = 1.0f;
+        repaint();
+    }
 }
 
 void PatternGrid::mouseDrag (const juce::MouseEvent& e)
@@ -724,8 +728,18 @@ void PatternGrid::mouseDrag (const juce::MouseEvent& e)
 
 void PatternGrid::mouseUp (const juce::MouseEvent&)
 {
-    dragRow = dragCol = -1;
-    dragMoved = false;
+    // If the user clicked a filled cell without dragging, now perform the clear.
+    if (deferredClear && !dragMoved && dragRow >= 0 && editTarget != nullptr)
+    {
+        const Layout L = computeLayout (*editTarget);
+        setHitAtCell (*editTarget, dragRow, dragCol, L.cellTicks, 0);
+        badgeTarget = 0.0f;
+        repaint();
+        if (onHitChanged) onHitChanged (dragRow, dragCol * L.cellTicks);
+    }
+    dragRow       = dragCol = -1;
+    dragMoved     = false;
+    deferredClear = false;
 }
 
 // Shared helper: figure out which cell (if any) is under (x, y), update the
@@ -846,10 +860,10 @@ void PatternGrid::timerCallback()
 }
 
 //==============================================================================
-// WillyBeatAudioProcessorEditor
+// DrumwrightAudioProcessorEditor
 //==============================================================================
 
-WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProcessor& p)
+DrumwrightAudioProcessorEditor::DrumwrightAudioProcessorEditor (DrumwrightAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p), grid (p), miniGrid (p)
 {
     setLookAndFeel (&lookAndFeel);
@@ -857,11 +871,11 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // ── Tag chip-bar (also serves as the active pattern's tag editor) ────
     // ── Tag search input ─────────────────────────────────────────────────────
     tagInput.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
-    tagInput.setTextToShowWhenEmpty ("search tags...", WillyBeatLookAndFeel::textMuted);
-    tagInput.setColour (juce::TextEditor::backgroundColourId,     WillyBeatLookAndFeel::bgPanel);
-    tagInput.setColour (juce::TextEditor::outlineColourId,        WillyBeatLookAndFeel::border);
-    tagInput.setColour (juce::TextEditor::focusedOutlineColourId, WillyBeatLookAndFeel::accent);
-    tagInput.setColour (juce::TextEditor::textColourId,           WillyBeatLookAndFeel::textPrimary);
+    tagInput.setTextToShowWhenEmpty ("search tags...", DrumwrightLookAndFeel::textMuted);
+    tagInput.setColour (juce::TextEditor::backgroundColourId,     DrumwrightLookAndFeel::bgPanel);
+    tagInput.setColour (juce::TextEditor::outlineColourId,        DrumwrightLookAndFeel::border);
+    tagInput.setColour (juce::TextEditor::focusedOutlineColourId, DrumwrightLookAndFeel::accent);
+    tagInput.setColour (juce::TextEditor::textColourId,           DrumwrightLookAndFeel::textPrimary);
     tagInput.setIndents (8, 5);
     tagInput.setTooltip ("Type a genre or style and press Enter (or Generate) to create a matching pattern.");
     tagInput.onReturnKey = [this] { genBtn.triggerClick(); };
@@ -870,8 +884,6 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
 
     // ── Pattern index slider ──────────────────────────────────────────────
     patIdxAttach = std::make_unique<SA> (p.apvts, "patIdx", patIdxSlider);
-    patIdxSlider.setSliderStyle (juce::Slider::IncDecButtons);
-    patIdxSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, true, 96, 22);
     patIdxSlider.textFromValueFunction = [this] (double v) -> juce::String
     {
         // Mirror selectPattern's slot filter so the slider's displayed name
@@ -890,7 +902,24 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         return slots[(size_t) idx]->name;
     };
     patIdxSlider.valueFromTextFunction = [] (const juce::String&) -> double { return 0.0; };
-    patIdxSlider.setTooltip ("Step through saved patterns. Generate appends a new pattern at the end - go back one slot to see your previous generation.");
+
+    {
+        const juce::String tip = "Step through saved patterns. Double-click the name to rename. Generate appends a new pattern at the end - go back one slot to see your previous generation.";
+        patPrevBtn  .setTooltip (tip);
+        patNameLabel.setTooltip (tip);
+        patNextBtn  .setTooltip (tip);
+    }
+    patPrevBtn.onClick = [this]
+    {
+        patIdxSlider.setValue (patIdxSlider.getValue() - 1.0, juce::sendNotification);
+    };
+    patNextBtn.onClick = [this]
+    {
+        patIdxSlider.setValue (patIdxSlider.getValue() + 1.0, juce::sendNotification);
+    };
+    patNameLabel.setFont (juce::Font (juce::FontOptions{}.withHeight (13.0f)));
+    patNameLabel.setColour (juce::Label::textColourId, DrumwrightLookAndFeel::textPrimary);
+    patNameLabel.setJustificationType (juce::Justification::centred);
 
     // ── Knob row ──────────────────────────────────────────────────────────
     gateAttach     = std::make_unique<SA> (p.apvts, "duration",      gateKnob);
@@ -924,7 +953,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     auto labelStyle = [] (juce::Label* lbl)
     {
         lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (10.0f)));
-        lbl->setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textMuted);
+        lbl->setColour (juce::Label::textColourId, DrumwrightLookAndFeel::textMuted);
         lbl->setJustificationType (juce::Justification::centred);
     };
     for (juce::Label* lbl : { (juce::Label*) &genreLabel, (juce::Label*) &patLabel,
@@ -960,11 +989,14 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
             if (tagVectorIndex.isAvailable())
             {
                 auto pool = tagVectorIndex.findNearestN (queryTags, 12);
-                if (pool.isEmpty()) pool = queryTags;
+
+                // Always anchor with the query itself so the composite draws
+                // from on-target patterns first, then spice with 2 neighbours.
+                juce::StringArray picks;
+                picks.add (query);
 
                 juce::Random rng (juce::Random::getSystemRandom().nextInt64());
-                const int wanted = juce::jmin (3, pool.size());
-                juce::StringArray picks;
+                const int wanted = juce::jmin (2, pool.size());
                 for (int i = 0; i < wanted; ++i)
                 {
                     int j = i + rng.nextInt (pool.size() - i);
@@ -988,7 +1020,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         genBtn.setEnabled (false);
         refreshTagSelector();
     };
-    genBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::accent);
+    genBtn.setColour (juce::TextButton::buttonColourId,  DrumwrightLookAndFeel::accent);
     genBtn.setColour (juce::TextButton::textColourOffId, juce::Colours::white);
     genBtn.setButtonText ("GENERATE");
     genBtn.setTooltip ("Generate a brand-new pattern from the selected genre tags. Each click produces a different mix.");
@@ -1022,25 +1054,25 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
             repaint();
         }
     };
-    clearBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::bgRaised);
-    clearBtn.setColour (juce::TextButton::textColourOffId, WillyBeatLookAndFeel::textPrimary);
+    clearBtn.setColour (juce::TextButton::buttonColourId,  DrumwrightLookAndFeel::bgRaised);
+    clearBtn.setColour (juce::TextButton::textColourOffId, DrumwrightLookAndFeel::textPrimary);
     clearBtn.setButtonText ("CLEAR");
     clearBtn.setTooltip ("Clear hits from current pattern.  Shift+Click to delete ALL patterns and start fresh.");
 
     // ── Collapse / expand toggle ──────────────────────────────────────────
     collapseBtn.onClick = [this] { toggleCompactMode(); };
-    collapseBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::bgRaised);
-    collapseBtn.setColour (juce::TextButton::textColourOffId, WillyBeatLookAndFeel::textPrimary);
+    collapseBtn.setColour (juce::TextButton::buttonColourId,  DrumwrightLookAndFeel::bgRaised);
+    collapseBtn.setColour (juce::TextButton::textColourOffId, DrumwrightLookAndFeel::textPrimary);
     collapseBtn.setTooltip ("Collapse / expand the editor.");
 
     // ── Internal preview audio toggle ────────────────────────────────────
     soundBtn.setClickingTogglesState (true);
-    soundBtn.setColour (juce::TextButton::buttonColourId,    WillyBeatLookAndFeel::bgRaised);
-    soundBtn.setColour (juce::TextButton::buttonOnColourId,  WillyBeatLookAndFeel::accent);
-    soundBtn.setColour (juce::TextButton::textColourOffId,   WillyBeatLookAndFeel::textSecondary);
+    soundBtn.setColour (juce::TextButton::buttonColourId,    DrumwrightLookAndFeel::bgRaised);
+    soundBtn.setColour (juce::TextButton::buttonOnColourId,  DrumwrightLookAndFeel::accent);
+    soundBtn.setColour (juce::TextButton::textColourOffId,   DrumwrightLookAndFeel::textSecondary);
     soundBtn.setColour (juce::TextButton::textColourOnId,    juce::Colours::white);
     soundBtn.setButtonText ("AUDIO");
-    soundBtn.setTooltip ("Internal drum-sound preview. When on, WillyBeat plays simple synthesized drums through its audio output as the DAW transport rolls. Default off so the plugin defers to a downstream sampler.");
+    soundBtn.setTooltip ("Internal drum-sound preview. When on, Drumwright plays simple synthesized drums through its audio output as the DAW transport rolls. Default off so the plugin defers to a downstream sampler.");
     soundAttach = std::make_unique<BA> (p.apvts, "internalSound", soundBtn);
 
     // ── Pattern-shape combos ──────────────────────────────────────────────
@@ -1064,7 +1096,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     auto shapeLabelStyle = [] (juce::Label* lbl)
     {
         lbl->setFont (juce::Font (juce::FontOptions{}.withHeight (10.0f)));
-        lbl->setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textMuted);
+        lbl->setColour (juce::Label::textColourId, DrumwrightLookAndFeel::textMuted);
         lbl->setJustificationType (juce::Justification::centred);
     };
     shapeLabelStyle (&timeSigLabel);
@@ -1075,8 +1107,6 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     barsBox   .setTooltip ("Pattern length in bars. Drag-to-DAW exports this length.");
     gridBox   .setTooltip ("Editor grid subdivision. Hits on this grid snap to its cells; off-grid hits keep their exact tick.");
 
-    // Editable so users can type arbitrary "N/D" signatures (math-rock
-    // 11/16, 9/8, 2/2 cut time, etc.) beyond the dropdown presets.
     timeSigBox.onChange = [this]() {
         const int sel = timeSigBox.getSelectedId();
         if (sel >= 1 && sel <= kNumTimeSigChoices)
@@ -1107,7 +1137,8 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         if (fullPattern.gridSub == g) return;
         fullPattern.gridSub = g;
         audioProcessor.autoSavePattern (fullPattern);
-        editingCopy.gridSub = g;
+        applyDensityToEditingCopy();
+        audioProcessor.getLibrary().updatePattern (editingCopy);
         updateGridLayout();
         grid.repaint(); miniGrid.repaint();
     };
@@ -1135,7 +1166,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     auto fillLabelStyle = [] (juce::Label& l)
     {
         l.setFont (juce::Font (juce::FontOptions{}.withHeight (10.0f)));
-        l.setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textMuted);
+        l.setColour (juce::Label::textColourId, DrumwrightLookAndFeel::textMuted);
         l.setJustificationType (juce::Justification::centred);
     };
     fillLabelStyle (fillStartLabel);
@@ -1146,7 +1177,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     {
         l.setFont (juce::Font (juce::FontOptions{}.withHeight (8.0f)));
         l.setJustificationType (juce::Justification::centred);
-        l.setColour (juce::Label::textColourId, WillyBeatLookAndFeel::textMuted.withAlpha (0.65f));
+        l.setColour (juce::Label::textColourId, DrumwrightLookAndFeel::textMuted.withAlpha (0.65f));
     };
     sectionLabelStyle (humanizeSectionLabel);
     sectionLabelStyle (fillSectionLabel);
@@ -1262,7 +1293,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     };
 
     setWantsKeyboardFocus (true);
-    patIdxSlider.addMouseListener (this, true);
+    patNameLabel.addMouseListener (this, false);
 
     // ── Initialise full + filtered patterns from the active pattern ───────
     // Tags are intentionally NOT pulled from the initial pattern here: a
@@ -1280,6 +1311,9 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         applyDensityToEditingCopy();
         audioProcessor.getLibrary().updatePattern (editingCopy);
     }
+    patNameLabel.setText (patIdxSlider.textFromValueFunction (patIdxSlider.getValue()).toUpperCase(),
+                          juce::dontSendNotification);
+
     // Clear any persisted scope so the chip bar starts truly empty on open.
     audioProcessor.setSelectedGenreTags ({});
     lastKnownTags.clear();
@@ -1301,7 +1335,11 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     miniGrid.setTooltip ("Mini view of the active pattern. Click to open the full grid.");
     miniGrid.onClick = [this] { if (compactMode) toggleCompactMode(); };
     addAndMakeVisible (genreLabel);     addAndMakeVisible (tagInput);
-    addAndMakeVisible (patLabel);       addAndMakeVisible (patIdxSlider);
+    addAndMakeVisible (patLabel);
+    addChildComponent (patIdxSlider);   // hidden; APVTS attachment only
+    addAndMakeVisible (patPrevBtn);
+    addAndMakeVisible (patNameLabel);
+    addAndMakeVisible (patNextBtn);
     addAndMakeVisible (gateLabel);      addAndMakeVisible (gateKnob);
     addAndMakeVisible (humanizeLabel);  addAndMakeVisible (humanizeKnob);
     addAndMakeVisible (swingLabel);       addAndMakeVisible (swingKnob);
@@ -1326,7 +1364,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     setSize (760, 608);
 }
 
-WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
+DrumwrightAudioProcessorEditor::~DrumwrightAudioProcessorEditor()
 {
     stopTimer();
     grid.setEditTarget (nullptr);
@@ -1338,7 +1376,7 @@ WillyBeatAudioProcessorEditor::~WillyBeatAudioProcessorEditor()
 // Timer — detect when the active pattern changes and reload editingCopy
 //==============================================================================
 
-void WillyBeatAudioProcessorEditor::timerCallback()
+void DrumwrightAudioProcessorEditor::timerCallback()
 {
     // Revert any knob labels that finished their 1-second value flash.
     {
@@ -1419,7 +1457,8 @@ void WillyBeatAudioProcessorEditor::timerCallback()
             syncShapeCombos();
             updateGridLayout();
             grid.repaint(); miniGrid.repaint();
-            patIdxSlider.repaint();
+            patNameLabel.setText (patIdxSlider.textFromValueFunction (patIdxSlider.getValue()).toUpperCase(),
+                                  juce::dontSendNotification);
         }
     }
 
@@ -1443,7 +1482,7 @@ void WillyBeatAudioProcessorEditor::timerCallback()
 
 //==============================================================================
 
-void WillyBeatAudioProcessorEditor::autoSaveCurrentEditAtTick (int track, int tick)
+void DrumwrightAudioProcessorEditor::autoSaveCurrentEditAtTick (int track, int tick)
 {
     // The grid widget mutated editingCopy.hits[track] at tick. Mirror that
     // single change onto fullPattern so density-hidden hits stay intact
@@ -1642,7 +1681,7 @@ static void applyDensity (DrumPattern& target,
     target.recomputeDensity();
 }
 
-void WillyBeatAudioProcessorEditor::applyDensityToEditingCopy()
+void DrumwrightAudioProcessorEditor::applyDensityToEditingCopy()
 {
     applyDensity (editingCopy, fullPattern, lastDensity,
                   audioProcessor.getLibrary(),
@@ -1650,7 +1689,7 @@ void WillyBeatAudioProcessorEditor::applyDensityToEditingCopy()
                   /*restrictToSameType=*/false);
 }
 
-DrumPattern WillyBeatAudioProcessorEditor::buildFillPatternForExport (juce::int64 seed) const
+DrumPattern DrumwrightAudioProcessorEditor::buildFillPatternForExport (juce::int64 seed) const
 {
     auto* fillSrc = findFill (fullPattern, seed);
     if (fillSrc == nullptr) return DrumPattern{};
@@ -1671,7 +1710,7 @@ DrumPattern WillyBeatAudioProcessorEditor::buildFillPatternForExport (juce::int6
     return result;
 }
 
-void WillyBeatAudioProcessorEditor::capturePendingShape()
+void DrumwrightAudioProcessorEditor::capturePendingShape()
 {
     pendingGenerate = true;
     pendingBars     = getBarsFromCombo();
@@ -1691,7 +1730,7 @@ void WillyBeatAudioProcessorEditor::capturePendingShape()
     }
 }
 
-void WillyBeatAudioProcessorEditor::syncShapeCombos()
+void DrumwrightAudioProcessorEditor::syncShapeCombos()
 {
     int tsIdx = 0;
     for (int i = 0; i < kNumTimeSigChoices; ++i)
@@ -1716,7 +1755,7 @@ void WillyBeatAudioProcessorEditor::syncShapeCombos()
     gridBox.setSelectedId (gridIdx,  juce::dontSendNotification);
 }
 
-void WillyBeatAudioProcessorEditor::applyTimeSig (int newNum, int newDen)
+void DrumwrightAudioProcessorEditor::applyTimeSig (int newNum, int newDen)
 {
     if (newNum < 1 || newNum > 32 || ! isSupportedTimeSigDen (newDen)) return;
     if (fullPattern.timeSigNum == newNum && fullPattern.timeSigDen == newDen) return;
@@ -1740,7 +1779,7 @@ void WillyBeatAudioProcessorEditor::applyTimeSig (int newNum, int newDen)
     miniGrid.repaint();
 }
 
-void WillyBeatAudioProcessorEditor::refreshTagSelector()
+void DrumwrightAudioProcessorEditor::refreshTagSelector()
 {
     auto allTags = audioProcessor.getLibrary().getGenres();
     tagVectorIndex.setKnownTags (allTags);
@@ -1749,7 +1788,7 @@ void WillyBeatAudioProcessorEditor::refreshTagSelector()
 
 //==============================================================================
 
-int WillyBeatAudioProcessorEditor::getBarsFromCombo() const
+int DrumwrightAudioProcessorEditor::getBarsFromCombo() const
 {
     switch (barsBox.getSelectedId())
     {
@@ -1761,7 +1800,7 @@ int WillyBeatAudioProcessorEditor::getBarsFromCombo() const
     }
 }
 
-const DrumPattern* WillyBeatAudioProcessorEditor::findFill (const DrumPattern& pat,
+const DrumPattern* DrumwrightAudioProcessorEditor::findFill (const DrumPattern& pat,
                                                              juce::int64 seed) const
 {
     // Prefer fills matching the user's selected scope; fall back to the
@@ -1791,9 +1830,9 @@ const DrumPattern* WillyBeatAudioProcessorEditor::findFill (const DrumPattern& p
 
 //==============================================================================
 
-void WillyBeatAudioProcessorEditor::paint (juce::Graphics& g)
+void DrumwrightAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (WillyBeatLookAndFeel::bgWindow);
+    g.fillAll (DrumwrightLookAndFeel::bgWindow);
 
     // Title bar
     auto titleArea = getLocalBounds().removeFromTop (30);
@@ -1804,7 +1843,7 @@ void WillyBeatAudioProcessorEditor::paint (juce::Graphics& g)
         constexpr int logoSize   = 48;
         constexpr int logoMargin = 3;
         const int     lineY      = logoMargin + logoSize / 2;
-        g.setColour (WillyBeatLookAndFeel::border);
+        g.setColour (DrumwrightLookAndFeel::border);
         g.drawHorizontalLine (lineY, 16.0f, (float) getWidth() - 16.0f);
     }
 
@@ -1824,7 +1863,7 @@ void WillyBeatAudioProcessorEditor::paint (juce::Graphics& g)
     // Horizontal divider between the tag/generate row and the knob section.
     if (rowSepY > 0)
     {
-        g.setColour (WillyBeatLookAndFeel::border.withAlpha (0.45f));
+        g.setColour (DrumwrightLookAndFeel::border.withAlpha (0.45f));
         g.drawHorizontalLine (rowSepY, 10.0f, (float) getWidth() - 10.0f);
     }
 
@@ -1832,9 +1871,9 @@ void WillyBeatAudioProcessorEditor::paint (juce::Graphics& g)
     if (midiDragHovered)
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (WillyBeatLookAndFeel::accent.withAlpha (0.12f));
+        g.setColour (DrumwrightLookAndFeel::accent.withAlpha (0.12f));
         g.fillRect (b);
-        g.setColour (WillyBeatLookAndFeel::accent);
+        g.setColour (DrumwrightLookAndFeel::accent);
         g.drawRect (b, 2.5f);
         g.setFont (juce::Font (juce::FontOptions{}
                                   .withHeight (18.0f)
@@ -1860,14 +1899,14 @@ static bool looksLikeStandardMidi (const juce::File& f)
     return hdr[0] == 'M' && hdr[1] == 'T' && hdr[2] == 'h' && hdr[3] == 'd';
 }
 
-bool WillyBeatAudioProcessorEditor::isInterestedInFileDrag (const juce::StringArray& files)
+bool DrumwrightAudioProcessorEditor::isInterestedInFileDrag (const juce::StringArray& files)
 {
     // Be permissive at this stage — we'll validate the SMF header at drop
     // time. Returning true here also enables the visual hover feedback.
     return ! files.isEmpty();
 }
 
-void WillyBeatAudioProcessorEditor::fileDragEnter (const juce::StringArray& files, int, int)
+void DrumwrightAudioProcessorEditor::fileDragEnter (const juce::StringArray& files, int, int)
 {
     if (isInterestedInFileDrag (files))
     {
@@ -1876,13 +1915,13 @@ void WillyBeatAudioProcessorEditor::fileDragEnter (const juce::StringArray& file
     }
 }
 
-void WillyBeatAudioProcessorEditor::fileDragExit (const juce::StringArray&)
+void DrumwrightAudioProcessorEditor::fileDragExit (const juce::StringArray&)
 {
     midiDragHovered = false;
     repaint();
 }
 
-void WillyBeatAudioProcessorEditor::filesDropped (const juce::StringArray& files, int, int)
+void DrumwrightAudioProcessorEditor::filesDropped (const juce::StringArray& files, int, int)
 {
     midiDragHovered = false;
     repaint();
@@ -1903,7 +1942,7 @@ void WillyBeatAudioProcessorEditor::filesDropped (const juce::StringArray& files
     }
 }
 
-void WillyBeatAudioProcessorEditor::resized()
+void DrumwrightAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced (10, 8);
 
@@ -1943,7 +1982,13 @@ void WillyBeatAudioProcessorEditor::resized()
 
     auto patArea = rowA;   // take all remaining space
     patLabel    .setBounds (patArea.getX(), rowABottom - 36, patArea.getWidth(), 10);
-    patIdxSlider.setBounds (patArea.getX(), rowABottom - 26, patArea.getWidth(), 26);
+    {
+        constexpr int kBtnW = 24;
+        const int x = patArea.getX(), y = rowABottom - 26, w = patArea.getWidth();
+        patPrevBtn  .setBounds (x,                  y, kBtnW,        26);
+        patNameLabel.setBounds (x + kBtnW,          y, w - 2 * kBtnW, 26);
+        patNextBtn  .setBounds (x + w - kBtnW,      y, kBtnW,        26);
+    }
 
     // ── Compact mode ──────────────────────────────────────────────────────
     if (compactMode)
@@ -2062,7 +2107,7 @@ void WillyBeatAudioProcessorEditor::resized()
         {
             constexpr int secW    = 72;
             constexpr int secH    = 12;
-            constexpr int liftPx  = 8;
+            constexpr int liftPx  = 16;
             const int cy = Y0 + kLabH + kKnobH / 2 - liftPx;
             humanizeSectionLabel.setBounds (X0 + 2*kW - secW/2, cy - secH/2, secW, secH);
             fillSectionLabel    .setBounds (X0 + 4*kW - secW/2, cy - secH/2, secW, secH);
@@ -2078,7 +2123,7 @@ void WillyBeatAudioProcessorEditor::resized()
     updateGridLayout();
 }
 
-juce::String WillyBeatAudioProcessorEditor::knobLabelRestingText (juce::Label* lbl) const
+juce::String DrumwrightAudioProcessorEditor::knobLabelRestingText (juce::Label* lbl) const
 {
     if (lbl == &gateLabel)      return "DURATION";
     if (lbl == &humanizeLabel)  return "DYNAMICS";
@@ -2091,7 +2136,7 @@ juce::String WillyBeatAudioProcessorEditor::knobLabelRestingText (juce::Label* l
     return lbl->getText();
 }
 
-void WillyBeatAudioProcessorEditor::updateGridLayout()
+void DrumwrightAudioProcessorEditor::updateGridLayout()
 {
     const int innerW = gridViewport.getWidth();
     const int innerH = gridViewport.getHeight();
@@ -2099,7 +2144,7 @@ void WillyBeatAudioProcessorEditor::updateGridLayout()
     grid.setBounds (0, 0, natural, innerH);
 }
 
-void WillyBeatAudioProcessorEditor::toggleCompactMode()
+void DrumwrightAudioProcessorEditor::toggleCompactMode()
 {
     compactMode = ! compactMode;
     collapseBtn.setButtonText (compactMode ? "+" : "-");
@@ -2134,7 +2179,7 @@ void WillyBeatAudioProcessorEditor::toggleCompactMode()
 // Keyboard shortcuts
 //==============================================================================
 
-bool WillyBeatAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
+bool DrumwrightAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
 {
     const bool cmdZ = key == juce::KeyPress ('z', juce::ModifierKeys::commandModifier, 0);
     if (cmdZ)
@@ -2145,7 +2190,7 @@ bool WillyBeatAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
     return false;
 }
 
-void WillyBeatAudioProcessorEditor::undoLastGridEdit()
+void DrumwrightAudioProcessorEditor::undoLastGridEdit()
 {
     if (undoHistory.empty()) return;
 
@@ -2164,9 +2209,9 @@ void WillyBeatAudioProcessorEditor::undoLastGridEdit()
 // Pattern rename (double-click on the pattern-index slider label)
 //==============================================================================
 
-void WillyBeatAudioProcessorEditor::mouseDoubleClick (const juce::MouseEvent& e)
+void DrumwrightAudioProcessorEditor::mouseDoubleClick (const juce::MouseEvent& e)
 {
-    if (e.originalComponent == &patIdxSlider || patIdxSlider.isParentOf (e.originalComponent))
+    if (e.originalComponent == &patNameLabel)
     {
         const juce::String current = editingCopy.name.isEmpty() ? "Custom Pattern"
                                                                  : editingCopy.name;
@@ -2191,7 +2236,7 @@ void WillyBeatAudioProcessorEditor::mouseDoubleClick (const juce::MouseEvent& e)
     }
 }
 
-void WillyBeatAudioProcessorEditor::renameCurrentPattern (const juce::String& newName)
+void DrumwrightAudioProcessorEditor::renameCurrentPattern (const juce::String& newName)
 {
     if (newName.isEmpty()) return;
 
@@ -2214,6 +2259,5 @@ void WillyBeatAudioProcessorEditor::renameCurrentPattern (const juce::String& ne
     audioProcessor.autoSavePattern (fullPattern);
     audioProcessor.getLibrary().renamePattern (oldFile, newName, fullPattern.sourceFile);
 
-    // Refresh the slider label to show the new name.
-    patIdxSlider.updateText();
+    patNameLabel.setText (newName.toUpperCase(), juce::dontSendNotification);
 }

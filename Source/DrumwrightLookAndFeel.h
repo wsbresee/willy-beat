@@ -4,10 +4,10 @@
 // Centralised colour palette + minimal custom drawing (chevron combo arrow,
 // flat tooltip).  Everything else uses JUCE_V4 defaults configured via the
 // setColour calls in the constructor — flat surfaces, no gradients.
-class WillyBeatLookAndFeel : public juce::LookAndFeel_V4
+class DrumwrightLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
-    WillyBeatLookAndFeel();
+    DrumwrightLookAndFeel();
 
     void drawComboBox (juce::Graphics&, int width, int height,
                        bool isButtonDown,
@@ -41,7 +41,7 @@ public:
     juce::Font getComboBoxFont   (juce::ComboBox&)         override;
     juce::Font getPopupMenuFont()                          override;
 
-    // Tokyo-Night-inspired palette (matches WillyArp's feel).
+    // Tokyo-Night-inspired palette.
     static const juce::Colour bgWindow;
     static const juce::Colour bgPanel;
     static const juce::Colour bgRecess;
