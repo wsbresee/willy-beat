@@ -776,6 +776,21 @@ void PatternLibrary::updatePattern (const DrumPattern& p)
     }
 }
 
+void PatternLibrary::renamePattern (const juce::File& oldFile,
+                                    const juce::String& newName,
+                                    const juce::File& newFile)
+{
+    for (auto& stored : patterns)
+    {
+        if (stored.sourceFile == oldFile)
+        {
+            stored.name       = newName;
+            stored.sourceFile = newFile;
+            return;
+        }
+    }
+}
+
 juce::StringArray PatternLibrary::getGenres() const
 {
     juce::StringArray result;

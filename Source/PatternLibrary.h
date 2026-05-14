@@ -19,6 +19,11 @@ public:
     // Call this after autoSave so the library pointer stays current.
     void updatePattern (const DrumPattern& p);
 
+    // Rename a pattern in-memory: find by oldFile, set new name and new file path.
+    void renamePattern (const juce::File& oldFile,
+                        const juce::String& newName,
+                        const juce::File& newFile);
+
     // Return all loaded patterns
     const std::vector<DrumPattern>& all() const { return patterns; }
 

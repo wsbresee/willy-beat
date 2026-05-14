@@ -1011,6 +1011,9 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
         }
         else
         {
+            if ((int) undoHistory.size() >= kMaxUndoDepth)
+                undoHistory.pop_front();
+            undoHistory.push_back (fullPattern);
             for (int t = 0; t < NUM_TRACKS; ++t)
                 fullPattern.hits[t].clear();
             editingCopy = fullPattern;
@@ -1259,7 +1262,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     };
 
     setWantsKeyboardFocus (true);
-    patIdxSlider.addMouseListener (this, false);
+    patIdxSlider.addMouseListener (this, true);
 
     // ── Initialise full + filtered patterns from the active pattern ───────
     // Tags are intentionally NOT pulled from the initial pattern here: a
@@ -2164,7 +2167,7 @@ void WillyBeatAudioProcessorEditor::undoLastGridEdit()
 
 void WillyBeatAudioProcessorEditor::mouseDoubleClick (const juce::MouseEvent& e)
 {
-    if (e.originalComponent == &patIdxSlider)
+    if (e.originalComponent == &patIdxSlider || patIdxSlider.isParentOf (e.originalComponent))
     {
         const juce::String current = editingCopy.name.isEmpty() ? "Custom Pattern"
                                                                  : editingCopy.name;
@@ -2193,26 +2196,25 @@ void WillyBeatAudioProcessorEditor::renameCurrentPattern (const juce::String& ne
 {
     if (newName.isEmpty()) return;
 
-    const juce::String oldName = editingCopy.name;
+    const juce::File oldFile = fullPattern.sourceFile;
     editingCopy.name  = newName;
     fullPattern.name  = newName;
 
     // Rename the backing file if it exists, keeping the same directory.
-    if (fullPattern.sourceFile.existsAsFile())
+    if (oldFile.existsAsFile())
     {
-        const juce::File newFile = fullPattern.sourceFile.getSiblingFile (newName + ".beat");
-        if (newFile != fullPattern.sourceFile)
+        const juce::File newFile = oldFile.getSiblingFile (newName + ".beat");
+        if (newFile != oldFile)
         {
-            fullPattern.sourceFile.moveFileTo (newFile);
-            fullPattern.sourceFile  = newFile;
-            editingCopy.sourceFile  = newFile;
+            oldFile.moveFileTo (newFile);
+            fullPattern.sourceFile = newFile;
+            editingCopy.sourceFile = newFile;
         }
     }
 
     audioProcessor.autoSavePattern (fullPattern);
-    audioProcessor.getLibrary().updatePattern (editingCopy);
+    audioProcessor.getLibrary().renamePattern (oldFile, newName, fullPattern.sourceFile);
 
     // Refresh the slider label to show the new name.
-    patIdxSlider.repaint();
-    juce::ignoreUnused (oldName);
+    patIdxSlider.updateText();
 }
