@@ -1181,6 +1181,8 @@ DrumwrightAudioProcessorEditor::DrumwrightAudioProcessorEditor (DrumwrightAudioP
     };
     sectionLabelStyle (humanizeSectionLabel);
     sectionLabelStyle (fillSectionLabel);
+    humanizeSectionLabel.setInterceptsMouseClicks (false, false);
+    fillSectionLabel    .setInterceptsMouseClicks (false, false);
 
     // ── Flash-on-dial: show the live value while a knob is being turned ───
     // onValueChange fires on the message thread via SliderAttachment.
