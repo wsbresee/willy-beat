@@ -138,6 +138,27 @@ void WillyBeatLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
                       label.getMinimumHorizontalScale());
 }
 
+void WillyBeatLookAndFeel::fillTextEditorBackground (juce::Graphics& g,
+                                                      int width, int height,
+                                                      juce::TextEditor& te)
+{
+    auto b = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height).reduced (0.5f);
+    g.setColour (te.findColour (juce::TextEditor::backgroundColourId));
+    g.fillRoundedRectangle (b, 6.0f);
+}
+
+void WillyBeatLookAndFeel::drawTextEditorOutline (juce::Graphics& g,
+                                                   int width, int height,
+                                                   juce::TextEditor& te)
+{
+    if (! te.isEnabled()) return;
+    auto b = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height).reduced (0.5f);
+    g.setColour (te.hasKeyboardFocus (true)
+                     ? te.findColour (juce::TextEditor::focusedOutlineColourId)
+                     : te.findColour (juce::TextEditor::outlineColourId));
+    g.drawRoundedRectangle (b, 6.0f, 1.0f);
+}
+
 void WillyBeatLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& text,
                                          int width, int height)
 {

@@ -92,214 +92,8 @@ static void reshapePatternHits (DrumPattern& p, int oldTotal)
 }
 
 //==============================================================================
-// TagChipBar — multi-select fuzzy tag picker
-//==============================================================================
+// (TagChipBar removed — replaced by plain tagInput TextEditor in the editor)
 
-TagChipBar::TagChipBar()
-{
-    addAndMakeVisible (input);
-    // Make the inline input visually merge with the chip-bar's own outline.
-    input.setColour (juce::TextEditor::backgroundColourId,     juce::Colours::transparentBlack);
-    input.setColour (juce::TextEditor::outlineColourId,        juce::Colours::transparentBlack);
-    input.setColour (juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
-    input.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
-    input.setTextToShowWhenEmpty ("type to search...", WillyBeatLookAndFeel::textMuted);
-    input.addListener (this);
-    input.addKeyListener (this);  // intercept backspace before the editor consumes it
-    input.setIndents (4, 2);
-}
-
-bool TagChipBar::keyPressed (const juce::KeyPress& key, juce::Component*)
-{
-    // Backspace with no pending input pops the rightmost chip - same
-    // pattern Gmail / Slack / chips-UIs use.
-    if (key.getKeyCode() == juce::KeyPress::backspaceKey
-        && input.getText().isEmpty()
-        && ! selectedTags.isEmpty())
-    {
-        selectedTags.remove (selectedTags.size() - 1);
-        layoutChips();
-        repaint();
-        if (onTagsChanged) onTagsChanged();
-        return true;
-    }
-    return false;
-}
-
-void TagChipBar::setAvailableTags (const juce::StringArray& all)
-{
-    availableTags = all;
-    vectorIndex.setKnownTags (all);
-}
-
-void TagChipBar::setSelectedTags (const juce::StringArray& sel)
-{
-    selectedTags = sel;
-    layoutChips();
-    repaint();
-}
-
-void TagChipBar::resized()
-{
-    layoutChips();
-}
-
-void TagChipBar::layoutChips()
-{
-    chips.clear();
-    auto area = getLocalBounds().reduced (2);
-    const int h = area.getHeight();
-    const int pad = 4;
-
-    juce::Font f (juce::FontOptions{}.withHeight (11.0f));
-
-    int x = area.getX() + pad;
-    const int closeW = 14;
-
-    for (const auto& tag : selectedTags)
-    {
-        int textW = (int) std::ceil (f.getStringWidthFloat (tag));
-        int chipW = textW + 8 + closeW;
-
-        // Reserve at least 60 px on the right for the search input
-        if (x + chipW > area.getRight() - 64) break;
-
-        Chip c;
-        c.tag      = tag;
-        c.bounds   = { x, area.getY() + 2, chipW, h - 4 };
-        c.closeBox = { c.bounds.getRight() - closeW, c.bounds.getY(), closeW, c.bounds.getHeight() };
-        chips.push_back (c);
-        x += chipW + 4;
-    }
-
-    int inputW = area.getRight() - x;
-    if (inputW < 50) inputW = 50;
-    input.setBounds (x, area.getY() + 2, inputW, h - 4);
-}
-
-void TagChipBar::paint (juce::Graphics& g)
-{
-    auto b = getLocalBounds().toFloat().reduced (0.5f);
-    g.setColour (WillyBeatLookAndFeel::bgPanel);
-    g.fillRoundedRectangle (b, 4.0f);
-
-    g.setColour (input.hasKeyboardFocus (true)
-                    ? WillyBeatLookAndFeel::accent
-                    : WillyBeatLookAndFeel::border);
-    g.drawRoundedRectangle (b, 4.0f, 1.0f);
-
-    g.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
-
-    for (const auto& chip : chips)
-    {
-        auto cb = chip.bounds.toFloat();
-
-        // Flat lavender chip
-        g.setColour (WillyBeatLookAndFeel::accent);
-        g.fillRoundedRectangle (cb, 3.0f);
-
-        g.setColour (juce::Colours::white);
-        auto textArea = chip.bounds.withTrimmedRight (chip.closeBox.getWidth());
-        g.drawText (chip.tag, textArea.reduced (6, 0),
-                    juce::Justification::centredLeft, true);
-
-        g.setColour (juce::Colours::white.withAlpha (0.85f));
-        g.drawText ("x", chip.closeBox, juce::Justification::centred, false);
-    }
-}
-
-void TagChipBar::mouseDown (const juce::MouseEvent& e)
-{
-    for (size_t i = 0; i < chips.size(); ++i)
-    {
-        if (chips[i].closeBox.contains (e.getPosition()))
-        {
-            auto removed = chips[i].tag;
-            selectedTags.removeString (removed);
-            layoutChips();
-            repaint();
-            if (onTagsChanged) onTagsChanged();
-            return;
-        }
-    }
-    input.grabKeyboardFocus();
-}
-
-void TagChipBar::textEditorReturnKeyPressed (juce::TextEditor&)
-{
-    commitSearch();
-}
-
-void TagChipBar::textEditorEscapeKeyPressed (juce::TextEditor& te)
-{
-    te.clear();
-}
-
-void TagChipBar::commitSearch()
-{
-    auto query = input.getText().trim();
-
-    // First chance: the editor gets to handle the raw query (e.g., jump
-    // straight to a pattern when the input matches a pattern name exactly).
-    // If the hook claims the query, clear the input and skip everything else.
-    if (query.isNotEmpty() && onRawInputHandled && onRawInputHandled (query))
-    {
-        input.clear();
-        return;
-    }
-
-    // Add a tag only when something was actually typed AND it resolves to a
-    // tag that isn't already selected. Everything else (empty input, exact
-    // duplicate) still falls through to onTagSubmitted so Enter ALWAYS
-    // signals "regenerate" - that's the user's mental model for the key.
-    if (query.isNotEmpty())
-    {
-        auto match = findFuzzyMatch (query);
-        if (match.isEmpty()) match = query;  // literal fallback for new tags
-
-        // Typing a tag replaces the current selection — treats the input as
-        // "generate with THIS tag" rather than "add another tag".
-        selectedTags.clear();
-        selectedTags.add (match);
-        layoutChips();
-        repaint();
-        if (onTagsChanged) onTagsChanged();
-        input.clear();
-    }
-
-    if (onTagSubmitted) onTagSubmitted();
-}
-
-juce::String TagChipBar::findFuzzyMatch (const juce::String& query) const
-{
-    // 1. Exact / prefix / substring match wins outright - cheaper than the
-    //    embedding lookup and matches obvious typing intent.
-    auto qLow = query.toLowerCase();
-
-    for (const auto& tag : availableTags)
-        if (tag.equalsIgnoreCase (query) && ! selectedTags.contains (tag))
-            return tag;
-
-    for (const auto& tag : availableTags)
-        if (tag.toLowerCase().startsWith (qLow) && ! selectedTags.contains (tag))
-            return tag;
-
-    for (const auto& tag : availableTags)
-        if (tag.toLowerCase().contains (qLow) && ! selectedTags.contains (tag))
-            return tag;
-
-    // 2. Semantic vector search via Apple's NaturalLanguage embedding.
-    //    Lets "metal" match "Heavy Metal", "edm" match "Electronic",
-    //    "sad slow" find "Lofi" or "Ambient", and so on. Falls back to
-    //    nothing (empty) if no tag clears the similarity threshold.
-    if (vectorIndex.isAvailable())
-    {
-        auto match = vectorIndex.findBestMatch (query, selectedTags);
-        if (match.isNotEmpty()) return match;
-    }
-
-    return {};
-}
 
 //==============================================================================
 // MIDI export helper
@@ -1037,70 +831,18 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     setLookAndFeel (&lookAndFeel);
 
     // ── Tag chip-bar (also serves as the active pattern's tag editor) ────
+    // ── Tag search input ─────────────────────────────────────────────────────
+    tagInput.setFont (juce::Font (juce::FontOptions{}.withHeight (12.0f)));
+    tagInput.setTextToShowWhenEmpty ("search tags...", WillyBeatLookAndFeel::textMuted);
+    tagInput.setColour (juce::TextEditor::backgroundColourId,     WillyBeatLookAndFeel::bgPanel);
+    tagInput.setColour (juce::TextEditor::outlineColourId,        WillyBeatLookAndFeel::border);
+    tagInput.setColour (juce::TextEditor::focusedOutlineColourId, WillyBeatLookAndFeel::accent);
+    tagInput.setColour (juce::TextEditor::textColourId,           WillyBeatLookAndFeel::textPrimary);
+    tagInput.setIndents (8, 0);
+    tagInput.setTooltip ("Type a genre or style and press Enter (or Generate) to create a matching pattern.");
+    tagInput.onReturnKey = [this] { genBtn.triggerClick(); };
+    tagInput.onEscapeKey = [this] { tagInput.clear(); };
     refreshTagSelector();
-    tagBar.setTooltip ("Tags for the active pattern. Type a partial name and press Enter to add the best match. Click x on a chip to remove. Tags drive Generate, density augmentation, and fill matching.");
-    tagBar.onTagsChanged = [this]
-    {
-        auto tags = tagBar.getSelectedTags();
-        lastKnownTags = tags;
-        audioProcessor.setSelectedGenreTags (tags);
-
-        // Persist the edit on the active pattern so the chip bar is also a
-        // per-pattern tag editor. Skip when there's no pattern loaded yet.
-        if (fullPattern.name.isNotEmpty())
-        {
-            editingCopy.genres = tags;
-            fullPattern.genres = tags;
-            audioProcessor.autoSavePattern (fullPattern);
-            // Refresh available tags in case a brand-new one was introduced.
-            tagBar.setAvailableTags (audioProcessor.getLibrary().getGenres());
-        }
-    };
-    // Exact pattern-name match short-circuits the tag flow entirely and
-    // navigates to that saved pattern rather than generating something new.
-    tagBar.onRawInputHandled = [this] (const juce::String& q) -> bool
-    {
-        return audioProcessor.navigateToPatternByName (q);
-    };
-
-    // Enter on the chip-bar input commits the tag (if any) and ALWAYS
-    // regenerates. The source pool is built by vector-expanding the current
-    // chip selection into the ~12 nearest neighbours, then randomly
-    // picking a small handful to drive makeComposite. The new pattern is
-    // still saved with the user's exact chip selection as its genres, so
-    // the chip bar doesn't drift between presses.
-    tagBar.onTagSubmitted = [this]
-    {
-        capturePendingShape();
-        auto selected = tagBar.getSelectedTags();
-        const auto& vi = tagBar.getVectorIndex();
-
-        if (selected.isEmpty() || ! vi.isAvailable())
-        {
-            audioProcessor.generateComposite();
-        }
-        else
-        {
-            auto pool = vi.findNearestN (selected, 12);
-            if (pool.isEmpty()) pool = selected; // graceful fallback
-
-            // Random subset of size 3 (or pool size, whichever is smaller).
-            // Partial Fisher-Yates so each Enter draws a fresh combination.
-            juce::Random rng (juce::Random::getSystemRandom().nextInt64());
-            const int wanted = juce::jmin (3, pool.size());
-            juce::StringArray picks;
-            for (int i = 0; i < wanted; ++i)
-            {
-                int j = i + rng.nextInt (pool.size() - i);
-                auto tmp = pool[i];
-                pool.set (i, pool[j]);
-                pool.set (j, tmp);
-                picks.add (pool[i]);
-            }
-            audioProcessor.generateComposite (picks, selected);
-        }
-        refreshTagSelector();
-    };
 
     // ── Pattern index slider ──────────────────────────────────────────────
     patIdxAttach = std::make_unique<SA> (p.apvts, "patIdx", patIdxSlider);
@@ -1161,7 +903,48 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     genBtn.onClick = [this]
     {
         capturePendingShape();
-        audioProcessor.generateComposite();
+        const juce::String query = tagInput.getText().trim();
+
+        if (query.isNotEmpty())
+        {
+            // Exact pattern-name match → navigate instead of generating.
+            if (audioProcessor.navigateToPatternByName (query))
+            {
+                refreshTagSelector();
+                return;
+            }
+
+            juce::StringArray queryTags;
+            queryTags.add (query);
+            audioProcessor.setSelectedGenreTags (queryTags);
+            lastKnownTags = queryTags;
+
+            if (tagVectorIndex.isAvailable())
+            {
+                auto pool = tagVectorIndex.findNearestN (queryTags, 12);
+                if (pool.isEmpty()) pool = queryTags;
+
+                juce::Random rng (juce::Random::getSystemRandom().nextInt64());
+                const int wanted = juce::jmin (3, pool.size());
+                juce::StringArray picks;
+                for (int i = 0; i < wanted; ++i)
+                {
+                    int j = i + rng.nextInt (pool.size() - i);
+                    auto tmp = pool[i]; pool.set (i, pool[j]); pool.set (j, tmp);
+                    picks.add (pool[i]);
+                }
+                audioProcessor.generateComposite (picks, queryTags);
+            }
+            else
+            {
+                audioProcessor.generateComposite ({}, queryTags);
+            }
+        }
+        else
+        {
+            audioProcessor.generateComposite();
+        }
+
         refreshTagSelector();
     };
     genBtn.setColour (juce::TextButton::buttonColourId,  WillyBeatLookAndFeel::accent);
@@ -1181,7 +964,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
             lastKnownPattern     = nullptr;
             lastDensity          = -1.0f;
             grid.setEditTarget (nullptr);
-            tagBar.setSelectedTags ({});
+            tagInput.clear();
             refreshTagSelector();
             repaint();
         }
@@ -1446,7 +1229,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     // Clear any persisted scope so the chip bar starts truly empty on open.
     audioProcessor.setSelectedGenreTags ({});
     lastKnownTags.clear();
-    tagBar.setSelectedTags ({});
+    tagInput.clear();
     grid.setEditTarget (&editingCopy);
     grid.setTooltip ("Click an empty cell to place a max-velocity (120) hit; click a filled cell to clear it. Click and drag vertically to tune the velocity (up = louder, down = quieter). Scroll over a cell for finer steps. Right-click also clears. Edits auto-save and playback follows immediately.");
 
@@ -1463,7 +1246,7 @@ WillyBeatAudioProcessorEditor::WillyBeatAudioProcessorEditor (WillyBeatAudioProc
     miniGrid.setMouseCursor (juce::MouseCursor::PointingHandCursor);
     miniGrid.setTooltip ("Mini view of the active pattern. Click to open the full grid.");
     miniGrid.onClick = [this] { if (compactMode) toggleCompactMode(); };
-    addAndMakeVisible (genreLabel);     addAndMakeVisible (tagBar);
+    addAndMakeVisible (genreLabel);     addAndMakeVisible (tagInput);
     addAndMakeVisible (patLabel);       addAndMakeVisible (patIdxSlider);
     addAndMakeVisible (gateLabel);      addAndMakeVisible (gateKnob);
     addAndMakeVisible (humanizeLabel);  addAndMakeVisible (humanizeKnob);
@@ -1568,7 +1351,6 @@ void WillyBeatAudioProcessorEditor::timerCallback()
             editingCopy = fullPattern;
             applyDensityToEditingCopy();
             audioProcessor.getLibrary().updatePattern (editingCopy);
-            tagBar.setSelectedTags (editingCopy.genres);
             lastKnownTags = editingCopy.genres;
             audioProcessor.setSelectedGenreTags (editingCopy.genres);
             syncShapeCombos();
@@ -1593,7 +1375,6 @@ void WillyBeatAudioProcessorEditor::timerCallback()
     if (curTags != lastKnownTags)
     {
         lastKnownTags = curTags;
-        tagBar.setSelectedTags (curTags);
     }
 }
 
@@ -1899,11 +1680,8 @@ void WillyBeatAudioProcessorEditor::applyTimeSig (int newNum, int newDen)
 void WillyBeatAudioProcessorEditor::refreshTagSelector()
 {
     auto allTags = audioProcessor.getLibrary().getGenres();
-    tagBar.setAvailableTags (allTags);
-
-    auto sel = audioProcessor.getSelectedGenreTags();
-    lastKnownTags = sel;
-    tagBar.setSelectedTags (sel);
+    tagVectorIndex.setKnownTags (allTags);
+    lastKnownTags = audioProcessor.getSelectedGenreTags();
 }
 
 //==============================================================================
@@ -2114,7 +1892,7 @@ void WillyBeatAudioProcessorEditor::resized()
 
     auto tagsArea = rowA.removeFromLeft (252);
     genreLabel.setBounds (tagsArea.getX(), rowABottom - 36, tagsArea.getWidth(), 10);
-    tagBar    .setBounds (tagsArea.getX(), rowABottom - 26, tagsArea.getWidth(), 26);
+    tagInput  .setBounds (tagsArea.getX(), rowABottom - 26, tagsArea.getWidth(), 26);
     rowA.removeFromLeft (8);
 
     auto patArea = rowA;   // take all remaining space

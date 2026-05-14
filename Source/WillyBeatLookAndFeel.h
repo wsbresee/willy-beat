@@ -32,6 +32,11 @@ public:
 
     int  getPopupMenuItemHeight() { return 26; }
 
+    void fillTextEditorBackground (juce::Graphics&, int width, int height,
+                                   juce::TextEditor&) override;
+    void drawTextEditorOutline    (juce::Graphics&, int width, int height,
+                                   juce::TextEditor&) override;
+
     juce::Font getTextButtonFont (juce::TextButton&, int) override;
     juce::Font getComboBoxFont   (juce::ComboBox&)         override;
     juce::Font getPopupMenuFont()                          override;

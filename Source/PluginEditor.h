@@ -4,59 +4,6 @@
 #include "WillyBeatLookAndFeel.h"
 #include "TagVectorIndex.h"
 
-// ─── TagChipBar ──────────────────────────────────────────────────────────────
-// Multi-select genre tags with fuzzy search.  Shows currently-selected tags
-// as clickable "chips" followed by a search input; pressing Enter on the
-// input fuzzy-matches against the available tags and adds the best match.
-class TagChipBar : public juce::Component,
-                   public juce::SettableTooltipClient,
-                   public juce::TextEditor::Listener,
-                   public juce::KeyListener
-{
-public:
-    TagChipBar();
-    ~TagChipBar() override = default;
-
-    std::function<void()> onTagsChanged;
-    // Fires only when the user commits a tag via Enter in the input box.
-    // Used by the editor to trigger Generate as soon as you finish typing.
-    std::function<void()> onTagSubmitted;
-    // Fires with the trimmed raw query on Enter BEFORE any tag is added.
-    // Return true to signal the input was handled (e.g., matched a
-    // pattern name and the editor navigated to it) — the chip-bar then
-    // clears the input and skips the normal add/submit flow.
-    std::function<bool (const juce::String&)> onRawInputHandled;
-
-    void setAvailableTags (const juce::StringArray& all);
-    void setSelectedTags  (const juce::StringArray& sel);
-    juce::StringArray getSelectedTags() const { return selectedTags; }
-
-    void paint    (juce::Graphics&)            override;
-    void resized  ()                           override;
-    void mouseDown(const juce::MouseEvent& e)  override;
-
-    void textEditorReturnKeyPressed (juce::TextEditor&) override;
-    void textEditorEscapeKeyPressed (juce::TextEditor&) override;
-
-    bool keyPressed (const juce::KeyPress& key, juce::Component* origin) override;
-
-    const TagVectorIndex& getVectorIndex() const { return vectorIndex; }
-
-private:
-    juce::TextEditor   input;
-    juce::StringArray  availableTags;
-    juce::StringArray  selectedTags;
-    TagVectorIndex     vectorIndex;
-
-    struct Chip { juce::String tag; juce::Rectangle<int> bounds; juce::Rectangle<int> closeBox; };
-    std::vector<Chip> chips;
-
-    void layoutChips();
-    void commitSearch();
-    juce::String findFuzzyMatch (const juce::String& query) const;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TagChipBar)
-};
 
 // Width of the fixed track-label column shown to the left of the grid.
 inline constexpr int kPatternLabelColW = 68;
@@ -294,7 +241,8 @@ private:
     juce::Label    genreLabel   { {}, "TAGS" };
     juce::Label    patLabel     { {}, "PATTERN" };
 
-    TagChipBar     tagBar;
+    juce::TextEditor tagInput;
+    TagVectorIndex   tagVectorIndex;
     juce::Slider   patIdxSlider;
 
     juce::TextButton clearBtn    { "Clear" };
