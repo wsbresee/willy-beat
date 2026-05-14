@@ -2095,29 +2095,31 @@ void WillyBeatAudioProcessorEditor::resized()
     }
 
     // ── Row A: genre tags + pat selector + Generate + Drag-to-DAW ────────
+    // All elements bottom-aligned so their baselines share a common y.
     auto rowA = area.removeFromTop (38);
+    const int rowABottom = rowA.getBottom();
 
     {
         auto dragCol = rowA.removeFromRight (132);
-        dragStrip.setBounds (dragCol.withHeight (28).withY (rowA.getY() + 5));
+        dragStrip.setBounds (dragCol.withHeight (28).withY (rowABottom - 28));
         rowA.removeFromRight (8);
 
         auto genCol = rowA.removeFromRight (100);
-        genBtn.setBounds (genCol.withHeight (28).withY (rowA.getY() + 5));
+        genBtn.setBounds (genCol.withHeight (28).withY (rowABottom - 28));
         rowA.removeFromRight (8);
         auto clearCol = rowA.removeFromRight (64);
-        clearBtn.setBounds (clearCol.withHeight (28).withY (rowA.getY() + 5));
+        clearBtn.setBounds (clearCol.withHeight (28).withY (rowABottom - 28));
         rowA.removeFromRight (8);
     }
 
     auto tagsArea = rowA.removeFromLeft (252);
-    genreLabel.setBounds (tagsArea.removeFromTop (10));
-    tagBar    .setBounds (tagsArea.removeFromTop (26));
+    genreLabel.setBounds (tagsArea.getX(), rowABottom - 36, tagsArea.getWidth(), 10);
+    tagBar    .setBounds (tagsArea.getX(), rowABottom - 26, tagsArea.getWidth(), 26);
     rowA.removeFromLeft (8);
 
     auto patArea = rowA;   // take all remaining space
-    patLabel    .setBounds (patArea.removeFromTop (10));
-    patIdxSlider.setBounds (patArea.removeFromTop (26));
+    patLabel    .setBounds (patArea.getX(), rowABottom - 36, patArea.getWidth(), 10);
+    patIdxSlider.setBounds (patArea.getX(), rowABottom - 26, patArea.getWidth(), 26);
 
     // ── Compact mode ──────────────────────────────────────────────────────
     if (compactMode)
