@@ -1275,7 +1275,7 @@ DrumwrightAudioProcessorEditor::DrumwrightAudioProcessorEditor (DrumwrightAudioP
         audioProcessor.autoSavePattern (fullPattern);
         editingCopy.bars = newBars;
         applyDensityToEditingCopy();
-        audioProcessor.getLibrary().updatePattern (editingCopy);
+        { juce::ScopedLock sl (audioProcessor.getCallbackLock()); audioProcessor.getLibrary().updatePattern (editingCopy); }
         updateGridLayout();
         grid.repaint(); miniGrid.repaint();
     };
@@ -1287,7 +1287,7 @@ DrumwrightAudioProcessorEditor::DrumwrightAudioProcessorEditor (DrumwrightAudioP
         fullPattern.gridSub = g;
         audioProcessor.autoSavePattern (fullPattern);
         applyDensityToEditingCopy();
-        audioProcessor.getLibrary().updatePattern (editingCopy);
+        { juce::ScopedLock sl (audioProcessor.getCallbackLock()); audioProcessor.getLibrary().updatePattern (editingCopy); }
         updateGridLayout();
         grid.repaint(); miniGrid.repaint();
     };
@@ -1460,7 +1460,7 @@ DrumwrightAudioProcessorEditor::DrumwrightAudioProcessorEditor (DrumwrightAudioP
         editingCopy      = fullPattern;
         lastKnownPattern = pat;
         applyDensityToEditingCopy();
-        audioProcessor.getLibrary().updatePattern (editingCopy);
+        { juce::ScopedLock sl (audioProcessor.getCallbackLock()); audioProcessor.getLibrary().updatePattern (editingCopy); }
     }
     patNameLabel.setText (patIdxSlider.textFromValueFunction (patIdxSlider.getValue()).toUpperCase(),
                           juce::dontSendNotification);
@@ -1606,7 +1606,7 @@ void DrumwrightAudioProcessorEditor::timerCallback()
 
             editingCopy = fullPattern;
             applyDensityToEditingCopy();
-            audioProcessor.getLibrary().updatePattern (editingCopy);
+            { juce::ScopedLock sl (audioProcessor.getCallbackLock()); audioProcessor.getLibrary().updatePattern (editingCopy); }
             lastKnownTags = editingCopy.genres;
             audioProcessor.setSelectedGenreTags (editingCopy.genres);
             syncShapeCombos();
@@ -1629,7 +1629,7 @@ void DrumwrightAudioProcessorEditor::timerCallback()
     {
         lastDensity = density;
         applyDensityToEditingCopy();
-        audioProcessor.getLibrary().updatePattern (editingCopy);
+        { juce::ScopedLock sl (audioProcessor.getCallbackLock()); audioProcessor.getLibrary().updatePattern (editingCopy); }
         grid.repaint();
     }
 
@@ -1692,7 +1692,7 @@ void DrumwrightAudioProcessorEditor::autoSaveCurrentEditAtTick (int track, int t
     editingCopy.sourceFile = fullPattern.sourceFile;
 
     applyDensityToEditingCopy();
-    audioProcessor.getLibrary().updatePattern (editingCopy);
+    { juce::ScopedLock sl (audioProcessor.getCallbackLock()); audioProcessor.getLibrary().updatePattern (editingCopy); }
 }
 
 // Shared density logic — works for both the main pattern and fill patterns.
@@ -1943,7 +1943,7 @@ void DrumwrightAudioProcessorEditor::applyTimeSig (int newNum, int newDen)
     editingCopy.timeSigNum = newNum;
     editingCopy.timeSigDen = newDen;
     applyDensityToEditingCopy();
-    audioProcessor.getLibrary().updatePattern (editingCopy);
+    { juce::ScopedLock sl (audioProcessor.getCallbackLock()); audioProcessor.getLibrary().updatePattern (editingCopy); }
 
     // Update the combo display to match what we just applied.
     syncShapeCombos();
@@ -2375,8 +2375,8 @@ void DrumwrightAudioProcessorEditor::undoLastGridEdit()
 
     editingCopy = fullPattern;
     applyDensityToEditingCopy();
-    audioProcessor.getLibrary().updatePattern (editingCopy);
     audioProcessor.autoSavePattern (fullPattern);
+    { juce::ScopedLock sl (audioProcessor.getCallbackLock()); audioProcessor.getLibrary().updatePattern (editingCopy); }
     grid.repaint();
     miniGrid.repaint();
 }
@@ -2433,7 +2433,7 @@ void DrumwrightAudioProcessorEditor::renameCurrentPattern (const juce::String& n
     }
 
     audioProcessor.autoSavePattern (fullPattern);
-    audioProcessor.getLibrary().renamePattern (oldFile, newName, fullPattern.sourceFile);
+    { juce::ScopedLock sl (audioProcessor.getCallbackLock()); audioProcessor.getLibrary().renamePattern (oldFile, newName, fullPattern.sourceFile); }
 
     patNameLabel.setText (newName.toUpperCase(), juce::dontSendNotification);
 }
