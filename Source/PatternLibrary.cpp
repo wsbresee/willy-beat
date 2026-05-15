@@ -570,8 +570,10 @@ DrumPattern PatternLibrary::patternFromFile (const juce::File& f)
                 const int slash = val.indexOfChar ('/');
                 if (slash > 0)
                 {
-                    p.timeSigNum = val.substring (0, slash).getIntValue();
-                    p.timeSigDen = val.substring (slash + 1).getIntValue();
+                    p.timeSigNum = juce::jmax (1, val.substring (0, slash).getIntValue());
+                    const int den = val.substring (slash + 1).getIntValue();
+                    p.timeSigDen = (den == 1 || den == 2 || den == 4
+                                    || den == 8 || den == 16) ? den : 4;
                 }
             }
             else if (key == "bars")
