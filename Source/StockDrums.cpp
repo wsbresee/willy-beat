@@ -46,7 +46,6 @@ void StockDrums::noteOn (int gmNote, float velocity)
     slot->active   = true;
     slot->phase    = 0.0;
     slot->velocity = juce::jlimit (0.0f, 1.0f, velocity);
-    slot->rng      = juce::Random (juce::Random::getSystemRandom().nextInt64());
 
     // Per-kind envelope lengths (in samples) and starting frequency.
     switch (kind)
