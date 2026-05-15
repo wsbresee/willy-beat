@@ -77,6 +77,18 @@ public:
     // library, and reset patIdx to 0. Used for the Shift+Clear factory reset.
     void resetAllPatterns();
 
+    // Create a small variation of the given pattern (ghost notes, hihat swaps,
+    // velocity humanisation) and return it. Does not modify the library.
+    DrumPattern makeVariance (const DrumPattern& src);
+
+    // Per-track mute bitmask (bit t = track t muted). Audio-thread safe.
+    uint16_t getMutedTracks() const { return mutedTracks.load(); }
+    void     toggleMuteTrack (int t);
+
+    // Per-track MIDI note override (default = kTrackNotes[t]).
+    int  getTrackNote (int t) const;
+    void setTrackNote (int t, int note);
+
     juce::AudioProcessorValueTreeState apvts;
 
     // ── Multi-tag genre selection (stored as a CSV property in apvts.state) ─
@@ -112,6 +124,13 @@ private:
     long absoluteSample = 0;
 
     StockDrums stockDrums;
+
+    // Per-track mute bitmask — bit t is set when track t is silenced.
+    std::atomic<uint16_t> mutedTracks { 0 };
+
+    // Per-track MIDI note numbers. Initialised from kTrackNotes[] but
+    // can be overridden by the user via right-click on the track label.
+    std::atomic<int> trackNoteOverride[NUM_TRACKS];
 
     void killAllNotes (juce::MidiBuffer& midi, int offset);
 

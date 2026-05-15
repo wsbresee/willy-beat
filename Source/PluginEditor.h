@@ -14,10 +14,17 @@ inline constexpr int kPatternMinCellW = 18;
 
 // ─── TrackLabels ─────────────────────────────────────────────────────────
 // Fixed (non-scrolling) column rendering the kTrackNames[] vertically.
+// Left-click toggles mute for that track; right-click opens a note-remap menu.
 class TrackLabels : public juce::Component
 {
 public:
-    void paint (juce::Graphics& g) override;
+    void setProcessor (DrumwrightAudioProcessor* p) { proc = p; }
+
+    void paint     (juce::Graphics& g)          override;
+    void mouseDown (const juce::MouseEvent& e)  override;
+
+private:
+    DrumwrightAudioProcessor* proc = nullptr;
 };
 
 // ─── GridViewport ────────────────────────────────────────────────────────
@@ -294,6 +301,7 @@ private:
     juce::Label      patNameLabel;
 
     juce::TextButton clearBtn    { "Clear" };
+    juce::TextButton varyBtn     { "Vary" };
     juce::TextButton genBtn      { "Generate" };
     juce::TextButton collapseBtn { "-" };
     juce::TextButton soundBtn    { "Audio" };

@@ -15,6 +15,20 @@ DrumwrightAudioProcessor::DrumwrightAudioProcessor()
     if (! apvts.state.hasProperty ("genreTags"))
         apvts.state.setProperty ("genreTags", juce::String(), nullptr);
 
+    // Per-track note overrides — init from defaults, then apply any saved values.
+    for (int t = 0; t < NUM_TRACKS; ++t)
+        trackNoteOverride[t].store (kTrackNotes[t]);
+
+    if (apvts.state.hasProperty ("mutedTracks"))
+        mutedTracks.store ((uint16_t) (int) apvts.state.getProperty ("mutedTracks"));
+
+    for (int t = 0; t < NUM_TRACKS; ++t)
+    {
+        juce::String key = "trackNote" + juce::String (t);
+        if (apvts.state.hasProperty (key))
+            trackNoteOverride[t].store ((int) apvts.state.getProperty (key));
+    }
+
     apvts.addParameterListener ("patIdx", this);
     selectPattern();
 }
@@ -335,9 +349,11 @@ void DrumwrightAudioProcessor::processBlock (juce::AudioBuffer<float>& buf,
 
     // For each hit in the pattern, find every cycle whose global PPQ
     // falls inside [ppqStart, ppqEnd) and schedule the note.
+    const uint16_t muted = mutedTracks.load();
     for (int t = 0; t < NUM_TRACKS; ++t)
     {
-        const int note = kTrackNotes[t];
+        if ((muted >> t) & 1) continue;
+        const int note = trackNoteOverride[t].load();
         for (const auto& hit : pat->hits[t])
         {
             const double hitPPQInPattern = (double) hit.tick / (double) PPQN + swungPPQOffset (hit.tick);
@@ -609,6 +625,31 @@ void DrumwrightAudioProcessor::resetAllPatterns()
     apvts.addParameterListener ("patIdx", this);
 }
 
+DrumPattern DrumwrightAudioProcessor::makeVariance (const DrumPattern& src)
+{
+    return generator.makeVariance (src);
+}
+
+void DrumwrightAudioProcessor::toggleMuteTrack (int t)
+{
+    if (t < 0 || t >= NUM_TRACKS) return;
+    mutedTracks.fetch_xor ((uint16_t) (1u << t));
+    apvts.state.setProperty ("mutedTracks", (int) mutedTracks.load(), nullptr);
+}
+
+int DrumwrightAudioProcessor::getTrackNote (int t) const
+{
+    if (t < 0 || t >= NUM_TRACKS) return 36;
+    return trackNoteOverride[t].load();
+}
+
+void DrumwrightAudioProcessor::setTrackNote (int t, int note)
+{
+    if (t < 0 || t >= NUM_TRACKS) return;
+    trackNoteOverride[t].store (note);
+    apvts.state.setProperty ("trackNote" + juce::String (t), note, nullptr);
+}
+
 void DrumwrightAudioProcessor::saveEditedPattern (const DrumPattern& p)
 {
     apvts.removeParameterListener ("patIdx",  this);
@@ -663,6 +704,19 @@ void DrumwrightAudioProcessor::setStateInformation (const void* data, int sizeIn
     if (!xml) return;
     if (xml->hasTagName (apvts.state.getType()))
         apvts.replaceState (juce::ValueTree::fromXml (*xml));
+
+    // Restore per-track overrides from state (replaceState just swapped the
+    // ValueTree, but our atomics still hold stale values).
+    if (apvts.state.hasProperty ("mutedTracks"))
+        mutedTracks.store ((uint16_t) (int) apvts.state.getProperty ("mutedTracks"));
+
+    for (int t = 0; t < NUM_TRACKS; ++t)
+    {
+        juce::String key = "trackNote" + juce::String (t);
+        if (apvts.state.hasProperty (key))
+            trackNoteOverride[t].store ((int) apvts.state.getProperty (key));
+    }
+
     selectPattern();
 }
 

@@ -15,12 +15,94 @@ void GridViewport::mouseWheelMove (const juce::MouseEvent& e,
 void TrackLabels::paint (juce::Graphics& g)
 {
     g.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
-    g.setColour (DrumwrightLookAndFeel::textSecondary);
     const float cellH = (float) getHeight() / (float) NUM_TRACKS;
+    const uint16_t muted = (proc != nullptr) ? proc->getMutedTracks() : 0u;
+
     for (int row = 0; row < NUM_TRACKS; ++row)
+    {
+        const bool isMuted = (muted >> row) & 1;
+        const float cy = (float) row * cellH;
+
+        if (isMuted)
+        {
+            // Dimmed overlay so muted tracks are clearly inactive.
+            g.setColour (DrumwrightLookAndFeel::bgRecess.withAlpha (0.55f));
+            g.fillRect (0.0f, cy, (float) getWidth(), cellH);
+        }
+
+        g.setColour (isMuted ? DrumwrightLookAndFeel::textMuted
+                             : DrumwrightLookAndFeel::textSecondary);
         g.drawText (kTrackNames[row],
-                    0, (int) ((float) row * cellH), getWidth() - 6, (int) cellH,
+                    0, (int) cy, getWidth() - 6, (int) cellH,
                     juce::Justification::centredRight, true);
+
+        if (isMuted)
+        {
+            g.setColour (DrumwrightLookAndFeel::textMuted.withAlpha (0.5f));
+            g.setFont (juce::Font (juce::FontOptions{}.withHeight (8.0f)));
+            g.drawText ("M", 0, (int) cy, 12, (int) cellH,
+                        juce::Justification::centredLeft, false);
+            g.setFont (juce::Font (juce::FontOptions{}.withHeight (11.0f)));
+        }
+    }
+}
+
+void TrackLabels::mouseDown (const juce::MouseEvent& e)
+{
+    if (proc == nullptr) return;
+
+    const float cellH = (float) getHeight() / (float) NUM_TRACKS;
+    const int row = juce::jlimit (0, NUM_TRACKS - 1, (int) (e.y / cellH));
+
+    if (e.mods.isRightButtonDown())
+    {
+        // ── Right-click: MIDI note remap ──────────────────────────────────
+        // Common GM drum notes grouped by voice type. Menu IDs == MIDI note.
+        juce::PopupMenu menu;
+
+        struct Entry { int note; const char* name; };
+        static const Entry kEntries[] = {
+            // Bass drum
+            { 35, "35  Kick 2" }, { 36, "36  Kick 1" },
+            // Snare / rim
+            { 37, "37  Side Stick" }, { 38, "38  Snare 1" },
+            { 39, "39  Hand Clap"  }, { 40, "40  Snare 2" },
+            // Toms
+            { 41, "41  Tom L" }, { 43, "43  Tom M" }, { 45, "45  Tom" },
+            { 47, "47  Tom" },   { 48, "48  Tom H" }, { 50, "50  Tom H2"},
+            // Hi-hats
+            { 42, "42  HH Closed" }, { 44, "44  HH Pedal" }, { 46, "46  HH Open" },
+            // Cymbals
+            { 49, "49  Crash 1" }, { 51, "51  Ride 1" }, { 52, "52  China" },
+            { 53, "53  Ride Bell"}, { 54, "54  Tambourine" },
+            { 55, "55  Splash"  }, { 56, "56  Cowbell" }, { 57, "57  Crash 2" },
+            { 59, "59  Ride 2"  },
+        };
+
+        const int current = proc->getTrackNote (row);
+        menu.addSectionHeader ("REMAP: " + juce::String (kTrackNames[row]));
+        for (const auto& e2 : kEntries)
+            menu.addItem (e2.note, e2.name, true, e2.note == current);
+
+        menu.showMenuAsync (juce::PopupMenu::Options()
+                                .withTargetComponent (this)
+                                .withTargetScreenArea (
+                                    juce::Rectangle<int> (e.getScreenX(), e.getScreenY(), 1, 1)),
+            [this, row] (int result)
+            {
+                if (result > 0 && result < 128)
+                {
+                    proc->setTrackNote (row, result);
+                    repaint();
+                }
+            });
+    }
+    else
+    {
+        // ── Left-click: toggle mute ───────────────────────────────────────
+        proc->toggleMuteTrack (row);
+        repaint();
+    }
 }
 
 // Common time signatures the editor exposes via the combo dropdown.
@@ -560,6 +642,50 @@ void PatternGrid::paint (juce::Graphics& g)
         }
     }
 
+    // Fill zone highlight — amber tint over cells that will be replaced by fill
+    // content on export. fillStart = leading sixteenths, fillSteps = trailing.
+    {
+        const int fillStartSteps = (int) proc.apvts.getRawParameterValue ("fillStart")->load();
+        const int fillEndSteps   = (int) proc.apvts.getRawParameterValue ("fillSteps")->load();
+        constexpr int kSixteenthTicks = PPQN / 4;  // 24 ticks
+        const juce::Colour fillTint { 0xffFFB340 }; // warm amber
+
+        if (L.cellTicks > 0)
+        {
+            if (fillStartSteps > 0)
+            {
+                const int cells = juce::jmin (L.numCells,
+                                              fillStartSteps * kSixteenthTicks / L.cellTicks);
+                if (cells > 0)
+                {
+                    g.setColour (fillTint.withAlpha (0.18f));
+                    g.fillRect ((float) L.gridX, 0.0f,
+                                (float) cells * L.cellW, (float) bounds.getHeight());
+                    // Edge marker
+                    g.setColour (fillTint.withAlpha (0.55f));
+                    g.fillRect ((float) L.gridX + (float) cells * L.cellW - 1.0f,
+                                0.0f, 1.5f, (float) bounds.getHeight());
+                }
+            }
+
+            if (fillEndSteps > 0)
+            {
+                const int cells = juce::jmin (L.numCells,
+                                              fillEndSteps * kSixteenthTicks / L.cellTicks);
+                if (cells > 0)
+                {
+                    const float rx = (float) L.gridX + (float) (L.numCells - cells) * L.cellW;
+                    g.setColour (fillTint.withAlpha (0.18f));
+                    g.fillRect (rx, 0.0f,
+                                (float) cells * L.cellW, (float) bounds.getHeight());
+                    // Edge marker
+                    g.setColour (fillTint.withAlpha (0.55f));
+                    g.fillRect (rx, 0.0f, 1.5f, (float) bounds.getHeight());
+                }
+            }
+        }
+    }
+
     g.setColour (DrumwrightLookAndFeel::border);
     for (int row = 0; row <= NUM_TRACKS; ++row)
         g.drawHorizontalLine ((int) ((float) row * L.cellH),
@@ -1025,6 +1151,29 @@ DrumwrightAudioProcessorEditor::DrumwrightAudioProcessorEditor (DrumwrightAudioP
     genBtn.setButtonText ("GENERATE");
     genBtn.setTooltip ("Generate a brand-new pattern from the selected genre tags. Each click produces a different mix.");
 
+    // ── Vary button — small variation of the current pattern ──────────────
+    varyBtn.onClick = [this]
+    {
+        auto varied = audioProcessor.makeVariance (fullPattern);
+
+        // Name the variation so it sorts near its parent but is distinguishable.
+        juce::String base = fullPattern.name.isEmpty() ? "Varied"
+                                                       : fullPattern.name + " Var";
+        auto dir = audioProcessor.getPresetsDirectory();
+        int n = 1;
+        for (;;)
+        {
+            auto safe = (base + " " + juce::String (n)).replaceCharacters ("/\\:*?\"<>|", "_________");
+            if (! dir.getChildFile (safe + ".beat").existsAsFile()) break;
+            ++n;
+        }
+        varied.name   = base + " " + juce::String (n);
+        varied.genres = fullPattern.genres;
+
+        audioProcessor.saveEditedPattern (varied);
+    };
+    varyBtn.setTooltip ("Create a small variation of the current pattern: adds ghost notes, tweaks hi-hats, humanises velocities.");
+
     // ── Clear button ──────────────────────────────────────────────────────
     clearBtn.onClick = [this]
     {
@@ -1323,6 +1472,9 @@ DrumwrightAudioProcessorEditor::DrumwrightAudioProcessorEditor (DrumwrightAudioP
     grid.setEditTarget (&editingCopy);
     grid.setTooltip ("Click an empty cell to place a max-velocity (120) hit; click a filled cell to clear it. Click and drag vertically to tune the velocity (up = louder, down = quieter). Scroll over a cell for finer steps. Right-click also clears. Edits auto-save and playback follows immediately.");
 
+    // Give TrackLabels access to the processor for mute/note-remap.
+    trackLabels.setProcessor (&audioProcessor);
+
     // ── Add everything ────────────────────────────────────────────────────
     addAndMakeVisible (dragStrip);
     addAndMakeVisible (trackLabels);
@@ -1348,6 +1500,7 @@ DrumwrightAudioProcessorEditor::DrumwrightAudioProcessorEditor (DrumwrightAudioP
     addAndMakeVisible (feelLabel);      addAndMakeVisible (feelKnob);
     addAndMakeVisible (densityLabel);   addAndMakeVisible (densityKnob);
     addAndMakeVisible (clearBtn);
+    addAndMakeVisible (varyBtn);
     addAndMakeVisible (genBtn);
     addAndMakeVisible (collapseBtn);
     addAndMakeVisible (soundBtn);
@@ -1461,6 +1614,12 @@ void DrumwrightAudioProcessorEditor::timerCallback()
             grid.repaint(); miniGrid.repaint();
             patNameLabel.setText (patIdxSlider.textFromValueFunction (patIdxSlider.getValue()).toUpperCase(),
                                   juce::dontSendNotification);
+
+            // Feature 1: show the active pattern's genre tags in the section label.
+            patLabel.setText (fullPattern.genres.isEmpty()
+                                  ? "PATTERN"
+                                  : fullPattern.genres.joinIntoString (", ").toUpperCase(),
+                              juce::dontSendNotification);
         }
     }
 
@@ -1969,10 +2128,13 @@ void DrumwrightAudioProcessorEditor::resized()
         dragStrip.setBounds (dragCol.withHeight (28).withY (rowABottom - 28));
         rowA.removeFromRight (8);
 
-        auto genCol = rowA.removeFromRight (100);
+        auto genCol = rowA.removeFromRight (88);
         genBtn.setBounds (genCol.withHeight (28).withY (rowABottom - 28));
+        rowA.removeFromRight (4);
+        auto varyCol = rowA.removeFromRight (56);
+        varyBtn.setBounds (varyCol.withHeight (28).withY (rowABottom - 28));
         rowA.removeFromRight (8);
-        auto clearCol = rowA.removeFromRight (64);
+        auto clearCol = rowA.removeFromRight (52);
         clearBtn.setBounds (clearCol.withHeight (28).withY (rowABottom - 28));
         rowA.removeFromRight (8);
     }
