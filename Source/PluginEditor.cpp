@@ -1633,6 +1633,18 @@ void DrumwrightAudioProcessorEditor::timerCallback()
         grid.repaint();
     }
 
+    // Fill knobs moved — repaint grid so the amber zone tint appears/disappears.
+    {
+        const int fillStart = (int) audioProcessor.apvts.getRawParameterValue ("fillStart")->load();
+        const int fillSteps = (int) audioProcessor.apvts.getRawParameterValue ("fillSteps")->load();
+        if (fillStart != lastFillStart || fillSteps != lastFillSteps)
+        {
+            lastFillStart = fillStart;
+            lastFillSteps = fillSteps;
+            grid.repaint();
+        }
+    }
+
     // Genre tags changed externally (DAW state restore, navigateToPattern, etc.)
     auto curTags = audioProcessor.getSelectedGenreTags();
     if (curTags != lastKnownTags)

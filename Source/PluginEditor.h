@@ -361,6 +361,8 @@ private:
     DrumPattern             fullPattern;       // unfiltered source of truth (in memory)
     const DrumPattern*      lastKnownPattern = nullptr;
     float                   lastDensity      = -1.0f;
+    int                     lastFillStart    = -1;
+    int                     lastFillSteps    = -1;
 
     void autoSaveCurrentEditAtTick (int track, int tick);
     void applyDensityToEditingCopy();
