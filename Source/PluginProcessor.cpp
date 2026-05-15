@@ -625,6 +625,7 @@ void DrumwrightAudioProcessor::resetAllPatterns()
     if (auto* p = apvts.getParameter ("patIdx"))
         p->setValueNotifyingHost (p->convertTo0to1 (0.0f));
     apvts.addParameterListener ("patIdx", this);
+    selectPattern();
 }
 
 DrumPattern DrumwrightAudioProcessor::makeVariance (const DrumPattern& src)
