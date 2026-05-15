@@ -603,7 +603,9 @@ void DrumwrightAudioProcessor::autoSavePattern (DrumPattern& p)
     p.computeDensity();
     auto f = library.savePattern (p, dir);
     p.sourceFile = f;
-    library.updatePattern (p);
+    // Hold the callback lock while updating the in-memory library so
+    // processBlock can't read a half-written DrumPattern through activePattern.
+    { juce::ScopedLock sl (getCallbackLock()); library.updatePattern (p); }
 }
 
 void DrumwrightAudioProcessor::resetAllPatterns()
